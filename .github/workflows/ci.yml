@@ -15,7 +15,7 @@ jobs:
         image: mysql:8.4
         env:
           MYSQL_ROOT_PASSWORD: root_password
-          MYSQL_DATABASE: coledia
+          MYSQL_DATABASE: coledia_test
           MYSQL_USER: coledia
           MYSQL_PASSWORD: coledia_password
         ports:
@@ -27,8 +27,9 @@ jobs:
           --health-retries=5
 
     env:
-      DATABASE_URL: mysql://coledia:coledia_password@localhost:3306/coledia
+      DATABASE_URL: mysql://coledia:coledia_password@localhost:3306/coledia_test
       BETTER_AUTH_SECRET: ci-test-secret-do-not-use-in-prod
+      TENANT_ID: test-tenant-id
 
     steps:
       - uses: actions/checkout@v4

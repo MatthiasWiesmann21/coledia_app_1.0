@@ -7,19 +7,18 @@ It's the successor to Clubyte, rebuilt with a modern TypeScript stack.
 ## Tech Stack
 - **Monorepo**: Turborepo + pnpm workspaces
 - **Frontend**: Next.js 16 (App Router, Turbopack), React 19, Tailwind v4
-- **Backend**: Next.js Server Components + API routes, Better-Auth
-- **Database**: MySQL 8 via Prisma ORM (single shared DB, `tenantId` on all tenant-scoped tables)
+- **Backend**: Next.js Server Components + Server Actions + Route Handlers, Better-Auth
+- **Database**: MySQL via Prisma ORM (single shared DB, `tenantId` on all tenant-scoped tables)
 - **Realtime**: Socket.io (text channels + DMs only)
-- **File storage**: MinIO (S3-compatible)
-- **Cache/queues**: Redis
+- **File storage**: S3-compatible (MinIO or similar)
 - **Payments**: Stripe (subscriptions + one-time course sales)
-- **Deploy**: VPS + Docker Compose + Caddy (on-demand TLS for custom club domains)
+- **Deploy**: Dokploy — each client gets its own container, all share the same MySQL DB
 
 ## Workspace Structure
 ```
 apps/
-  web/          — Next.js full-stack app (port 3000)
-  realtime/     — Socket.io service (port 3001)
+  web/          — Next.js full-stack app
+  realtime/     — Socket.io service
 packages/
   config/       — Shared tsconfig presets
   db/           — Prisma schema + client + tenant-scoped extension
@@ -39,27 +38,29 @@ pnpm db:migrate:dev   # Create + apply a new migration
 pnpm db:migrate       # Apply migrations (production)
 pnpm db:push          # Push schema without migration (dev only)
 pnpm db:studio        # Open Prisma Studio
+pnpm db:seed          # Seed dev tenant + admin user
 ```
 
 ## Local Dev Setup
-1. Start infrastructure: `docker compose -f docker/compose.yml up -d`
-2. Copy env: `cp apps/web/.env.example apps/web/.env`
-3. Generate Prisma client: `pnpm db:generate`
-4. Run migrations: `pnpm db:migrate:dev`
-5. Start dev server: `pnpm dev`
-6. Access: `http://localhost:3000` (marketing site)
-
-### Tenant testing
-Use subdomains on `localhost`:
-- `http://acme.localhost:3000` → tenant with subdomain `acme`
+1. Copy env: `cp apps/web/.env.example apps/web/.env`
+2. Set `DATABASE_URL` to your MySQL connection string
+3. Set `TENANT_ID` to a tenant cuid (create one via seed script)
+4. Set `BETTER_AUTH_SECRET` to a random string
+5. Generate Prisma client: `pnpm db:generate`
+6. Run migrations: `pnpm db:migrate:dev`
+7. Seed: `pnpm db:seed`
+8. Start dev server: `pnpm dev`
+9. Access: `http://localhost:3000`
 
 ## Multi-tenancy
 - Single MySQL database with `tenantId` on all tenant-scoped rows
-- Tenant resolution by hostname (subdomain or custom domain)
-- Isolation enforced by: Prisma `tenantScoped()` extension + MySQL restricted views + least-privilege DB role
-- Middleware sets `x-tenant-type` and `x-tenant-identifier` headers
+- **Tenant resolution via `TENANT_ID` env var** — each Dokploy container knows its tenant
+- Isolation enforced by: Prisma `tenantScoped()` extension (auto-filters all queries)
+- `getTenantId()` in `src/lib/tenant.ts` reads the env var
 
 ## Key Decisions
+- **Deployment**: Dokploy containers, not Docker Compose. Each client = own container, shared DB.
+- **Tenant identity**: `TENANT_ID` env var per container, not hostname parsing.
 - **Audio/video chat**: Out of scope. Chat is text channels + DMs only.
 - **Documents module**: Route + nav item exist, but CRUD is deferred. Placeholder page for now.
 - **Pricing**: Starter (free, ≤50 members) / Club (29 CHF, ≤250) / Organization (69 CHF, unlimited + API)

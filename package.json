@@ -14,6 +14,7 @@
     "db:migrate:dev": "pnpm --filter @coledia/db run migrate:dev",
     "db:push": "pnpm --filter @coledia/db run push",
     "db:studio": "pnpm --filter @coledia/db run studio",
+    "db:seed": "pnpm --filter @coledia/db run seed",
     "clean": "turbo run clean && rimraf node_modules"
   },
   "devDependencies": {

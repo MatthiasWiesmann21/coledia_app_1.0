@@ -53,6 +53,7 @@ export default async function ChatPage() {
       <ChatInterface
         currentUserId={session.user.id}
         currentUserName={session.user.name ?? session.user.email}
+        tenantId={tenantId}
         chatServers={chatServers.map((s) => ({
           id: s.id,
           name: s.name,

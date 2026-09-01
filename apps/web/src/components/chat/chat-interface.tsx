@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Hash, Send, Users, MessageCircle, Plus, ChevronDown } from "lucide-react";
 import { getSocket, disconnectSocket } from "@/lib/socket";
-import { getTenantId } from "@/lib/tenant";
 
 type Channel = { id: string; name: string; type: string };
 type ChatServer = {
@@ -48,12 +47,14 @@ export function ChatInterface({
   chatServers,
   tenantMembers,
   dmConversations,
+  tenantId,
 }: {
   currentUserId: string;
   currentUserName: string;
   chatServers: ChatServer[];
   tenantMembers: TenantMember[];
   dmConversations: DMConversation[];
+  tenantId: string;
 }) {
   const [mode, setMode] = useState<"channels" | "dms">("channels");
   const [activeChannelId, setActiveChannelId] = useState<string | null>(
@@ -66,7 +67,6 @@ export function ChatInterface({
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
   const [socket, setSocket] = useState<ReturnType<typeof getSocket> | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const tenantId = getTenantId();
 
   // Initialize socket connection
   useEffect(() => {

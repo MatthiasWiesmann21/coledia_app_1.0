@@ -1,9 +1,28 @@
-﻿export default function UsergroupsAdminPage() {
+﻿import { prisma } from "@coledia/db";
+import { getTenantId } from "@/lib/tenant";
+import { UserGroupsList } from "@/components/admin/usergroups-list";
+
+export default async function AdminUserGroupsPage() {
+  const tenantId = getTenantId();
+
+  const groups = await prisma.userGroup.findMany({
+    where: { tenantId },
+    include: {
+      _count: { select: { members: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
   return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
-      <h1 className="text-2xl font-bold">Admin: Usergroups</h1>
-      <p className="text-sm text-[var(--muted-foreground)]">This admin section will be built in a future phase.</p>
+    <div className="p-6">
+      <h1 className="mb-6 text-2xl font-bold">Usergroups</h1>
+      <UserGroupsList
+        groups={groups.map((g) => ({
+          id: g.id,
+          name: g.name,
+          memberCount: g._count.members,
+        }))}
+      />
     </div>
   );
 }
-

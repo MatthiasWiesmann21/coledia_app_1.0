@@ -31,6 +31,29 @@ export const auth = betterAuth({
       },
     },
   },
+  databaseHooks: {
+    user: {
+      create: {
+        after: async (user) => {
+          // Auto-create a membership for the new user in the current tenant
+          const tenantId = process.env.TENANT_ID;
+          if (!tenantId) return;
+
+          await prisma.membership.upsert({
+            where: {
+              userId_tenantId: { userId: user.id, tenantId },
+            },
+            update: {},
+            create: {
+              userId: user.id,
+              tenantId,
+              role: "member",
+            },
+          });
+        },
+      },
+    },
+  },
 });
 
 export type Session = typeof auth.$Infer.Session;

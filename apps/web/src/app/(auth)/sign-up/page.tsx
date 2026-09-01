@@ -34,8 +34,13 @@ export default function SignUpPage() {
       return;
     }
 
-    // Redirect to a "check your email" page
-    router.push("/verify-email");
+    // In dev (no email verification required), go straight to profile completion.
+    // In production with verification enabled, redirect to verify-email.
+    if (process.env.NODE_ENV === "production") {
+      router.push("/verify-email");
+    } else {
+      router.push("/complete-profile");
+    }
     router.refresh();
   }
 

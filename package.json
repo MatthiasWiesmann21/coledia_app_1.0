@@ -1,0 +1,26 @@
+{
+  "name": "coledia",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Coledia — a multi-tenant community LMS for clubs. Product of Wiesmann Solutions Engineering.",
+  "packageManager": "pnpm@11.25.0",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "db:generate": "pnpm --filter @coledia/db run generate",
+    "db:migrate": "pnpm --filter @coledia/db run migrate",
+    "db:migrate:dev": "pnpm --filter @coledia/db run migrate:dev",
+    "db:push": "pnpm --filter @coledia/db run push",
+    "db:studio": "pnpm --filter @coledia/db run studio",
+    "clean": "turbo run clean && rimraf node_modules"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.0",
+    "rimraf": "^6.0.1"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

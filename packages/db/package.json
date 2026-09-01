@@ -1,0 +1,33 @@
+{
+  "name": "@coledia/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./tenant": "./src/tenant.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "generate": "prisma generate",
+    "migrate": "prisma migrate deploy",
+    "migrate:dev": "prisma migrate dev",
+    "push": "prisma db push",
+    "studio": "prisma studio",
+    "clean": "rimraf dist .turbo"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.7.0",
+    "@coledia/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@coledia/config": "workspace:*",
+    "@types/node": "^20.0.0",
+    "prisma": "^6.7.0",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.7.0"
+  }
+}

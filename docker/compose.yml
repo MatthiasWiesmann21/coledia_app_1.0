@@ -1,0 +1,79 @@
+# Coledia — local development Docker Compose
+# Runs: MySQL 8, Redis, MinIO, Caddy (reverse proxy + on-demand TLS)
+# The web app and realtime service run via `pnpm dev` on the host.
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: coledia
+      MYSQL_USER: coledia
+      MYSQL_PASSWORD: coledia_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "coledia", "-pcoledia_password"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: coledia
+      MINIO_ROOT_PASSWORD: coledia_password
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Caddy is included for production-like local testing of custom domains.
+  # For day-to-day dev, the Next.js dev server runs directly on :3000.
+  # Uncomment to test tenant resolution via Caddy:
+  #
+  # caddy:
+  #   image: caddy:2-alpine
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./Caddyfile:/etc/caddy/Caddyfile
+  #     - caddy_data:/data
+  #     - caddy_config:/config
+  #   depends_on:
+  #     - mysql
+  #     - redis
+  #     - minio
+
+volumes:
+  mysql_data:
+  redis_data:
+  minio_data:
+  caddy_data:
+  caddy_config:

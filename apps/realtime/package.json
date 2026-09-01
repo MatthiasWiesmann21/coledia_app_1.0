@@ -1,0 +1,25 @@
+{
+  "name": "@coledia/realtime",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc --noEmit",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf dist .turbo"
+  },
+  "dependencies": {
+    "@coledia/db": "workspace:*",
+    "@coledia/shared": "workspace:*",
+    "socket.io": "^4.8.0"
+  },
+  "devDependencies": {
+    "@coledia/config": "workspace:*",
+    "@types/node": "^20.0.0",
+    "rimraf": "^6.0.1",
+    "tsx": "^4.0.0",
+    "typescript": "^5.7.0"
+  }
+}

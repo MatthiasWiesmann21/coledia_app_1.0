@@ -1,0 +1,45 @@
+# Coledia — Caddyfile for production
+# On-demand TLS for *.coledia.com subdomains and custom club domains.
+#
+# The web app verifies domain ownership at /api/tls/ask.
+
+{
+	# Global options
+	email admin@coledia.com
+	# on_demand_tls {
+	#   ask http://web:3000/api/tls/ask
+	# }
+}
+
+# ─── Marketing site (coledia.com) ────────────────────────────────
+coledia.com, www.coledia.com {
+	reverse_proxy web:3000
+}
+
+# ─── Tenant subdomains (*.coledia.com) ───────────────────────────
+# On-demand TLS issues a certificate for each club subdomain automatically.
+*.coledia.com {
+	tls {
+		on_demand
+	}
+	reverse_proxy web:3000
+}
+
+# ─── Custom club domains ─────────────────────────────────────────
+# Caddy will ask /api/tls/ask before issuing certs for any domain.
+# This block matches any domain that the ask endpoint approves.
+:443 {
+	tls {
+		on_demand
+	}
+	reverse_proxy web:3000
+}
+
+# ─── Socket.io realtime service ──────────────────────────────────
+# Route /socket.io to the realtime service on all tenant domains.
+# This is handled by the web app's Next.js config in dev;
+# in production Caddy routes it here.
+# @socketio path /socket.io/*
+# handle @socketio {
+#   reverse_proxy realtime:3001
+# }

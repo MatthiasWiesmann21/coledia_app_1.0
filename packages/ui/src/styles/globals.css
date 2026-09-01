@@ -1,0 +1,115 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+
+  /* Coledia Brand */
+  --color-navy: #0c2340;
+  --color-navy-deep: #081830;
+  --color-navy-panel: #122a47;
+  --color-teal-brand: #008080;
+  --color-blue-brand: #1f78b4;
+  --color-green-brand: #31a354;
+  --color-orange-brand: #e6550d;
+  --color-light-neutral: #f4f6f8;
+  --color-dark-neutral: #555555;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+  --radius-3xl: 1.75rem;
+
+  --animate-float: float 6s ease-in-out infinite;
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+}
+
+:root {
+  --background: #f4f6f8;
+  --foreground: #0c2340;
+  --card: #ffffff;
+  --card-foreground: #0c2340;
+  --muted: #e8edf2;
+  --muted-foreground: #555555;
+  --border: #dde5ec;
+  --ring: #008080;
+
+  /* Per-tenant overrides (set by TenantTheme provider) */
+  --tenant-primary: #008080;
+  --tenant-nav-text: #0c2340;
+  --tenant-nav-bg: #ffffff;
+}
+
+.dark {
+  --background: #081830;
+  --foreground: #f4f6f8;
+  --card: #0e2542;
+  --card-foreground: #f4f6f8;
+  --muted: #122a47;
+  --muted-foreground: #9aa9bd;
+  --border: #1d3a5c;
+  --ring: #2aa99b;
+
+  /* Per-tenant overrides (dark) */
+  --tenant-primary: #2aa99b;
+  --tenant-nav-text: #f4f6f8;
+  --tenant-nav-bg: #0e2542;
+}
+
+* {
+  border-color: var(--border);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+/* Teal → Blue text gradient for headings */
+.text-brand-gradient {
+  background: linear-gradient(100deg, #2aa99b 0%, #008080 40%, #1f78b4 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Glass surface for header */
+.glass {
+  background: color-mix(in oklab, var(--card) 90%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+/* Gradient progress fill (blue → teal) */
+.progress-brand {
+  background: linear-gradient(90deg, #1f78b4 0%, #2aa99b 100%);
+}
+
+/* Soft brand glow used for decorative shapes */
+.glow-teal {
+  box-shadow: 0 0 60px 8px rgba(0, 128, 128, 0.35);
+}
+.glow-orange {
+  box-shadow: 0 0 60px 8px rgba(230, 85, 13, 0.3);
+}
+
+/* Tenant-themed primary button */
+.btn-tenant-primary {
+  background-color: var(--tenant-primary);
+  color: var(--foreground);
+}

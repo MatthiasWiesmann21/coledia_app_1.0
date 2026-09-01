@@ -169,7 +169,7 @@ export async function createCourse(data: {
   });
 
   revalidatePath("/admin/courses");
-  return course;
+  return { id: course.id };
 }
 
 export async function updateCourse(
@@ -199,7 +199,7 @@ export async function updateCourse(
   revalidatePath(`/admin/courses/${id}`);
   revalidatePath("/courses");
   revalidatePath(`/courses/${id}`);
-  return course;
+  return { id: course.id };
 }
 
 export async function deleteCourse(id: string) {

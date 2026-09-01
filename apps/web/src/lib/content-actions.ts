@@ -52,7 +52,7 @@ export async function createPost(data: {
   });
 
   revalidatePath("/admin/posts");
-  return post;
+  return { id: post.id };
 }
 
 export async function updatePost(
@@ -78,7 +78,7 @@ export async function updatePost(
   revalidatePath(`/admin/posts/${id}`);
   revalidatePath("/news");
   revalidatePath(`/news/${id}`);
-  return post;
+  return { id: post.id };
 }
 
 export async function deletePost(id: string) {
@@ -175,7 +175,7 @@ export async function createEvent(data: {
   });
 
   revalidatePath("/admin/events");
-  return event;
+  return { id: event.id };
 }
 
 export async function updateEvent(
@@ -206,7 +206,7 @@ export async function updateEvent(
   revalidatePath(`/admin/events/${id}`);
   revalidatePath("/events");
   revalidatePath(`/events/${id}`);
-  return event;
+  return { id: event.id };
 }
 
 export async function deleteEvent(id: string) {

@@ -8,7 +8,17 @@
   "exports": {
     ".": "./src/index.ts",
     "./styles": "./src/styles/globals.css",
-    "./components/*": "./src/components/*"
+    "./components/*": "./src/components/*",
+    "./button": "./src/components/button.tsx",
+    "./card": "./src/components/card.tsx",
+    "./badge": "./src/components/badge.tsx",
+    "./input": "./src/components/input.tsx",
+    "./label": "./src/components/label.tsx",
+    "./avatar": "./src/components/avatar.tsx",
+    "./separator": "./src/components/separator.tsx",
+    "./skeleton": "./src/components/skeleton.tsx",
+    "./tenant-theme": "./src/components/tenant-theme.tsx",
+    "./lib/utils": "./src/lib/utils.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

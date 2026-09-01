@@ -10,7 +10,6 @@ It's the successor to Clubyte, rebuilt with a modern TypeScript stack.
 - **Backend**: Next.js Server Components + Server Actions + Route Handlers, Better-Auth
 - **Database**: MySQL via Prisma ORM (single shared DB, `tenantId` on all tenant-scoped tables)
 - **Realtime**: Socket.io (text channels + DMs only)
-- **File storage**: S3-compatible (MinIO or similar)
 - **Payments**: Stripe (subscriptions + one-time course sales)
 - **Deploy**: Dokploy — each client gets its own container, all share the same MySQL DB
 

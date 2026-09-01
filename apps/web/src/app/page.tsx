@@ -1,4 +1,4 @@
-import { Button } from "@coledia/ui";
+import { Button } from "@coledia/ui/button";
 
 export default function MarketingPage() {
   return (

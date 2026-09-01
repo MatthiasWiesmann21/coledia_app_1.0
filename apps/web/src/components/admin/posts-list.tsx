@@ -149,12 +149,14 @@ export function PostsList({ posts }: { posts: Post[] }) {
                       >
                         <Pencil className="h-4 w-4" />
                       </Link>
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => handleDelete(p.id)}
-                        className="rounded-lg p-1.5 text-red-500 transition hover:bg-red-500/10"
+                        className="text-red-500 hover:bg-red-500/10"
                       >
                         <Trash2 className="h-4 w-4" />
-                      </button>
+                      </Button>
                     </div>
                   </td>
                 </tr>

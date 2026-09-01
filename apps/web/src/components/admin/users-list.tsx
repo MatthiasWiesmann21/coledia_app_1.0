@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Trash2, Shield, User, UserCog, Wrench } from "lucide-react";
+import { Button } from "@coledia/ui/button";
 import { updateUserRole, removeUser } from "@/lib/admin-actions";
 
 type User = {
@@ -170,13 +171,15 @@ export function UsersList({ users }: { users: User[] }) {
                     <td className="px-4 py-3">
                       <div className="flex justify-end">
                         {u.role !== "owner" && (
-                          <button
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             onClick={() => handleRemove(u.userId)}
                             disabled={loading === u.userId}
-                            className="rounded-lg p-1.5 text-red-500 transition hover:bg-red-500/10 disabled:opacity-50"
+                            className="text-red-500 hover:bg-red-500/10"
                           >
                             <Trash2 className="h-4 w-4" />
-                          </button>
+                          </Button>
                         )}
                       </div>
                     </td>

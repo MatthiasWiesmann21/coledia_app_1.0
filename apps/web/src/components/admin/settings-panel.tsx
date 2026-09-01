@@ -293,12 +293,14 @@ export function SettingsPanel({
               <code className="flex-1 rounded bg-[var(--background)] px-3 py-2 text-sm font-mono">
                 {newKey}
               </code>
-              <button
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={copyKey}
-                className="rounded-lg p-2 text-[var(--muted-foreground)] transition hover:bg-[var(--muted)]"
+                className="text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
               >
                 {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-              </button>
+              </Button>
             </div>
             <p className="mt-2 text-xs text-[var(--muted-foreground)]">
               Copy this key now — it won&apos;t be shown again.
@@ -325,12 +327,14 @@ export function SettingsPanel({
                     {k.lastUsedAt && ` · Last used ${new Date(k.lastUsedAt).toLocaleDateString()}`}
                   </p>
                 </div>
-                <button
+                <Button
+                  variant="ghost"
+                  size="icon"
                   onClick={() => handleDeleteKey(k.id)}
-                  className="rounded-lg p-1.5 text-red-500 transition hover:bg-red-500/10"
+                  className="text-red-500 hover:bg-red-500/10"
                 >
                   <Trash2 className="h-4 w-4" />
-                </button>
+                </Button>
               </li>
             ))}
           </ul>

@@ -1,0 +1,51 @@
+import { prisma } from "@coledia/db";
+import { getTenantId } from "@/lib/tenant";
+import { notFound } from "next/navigation";
+import { EventEditor } from "@/components/admin/event-editor";
+
+export default async function EditEventPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const tenantId = getTenantId();
+
+  const [event, categories, userGroups] = await Promise.all([
+    prisma.event.findFirst({ where: { id, tenantId } }),
+    prisma.category.findMany({
+      where: { tenantId, isEvent: true, published: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.userGroup.findMany({
+      where: { tenantId },
+      orderBy: { name: "asc" },
+    }),
+  ]);
+
+  if (!event) notFound();
+
+  return (
+    <div className="p-6">
+      <h1 className="mb-6 text-2xl font-bold">Edit Event</h1>
+      <EventEditor
+        event={{
+          id: event.id,
+          title: event.title,
+          description: event.description,
+          thumbnailUrl: event.thumbnailUrl,
+          categoryId: event.categoryId,
+          userGroupId: event.userGroupId,
+          startAt: event.startAt.toISOString().slice(0, 16),
+          endAt: event.endAt?.toISOString().slice(0, 16) ?? "",
+          videoUrl: event.videoUrl,
+          videoType: event.videoType,
+          streamChatEnabled: event.streamChatEnabled,
+          published: event.published,
+        }}
+        categories={categories.map((c) => ({ id: c.id, name: c.name, color: c.color }))}
+        userGroups={userGroups.map((g) => ({ id: g.id, name: g.name }))}
+      />
+    </div>
+  );
+}

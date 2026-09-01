@@ -85,7 +85,7 @@ model Branding {
 model User {
   id            String   @id @default(cuid())
   email         String   @unique
-  emailVerified DateTime?
+  emailVerified Boolean @default(false)
   name          String?
   image         String?
   // Better-Auth fields
@@ -114,6 +114,8 @@ model User {
   channelMembers   ChannelMember[]
   userGroupMembers UserGroupMember[]
   auditLogs    AuditLog[]
+  sessions     Session[]
+  accounts     Account[]
 }
 
 model UserProfile {
@@ -588,6 +590,53 @@ model NotificationPreference {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, type, channel])
+}
+
+// ─── Better-Auth core models ────────────────────────────────────
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?   @db.Text
+  refreshToken          String?   @db.Text
+  idToken               String?   @db.Text
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?   @db.Text
+  password              String?   @db.Text
+  issuer                String?   @db.Text
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String   @db.Text
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
 }
 
 // ─── Billing ─────────────────────────────────────────────────────

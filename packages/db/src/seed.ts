@@ -73,7 +73,7 @@ async function main() {
       data: {
         id: "demo-user-001",
         email: adminEmail,
-        emailVerified: new Date(),
+        emailVerified: true,
         name: "Admin User",
       },
     });

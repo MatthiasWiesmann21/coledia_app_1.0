@@ -126,6 +126,7 @@ model UserProfile {
   bio             String?  @db.Text
   avatarUrl       String?
   status          String   @default("online") // online | not_available | do_not_disturb | invisible
+  language        String   @default("en") // en | de | fr | es
   acceptedTermsAt DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -729,5 +730,23 @@ model Webhook {
   updatedAt DateTime @updatedAt
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@index([tenantId])
+}
+
+// ─── Translations (i18n content) ─────────────────────────────────
+
+model Translation {
+  id         String   @id @default(cuid())
+  tenantId   String
+  entityType String   // course | post | event | category | chapter
+  entityId   String
+  field      String   // title | description | etc.
+  language   String   // en | de | fr | es
+  value      String   @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([entityType, entityId, field, language])
+  @@index([entityType, entityId])
   @@index([tenantId])
 }

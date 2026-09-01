@@ -4,6 +4,7 @@ import { getSession } from "@/lib/session";
 import { notFound } from "next/navigation";
 import { CourseDetail } from "@/components/courses/course-detail";
 import { enrollInCourse } from "@/lib/course-actions";
+import { getUserLocale } from "@/i18n/get-locale";
 
 export default async function CourseDetailPage({
   params,
@@ -13,19 +14,47 @@ export default async function CourseDetailPage({
   const { id } = await params;
   const tenantId = getTenantId();
   const session = await getSession();
+  const locale = await getUserLocale();
 
-  const course = await prisma.course.findFirst({
-    where: { id, tenantId, published: true },
-    include: {
-      category: true,
-      chapters: {
-        where: { published: true },
-        orderBy: { order: "asc" },
+  const [course, translations] = await Promise.all([
+    prisma.course.findFirst({
+      where: { id, tenantId, published: true },
+      include: {
+        category: true,
+        chapters: {
+          where: { published: true },
+          orderBy: { order: "asc" },
+        },
       },
-    },
-  });
+    }),
+    prisma.translation.findMany({
+      where: {
+        tenantId,
+        entityType: { in: ["course", "chapter"] },
+        field: { in: ["title", "description"] },
+      },
+    }),
+  ]);
 
   if (!course) notFound();
+
+  // Build translation map
+  const trMap: Record<string, Record<string, Record<string, string>>> = {};
+  for (const tr of translations) {
+    if (!trMap[tr.entityId]) trMap[tr.entityId] = {};
+    if (!trMap[tr.entityId][tr.language]) trMap[tr.entityId][tr.language] = {};
+    trMap[tr.entityId][tr.language][tr.field] = tr.value;
+  }
+
+  const getTr = (entityId: string, field: string, fallback: string | null): string | null => {
+    const entityTr = trMap[entityId];
+    if (!entityTr) return fallback;
+    return entityTr[locale]?.[field] ?? entityTr["en"]?.[field] ?? fallback;
+  };
+
+  const getTrStr = (entityId: string, field: string, fallback: string): string => {
+    return getTr(entityId, field, fallback) ?? fallback;
+  };
 
   // Check if user is enrolled
   let enrollment = null;
@@ -59,8 +88,8 @@ export default async function CourseDetailPage({
       <CourseDetail
         course={{
           id: course.id,
-          title: course.title,
-          description: course.description,
+          title: getTrStr(course.id, "title", course.title),
+          description: getTr(course.id, "description", course.description),
           thumbnailUrl: course.thumbnailUrl,
           categoryName: course.category?.name ?? null,
           categoryColor: course.category?.color ?? null,
@@ -70,7 +99,7 @@ export default async function CourseDetailPage({
           duration: course.duration,
           chapters: course.chapters.map((ch) => ({
             id: ch.id,
-            title: ch.title,
+            title: getTrStr(ch.id, "title", ch.title),
             duration: ch.duration,
             level: ch.level,
             author: ch.author,

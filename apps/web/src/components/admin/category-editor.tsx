@@ -3,10 +3,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Button } from "@coledia/ui/button";
 import { Input } from "@coledia/ui/input";
 import { Label } from "@coledia/ui/label";
 import { updateCategory } from "@/lib/course-actions";
+import { saveTranslation } from "@/lib/translation-actions";
+import { LanguageToggle } from "@/components/admin/language-toggle";
+import { defaultLocale, type Locale } from "@/i18n/config";
 
 type CategoryData = {
   id: string;
@@ -20,8 +24,22 @@ type CategoryData = {
   published: boolean;
 };
 
-export function CategoryEditor({ category }: { category: CategoryData }) {
+type Translations = Record<string, Record<string, string>>;
+
+export function CategoryEditor({
+  category,
+  translations: initialTranslations,
+}: {
+  category: CategoryData;
+  translations: Translations;
+}) {
+  const t = useTranslations("categories");
+  const tc = useTranslations("common");
   const router = useRouter();
+  const [activeLanguage, setActiveLanguage] = useState<Locale>(defaultLocale);
+  const [allTranslations, setAllTranslations] = useState<Translations>(initialTranslations);
+  const [translationEdits, setTranslationEdits] = useState<Record<string, Record<string, string>>>({});
+
   const [name, setName] = useState(category.name);
   const [isCourse, setIsCourse] = useState(category.isCourse);
   const [isNews, setIsNews] = useState(category.isNews);
@@ -33,14 +51,74 @@ export function CategoryEditor({ category }: { category: CategoryData }) {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
-  async function handleSave(section: string, data: Partial<CategoryData>) {
+  function handleLanguageChange(lang: Locale) {
+    if (activeLanguage !== defaultLocale) {
+      setTranslationEdits((prev) => ({
+        ...prev,
+        [activeLanguage]: { ...prev[activeLanguage], name },
+      }));
+    }
+    setActiveLanguage(lang);
+    if (lang === defaultLocale) {
+      setName(category.name);
+    } else {
+      const cached = translationEdits[lang];
+      const stored = allTranslations[lang];
+      setName(cached?.name ?? stored?.name ?? "");
+    }
+  }
+
+  const translatedLanguages = new Set<string>();
+  for (const lang of Object.keys(allTranslations)) {
+    if (allTranslations[lang]?.name) translatedLanguages.add(lang);
+  }
+
+  async function handleSaveName() {
     setSaving(true);
     setMsg(null);
     try {
-      await updateCategory(category.id, data);
-      setMsg(`${section} saved`);
-    } catch (e) {
-      setMsg(`Could not save ${section.toLowerCase()}`);
+      if (activeLanguage === defaultLocale) {
+        await updateCategory(category.id, { name });
+      } else {
+        await saveTranslation({
+          entityType: "category",
+          entityId: category.id,
+          field: "name",
+          language: activeLanguage,
+          value: name,
+        });
+        setAllTranslations((prev) => ({
+          ...prev,
+          [activeLanguage]: { ...prev[activeLanguage], name },
+        }));
+      }
+      setMsg("Name saved");
+    } catch {
+      setMsg("Could not save name");
+    }
+    setSaving(false);
+  }
+
+  async function handleSaveType() {
+    setSaving(true);
+    setMsg(null);
+    try {
+      await updateCategory(category.id, { isCourse, isNews, isEvent });
+      setMsg("Type saved");
+    } catch {
+      setMsg("Could not save type");
+    }
+    setSaving(false);
+  }
+
+  async function handleSaveColors() {
+    setSaving(true);
+    setMsg(null);
+    try {
+      await updateCategory(category.id, { color, textColorLight, textColorDark });
+      setMsg("Colors saved");
+    } catch {
+      setMsg("Could not save colors");
     }
     setSaving(false);
   }
@@ -51,7 +129,7 @@ export function CategoryEditor({ category }: { category: CategoryData }) {
       await updateCategory(category.id, { published: !published });
       setPublished(!published);
       setMsg(!published ? "Category published" : "Category unpublished");
-    } catch (e) {
+    } catch {
       setMsg("Could not toggle publish");
     }
     setSaving(false);
@@ -61,10 +139,18 @@ export function CategoryEditor({ category }: { category: CategoryData }) {
     <div className="flex max-w-2xl flex-col gap-6">
       {/* Name */}
       <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
-        <h2 className="mb-4 text-lg font-semibold">Category Name</h2>
+        <h2 className="mb-4 text-lg font-semibold">{t("editCategory")}</h2>
+
+        <LanguageToggle
+          activeLanguage={activeLanguage}
+          onLanguageChange={handleLanguageChange}
+          translatedLanguages={translatedLanguages}
+          className="mb-4 border-b border-[var(--border)] pb-4"
+        />
+
         <div className="flex items-end gap-3">
           <div className="flex flex-1 flex-col gap-2">
-            <Label htmlFor="name">Name</Label>
+            <Label htmlFor="name">{tc("name")}</Label>
             <Input
               id="name"
               value={name}
@@ -74,9 +160,9 @@ export function CategoryEditor({ category }: { category: CategoryData }) {
           <Button
             size="sm"
             disabled={saving}
-            onClick={() => handleSave("Name", { name })}
+            onClick={handleSaveName}
           >
-            Save
+            {saving ? tc("loading") : tc("save")}
           </Button>
         </div>
       </section>
@@ -96,7 +182,7 @@ export function CategoryEditor({ category }: { category: CategoryData }) {
               onChange={(e) => setIsCourse(e.target.checked)}
               className="h-4 w-4"
             />
-            <span className="text-sm">Course Category</span>
+            <span className="text-sm">{t("course")} Category</span>
           </label>
           <label className="flex items-center gap-3">
             <input
@@ -105,7 +191,7 @@ export function CategoryEditor({ category }: { category: CategoryData }) {
               onChange={(e) => setIsNews(e.target.checked)}
               className="h-4 w-4"
             />
-            <span className="text-sm">News Category</span>
+            <span className="text-sm">{t("news")} Category</span>
           </label>
           <label className="flex items-center gap-3">
             <input
@@ -114,14 +200,14 @@ export function CategoryEditor({ category }: { category: CategoryData }) {
               onChange={(e) => setIsEvent(e.target.checked)}
               className="h-4 w-4"
             />
-            <span className="text-sm">Live Event Category</span>
+            <span className="text-sm">{t("event")} Category</span>
           </label>
         </div>
         <Button
           size="sm"
           disabled={saving}
           className="mt-4"
-          onClick={() => handleSave("Type", { isCourse, isNews, isEvent })}
+          onClick={handleSaveType}
         >
           Save Type
         </Button>
@@ -132,7 +218,7 @@ export function CategoryEditor({ category }: { category: CategoryData }) {
         <h2 className="mb-4 text-lg font-semibold">Customization</h2>
         <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="color">Category Color</Label>
+            <Label htmlFor="color">{tc("color")}</Label>
             <div className="flex items-center gap-2">
               <input
                 type="color"
@@ -184,9 +270,7 @@ export function CategoryEditor({ category }: { category: CategoryData }) {
           size="sm"
           disabled={saving}
           className="mt-4"
-          onClick={() =>
-            handleSave("Colors", { color, textColorLight, textColorDark })
-          }
+          onClick={handleSaveColors}
         >
           Save Colors
         </Button>
@@ -194,7 +278,7 @@ export function CategoryEditor({ category }: { category: CategoryData }) {
 
       {/* Publish */}
       <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
-        <h2 className="mb-2 text-lg font-semibold">Publish</h2>
+        <h2 className="mb-2 text-lg font-semibold">{tc("publish")}</h2>
         <p className="mb-4 text-sm text-[var(--muted-foreground)]">
           {published
             ? "This category is visible to users."
@@ -205,7 +289,7 @@ export function CategoryEditor({ category }: { category: CategoryData }) {
           disabled={saving}
           variant={published ? "outline" : "default"}
         >
-          {published ? "Unpublish" : "Publish Category"}
+          {published ? tc("unpublish") : "Publish Category"}
         </Button>
       </section>
 

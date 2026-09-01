@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   BookOpen,
   LayoutDashboard,
@@ -22,30 +23,30 @@ import {
 import { cn } from "@coledia/ui/lib/utils";
 
 type NavItem = {
-  label: string;
+  labelKey: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
 };
 
 const USER_NAV: NavItem[] = [
-  { label: "Courses", href: "/courses", icon: BookOpen },
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "News", href: "/news", icon: Newspaper },
-  { label: "Live Events", href: "/events", icon: CalendarDays },
-  { label: "Chat", href: "/chat", icon: MessageSquare },
-  { label: "Documents", href: "/documents", icon: FileText },
+  { labelKey: "nav.courses", href: "/courses", icon: BookOpen },
+  { labelKey: "nav.dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { labelKey: "nav.news", href: "/news", icon: Newspaper },
+  { labelKey: "nav.liveEvents", href: "/events", icon: CalendarDays },
+  { labelKey: "nav.chat", href: "/chat", icon: MessageSquare },
+  { labelKey: "nav.documents", href: "/documents", icon: FileText },
 ];
 
 const ADMIN_NAV: NavItem[] = [
-  { label: "Overview", href: "/admin", icon: LayoutDashboard },
-  { label: "Courses", href: "/admin/courses", icon: BookOpen },
-  { label: "Posts", href: "/admin/posts", icon: Newspaper },
-  { label: "Live Events", href: "/admin/events", icon: CalendarDays },
-  { label: "Categories", href: "/admin/categories", icon: Tag },
-  { label: "Users", href: "/admin/users", icon: Users },
-  { label: "Usergroups", href: "/admin/usergroups", icon: FolderTree },
-  { label: "Analytics", href: "/admin/analytics", icon: BarChart3 },
-  { label: "Settings", href: "/admin/settings", icon: Settings },
+  { labelKey: "admin.overview", href: "/admin", icon: LayoutDashboard },
+  { labelKey: "admin.courses", href: "/admin/courses", icon: BookOpen },
+  { labelKey: "admin.posts", href: "/admin/posts", icon: Newspaper },
+  { labelKey: "admin.liveEvents", href: "/admin/events", icon: CalendarDays },
+  { labelKey: "admin.categories", href: "/admin/categories", icon: Tag },
+  { labelKey: "admin.users", href: "/admin/users", icon: Users },
+  { labelKey: "admin.usergroups", href: "/admin/usergroups", icon: FolderTree },
+  { labelKey: "admin.analytics", href: "/admin/analytics", icon: BarChart3 },
+  { labelKey: "admin.settings", href: "/admin/settings", icon: Settings },
 ];
 
 export function Sidebar({
@@ -60,6 +61,7 @@ export function Sidebar({
   logoClickUrl?: string | null;
 }) {
   const pathname = usePathname();
+  const t = useTranslations();
   const [adminView, setAdminView] = useState(pathname.startsWith("/admin"));
 
   const nav = adminView ? ADMIN_NAV : USER_NAV;
@@ -95,7 +97,7 @@ export function Sidebar({
         >
           <span className="flex items-center gap-2">
             <Shield className="h-4 w-4" />
-            {adminView ? "Admin View" : "User View"}
+            {adminView ? t("admin.adminView") : t("admin.userView")}
           </span>
           <ChevronLeft
             className={cn(
@@ -127,7 +129,7 @@ export function Sidebar({
                   )}
                 >
                   <item.icon className="h-4 w-4 shrink-0" />
-                  {item.label}
+                  {t(item.labelKey)}
                 </Link>
               </li>
             );
@@ -144,7 +146,7 @@ export function Sidebar({
               className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-[var(--muted-foreground)] transition hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
             >
               <HelpCircle className="h-4 w-4" />
-              Help
+              {t("nav.help")}
             </Link>
           </li>
           <li>
@@ -153,12 +155,12 @@ export function Sidebar({
               className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-[var(--muted-foreground)] transition hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
             >
               <FileText className="h-4 w-4" />
-              Privacy Policy
+              {t("nav.privacyPolicy")}
             </Link>
           </li>
         </ul>
         <p className="mt-2 px-3 text-xs text-[var(--muted-foreground)]">
-          Made by Coledia
+          {t("nav.madeByColedia")}
         </p>
       </div>
     </aside>

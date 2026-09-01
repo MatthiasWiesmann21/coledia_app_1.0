@@ -1,11 +1,14 @@
 ﻿import { prisma } from "@coledia/db";
 import { getTenantId } from "@/lib/tenant";
+import { getSession } from "@/lib/session";
 import { CourseCatalog } from "@/components/courses/course-catalog";
+import { getUserLocale } from "@/i18n/get-locale";
 
 export default async function CoursesPage() {
   const tenantId = getTenantId();
+  const locale = await getUserLocale();
 
-  const [courses, categories] = await Promise.all([
+  const [courses, categories, translations] = await Promise.all([
     prisma.course.findMany({
       where: { tenantId, published: true },
       include: {
@@ -18,7 +21,29 @@ export default async function CoursesPage() {
       where: { tenantId, isCourse: true, published: true },
       orderBy: { name: "asc" },
     }),
+    prisma.translation.findMany({
+      where: {
+        tenantId,
+        entityType: "course",
+        field: { in: ["title"] },
+      },
+    }),
   ]);
+
+  // Build translation map: { entityId: { language: { field: value } } }
+  const trMap: Record<string, Record<string, Record<string, string>>> = {};
+  for (const tr of translations) {
+    if (!trMap[tr.entityId]) trMap[tr.entityId] = {};
+    if (!trMap[tr.entityId][tr.language]) trMap[tr.entityId][tr.language] = {};
+    trMap[tr.entityId][tr.language][tr.field] = tr.value;
+  }
+
+  // Helper to get translated title
+  const getTranslatedTitle = (id: string, fallback: string) => {
+    const entityTr = trMap[id];
+    if (!entityTr) return fallback;
+    return entityTr[locale]?.title ?? entityTr["en"]?.title ?? fallback;
+  };
 
   return (
     <div className="p-6">
@@ -26,7 +51,7 @@ export default async function CoursesPage() {
       <CourseCatalog
         courses={courses.map((c) => ({
           id: c.id,
-          title: c.title,
+          title: getTranslatedTitle(c.id, c.title),
           thumbnailUrl: c.thumbnailUrl,
           categoryName: c.category?.name ?? null,
           categoryColor: c.category?.color ?? null,

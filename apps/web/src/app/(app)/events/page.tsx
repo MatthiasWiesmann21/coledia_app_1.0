@@ -1,11 +1,13 @@
 ﻿import { prisma } from "@coledia/db";
 import { getTenantId } from "@/lib/tenant";
 import { EventsList } from "@/components/events/events-list-view";
+import { getUserLocale } from "@/i18n/get-locale";
 
 export default async function EventsPage() {
   const tenantId = getTenantId();
+  const locale = await getUserLocale();
 
-  const [events, categories] = await Promise.all([
+  const [events, categories, translations] = await Promise.all([
     prisma.event.findMany({
       where: { tenantId, published: true },
       include: {
@@ -18,7 +20,27 @@ export default async function EventsPage() {
       where: { tenantId, isEvent: true, published: true },
       orderBy: { name: "asc" },
     }),
+    prisma.translation.findMany({
+      where: {
+        tenantId,
+        entityType: "event",
+        field: { in: ["title"] },
+      },
+    }),
   ]);
+
+  const trMap: Record<string, Record<string, Record<string, string>>> = {};
+  for (const tr of translations) {
+    if (!trMap[tr.entityId]) trMap[tr.entityId] = {};
+    if (!trMap[tr.entityId][tr.language]) trMap[tr.entityId][tr.language] = {};
+    trMap[tr.entityId][tr.language][tr.field] = tr.value;
+  }
+
+  const getTr = (entityId: string, field: string, fallback: string) => {
+    const entityTr = trMap[entityId];
+    if (!entityTr) return fallback;
+    return entityTr[locale]?.[field] ?? entityTr["en"]?.[field] ?? fallback;
+  };
 
   const now = new Date();
   const upcoming = events.filter((e) => e.startAt >= now);
@@ -30,7 +52,7 @@ export default async function EventsPage() {
       <EventsList
         upcomingEvents={upcoming.map((e) => ({
           id: e.id,
-          title: e.title,
+          title: getTr(e.id, "title", e.title),
           thumbnailUrl: e.thumbnailUrl,
           categoryName: e.category?.name ?? null,
           categoryColor: e.category?.color ?? null,
@@ -40,7 +62,7 @@ export default async function EventsPage() {
         }))}
         pastEvents={past.map((e) => ({
           id: e.id,
-          title: e.title,
+          title: getTr(e.id, "title", e.title),
           thumbnailUrl: e.thumbnailUrl,
           categoryName: e.category?.name ?? null,
           categoryColor: e.category?.color ?? null,

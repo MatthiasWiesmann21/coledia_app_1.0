@@ -22,12 +22,13 @@ export async function acceptTerms() {
 }
 
 /**
- * Update the user's profile (username, bio, avatar URL).
+ * Update the user's profile (username, bio, avatar URL, language).
  */
 export async function updateProfile(data: {
   username?: string;
   bio?: string;
   avatarUrl?: string;
+  language?: string;
 }) {
   const session = await getSession();
   if (!session) throw new Error("Unauthorized");
@@ -38,6 +39,28 @@ export async function updateProfile(data: {
     create: {
       userId: session.user.id,
       ...data,
+    },
+  });
+}
+
+/**
+ * Set the user's preferred language.
+ */
+export async function setUserLanguage(language: string) {
+  const session = await getSession();
+  if (!session) throw new Error("Unauthorized");
+
+  const validLanguages = ["en", "de", "fr", "es"];
+  if (!validLanguages.includes(language)) {
+    throw new Error("Invalid language");
+  }
+
+  await prisma.userProfile.upsert({
+    where: { userId: session.user.id },
+    update: { language },
+    create: {
+      userId: session.user.id,
+      language,
     },
   });
 }

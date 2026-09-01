@@ -1,31 +1,43 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@coledia/ui/button";
 import { Input } from "@coledia/ui/input";
 import { Label } from "@coledia/ui/label";
 import { authClient } from "@/lib/auth-client";
-import { updateProfile, setActivityStatus } from "@/lib/actions";
+import { updateProfile, setActivityStatus, setUserLanguage } from "@/lib/actions";
+import { locales, localeNames, localeFlags, type Locale } from "@/i18n/config";
 
 export function ProfileSettings({
   initialUsername,
   initialBio,
   initialAvatarUrl,
   initialStatus,
+  initialLanguage,
 }: {
   initialUsername: string | null;
   initialBio: string | null;
   initialAvatarUrl: string | null;
   initialStatus: string;
+  initialLanguage: string;
 }) {
+  const t = useTranslations("profile");
   const [username, setUsername] = useState(initialUsername ?? "");
   const [bio, setBio] = useState(initialBio ?? "");
   const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl ?? "");
   const [status, setStatus] = useState(initialStatus);
+  const [language, setLanguage] = useState<Locale>(
+    (locales as readonly string[]).includes(initialLanguage)
+      ? (initialLanguage as Locale)
+      : "en",
+  );
   const [profileMsg, setProfileMsg] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
+  const [langMsg, setLangMsg] = useState<string | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState(false);
+  const [loadingLang, setLoadingLang] = useState(false);
 
   // Password change state
   const [currentPassword, setCurrentPassword] = useState("");
@@ -58,6 +70,21 @@ export function ProfileSettings({
       setStatusMsg("Could not update status");
     }
     setLoadingStatus(false);
+  }
+
+  async function handleLanguageChange(newLang: Locale) {
+    setLanguage(newLang);
+    setLoadingLang(true);
+    setLangMsg(null);
+    try {
+      await setUserLanguage(newLang);
+      setLangMsg("Language updated — reload to see changes");
+      // Reload the page to apply the new locale
+      setTimeout(() => window.location.reload(), 500);
+    } catch {
+      setLangMsg("Could not update language");
+    }
+    setLoadingLang(false);
   }
 
   async function handlePasswordChange(e: React.FormEvent) {
@@ -93,10 +120,10 @@ export function ProfileSettings({
   }
 
   const statuses = [
-    { value: "online", label: "Online", color: "#31a354" },
-    { value: "not_available", label: "Not Available", color: "#e6550d" },
-    { value: "do_not_disturb", label: "Do Not Disturb", color: "#dc2626" },
-    { value: "invisible", label: "Invisible", color: "#6b7280" },
+    { value: "online", label: t("online"), color: "#31a354" },
+    { value: "not_available", label: t("notAvailable"), color: "#e6550d" },
+    { value: "do_not_disturb", label: t("doNotDisturb"), color: "#dc2626" },
+    { value: "invisible", label: t("invisible"), color: "#6b7280" },
   ];
 
   return (
@@ -172,6 +199,31 @@ export function ProfileSettings({
         </div>
         {statusMsg && (
           <p className="text-sm text-[var(--muted-foreground)]">{statusMsg}</p>
+        )}
+      </section>
+
+      {/* Language */}
+      <section className="flex flex-col gap-4">
+        <h2 className="text-lg font-semibold">{t("language")}</h2>
+        <div className="flex flex-wrap gap-2">
+          {locales.map((loc) => (
+            <button
+              key={loc}
+              onClick={() => handleLanguageChange(loc)}
+              disabled={loadingLang}
+              className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${
+                language === loc
+                  ? "border-[var(--tenant-primary)] bg-[var(--tenant-primary)]/10"
+                  : "border-[var(--border)] hover:bg-[var(--muted)]"
+              }`}
+            >
+              <span>{localeFlags[loc]}</span>
+              {localeNames[loc]}
+            </button>
+          ))}
+        </div>
+        {langMsg && (
+          <p className="text-sm text-[var(--muted-foreground)]">{langMsg}</p>
         )}
       </section>
 

@@ -11,7 +11,7 @@ export default async function EditEventPage({
   const { id } = await params;
   const { tenantId } = await requireAdmin();
 
-  const [event, categories, userGroups] = await Promise.all([
+  const [event, categories, userGroups, translations] = await Promise.all([
     prisma.event.findFirst({ where: { id, tenantId } }),
     prisma.category.findMany({
       where: { tenantId, isEvent: true, published: true },
@@ -21,9 +21,18 @@ export default async function EditEventPage({
       where: { tenantId },
       orderBy: { name: "asc" },
     }),
+    prisma.translation.findMany({
+      where: { entityType: "event", entityId: id, tenantId },
+    }),
   ]);
 
   if (!event) notFound();
+
+  const translationsMap: Record<string, Record<string, string>> = {};
+  for (const tr of translations) {
+    if (!translationsMap[tr.language]) translationsMap[tr.language] = {};
+    translationsMap[tr.language][tr.field] = tr.value;
+  }
 
   return (
     <div className="p-6">
@@ -43,6 +52,7 @@ export default async function EditEventPage({
           streamChatEnabled: event.streamChatEnabled,
           published: event.published,
         }}
+        translations={translationsMap}
         categories={categories.map((c) => ({ id: c.id, name: c.name, color: c.color }))}
         userGroups={userGroups.map((g) => ({ id: g.id, name: g.name }))}
       />

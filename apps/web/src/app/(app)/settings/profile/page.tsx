@@ -19,6 +19,7 @@ export default async function ProfileSettingsPage() {
         initialBio={profile?.bio ?? null}
         initialAvatarUrl={profile?.avatarUrl ?? null}
         initialStatus={profile?.status ?? "online"}
+        initialLanguage={profile?.language ?? "en"}
       />
     </main>
   );

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import {
   Plus,
   Trash2,
@@ -18,6 +19,9 @@ import {
   createChapter,
   deleteChapter,
 } from "@/lib/course-actions";
+import { saveTranslation } from "@/lib/translation-actions";
+import { LanguageToggle } from "@/components/admin/language-toggle";
+import { defaultLocale, type Locale } from "@/i18n/config";
 
 type Chapter = {
   id: string;
@@ -50,15 +54,27 @@ type CourseData = {
 type Category = { id: string; name: string; color: string };
 type UserGroup = { id: string; name: string };
 
+type Translations = Record<string, Record<string, string>>;
+
+const TRANSLATABLE_FIELDS = ["title", "description"] as const;
+
 export function CourseEditor({
   course,
   categories,
   userGroups,
+  translations: initialTranslations,
 }: {
   course: CourseData;
   categories: Category[];
   userGroups: UserGroup[];
+  translations: Translations;
 }) {
+  const t = useTranslations("courses");
+  const tc = useTranslations("common");
+  const [activeLanguage, setActiveLanguage] = useState<Locale>(defaultLocale);
+  const [allTranslations, setAllTranslations] = useState<Translations>(initialTranslations);
+
+  // Field state — these hold the CURRENT language's values
   const [title, setTitle] = useState(course.title);
   const [description, setDescription] = useState(course.description ?? "");
   const [thumbnailUrl, setThumbnailUrl] = useState(course.thumbnailUrl ?? "");
@@ -78,13 +94,54 @@ export function CourseEditor({
   const [newChapterTitle, setNewChapterTitle] = useState("");
   const [addingChapter, setAddingChapter] = useState(false);
 
+  // Cache of non-EN language values being edited
+  const [translationEdits, setTranslationEdits] = useState<Record<string, Record<string, string>>>({});
+
+  function handleLanguageChange(lang: Locale) {
+    // Save current field values to the cache before switching
+    if (activeLanguage === defaultLocale) {
+      // EN values are in the main state — no need to cache separately
+    } else {
+      setTranslationEdits((prev) => ({
+        ...prev,
+        [activeLanguage]: {
+          ...prev[activeLanguage],
+          title,
+          description,
+        },
+      }));
+    }
+
+    setActiveLanguage(lang);
+
+    // Load values for the new language
+    if (lang === defaultLocale) {
+      setTitle(course.title);
+      setDescription(course.description ?? "");
+    } else {
+      const cached = translationEdits[lang];
+      const stored = allTranslations[lang];
+      setTitle(cached?.title ?? stored?.title ?? "");
+      setDescription(cached?.description ?? stored?.description ?? "");
+    }
+  }
+
+  // Compute which languages have translations
+  const translatedLanguages = new Set<string>();
+  for (const field of TRANSLATABLE_FIELDS) {
+    for (const lang of Object.keys(allTranslations)) {
+      if (allTranslations[lang]?.[field]) {
+        translatedLanguages.add(lang);
+      }
+    }
+  }
+
   async function handleSaveDetails() {
     setSaving(true);
     setMsg(null);
     try {
-      await updateCourse(course.id, {
-        title,
-        description: description || null,
+      // Always save non-translatable fields to the entity
+      const entityData: Parameters<typeof updateCourse>[1] = {
         thumbnailUrl: thumbnailUrl || null,
         categoryId: categoryId || null,
         userGroupId: userGroupId || null,
@@ -92,8 +149,47 @@ export function CourseEditor({
         level: level || null,
         specialStatus: specialStatus || null,
         price: price ? parseFloat(price) : null,
-      });
-      setMsg("Course details saved");
+      };
+
+      if (activeLanguage === defaultLocale) {
+        // EN — save title/description directly to the entity
+        entityData.title = title;
+        entityData.description = description || null;
+      }
+
+      await updateCourse(course.id, entityData);
+
+      // If not EN, save translations
+      if (activeLanguage !== defaultLocale) {
+        await Promise.all([
+          saveTranslation({
+            entityType: "course",
+            entityId: course.id,
+            field: "title",
+            language: activeLanguage,
+            value: title,
+          }),
+          saveTranslation({
+            entityType: "course",
+            entityId: course.id,
+            field: "description",
+            language: activeLanguage,
+            value: description,
+          }),
+        ]);
+
+        // Update local translation cache
+        setAllTranslations((prev) => ({
+          ...prev,
+          [activeLanguage]: {
+            ...prev[activeLanguage],
+            title,
+            description,
+          },
+        }));
+      }
+
+      setMsg(t("details") + " saved");
     } catch {
       setMsg("Could not save course details");
     }
@@ -155,7 +251,15 @@ export function CourseEditor({
     <div className="flex flex-col gap-6">
       {/* Course Details */}
       <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
-        <h2 className="mb-4 text-lg font-semibold">Course Details</h2>
+        <h2 className="mb-4 text-lg font-semibold">{t("details")}</h2>
+
+        {/* Language toggle */}
+        <LanguageToggle
+          activeLanguage={activeLanguage}
+          onLanguageChange={handleLanguageChange}
+          translatedLanguages={translatedLanguages}
+          className="mb-4 border-b border-[var(--border)] pb-4"
+        />
 
         {/* Thumbnail preview */}
         {thumbnailUrl && (
@@ -171,7 +275,7 @@ export function CourseEditor({
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-2 sm:col-span-2">
-            <Label htmlFor="title">Title</Label>
+            <Label htmlFor="title">{tc("title")}</Label>
             <Input
               id="title"
               value={title}
@@ -180,7 +284,7 @@ export function CourseEditor({
           </div>
 
           <div className="flex flex-col gap-2 sm:col-span-2">
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description">{tc("description")}</Label>
             <textarea
               id="description"
               value={description}
@@ -192,7 +296,7 @@ export function CourseEditor({
           </div>
 
           <div className="flex flex-col gap-2 sm:col-span-2">
-            <Label htmlFor="thumbnailUrl">Thumbnail URL</Label>
+            <Label htmlFor="thumbnailUrl">{t("thumbnail")}</Label>
             <Input
               id="thumbnailUrl"
               type="url"
@@ -299,7 +403,7 @@ export function CourseEditor({
           className="mt-4"
           onClick={handleSaveDetails}
         >
-          {saving ? "Saving..." : "Save Details"}
+          {saving ? tc("loading") : tc("save")}
         </Button>
       </section>
 

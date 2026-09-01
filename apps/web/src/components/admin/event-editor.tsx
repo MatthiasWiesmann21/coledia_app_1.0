@@ -2,10 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Button } from "@coledia/ui/button";
 import { Input } from "@coledia/ui/input";
 import { Label } from "@coledia/ui/label";
 import { updateEvent } from "@/lib/content-actions";
+import { saveTranslation } from "@/lib/translation-actions";
+import { LanguageToggle } from "@/components/admin/language-toggle";
+import { defaultLocale, type Locale } from "@/i18n/config";
 
 type EventData = {
   id: string;
@@ -24,16 +28,27 @@ type EventData = {
 
 type Category = { id: string; name: string; color: string };
 type UserGroup = { id: string; name: string };
+type Translations = Record<string, Record<string, string>>;
+
+const TRANSLATABLE_FIELDS = ["title", "description"] as const;
 
 export function EventEditor({
   event,
   categories,
   userGroups,
+  translations: initialTranslations,
 }: {
   event: EventData;
   categories: Category[];
   userGroups: UserGroup[];
+  translations: Translations;
 }) {
+  const t = useTranslations("events");
+  const tc = useTranslations("common");
+  const [activeLanguage, setActiveLanguage] = useState<Locale>(defaultLocale);
+  const [allTranslations, setAllTranslations] = useState<Translations>(initialTranslations);
+  const [translationEdits, setTranslationEdits] = useState<Record<string, Record<string, string>>>({});
+
   const [title, setTitle] = useState(event.title);
   const [description, setDescription] = useState(event.description ?? "");
   const [thumbnailUrl, setThumbnailUrl] = useState(event.thumbnailUrl ?? "");
@@ -48,13 +63,37 @@ export function EventEditor({
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
+  function handleLanguageChange(lang: Locale) {
+    if (activeLanguage !== defaultLocale) {
+      setTranslationEdits((prev) => ({
+        ...prev,
+        [activeLanguage]: { ...prev[activeLanguage], title, description },
+      }));
+    }
+    setActiveLanguage(lang);
+    if (lang === defaultLocale) {
+      setTitle(event.title);
+      setDescription(event.description ?? "");
+    } else {
+      const cached = translationEdits[lang];
+      const stored = allTranslations[lang];
+      setTitle(cached?.title ?? stored?.title ?? "");
+      setDescription(cached?.description ?? stored?.description ?? "");
+    }
+  }
+
+  const translatedLanguages = new Set<string>();
+  for (const field of TRANSLATABLE_FIELDS) {
+    for (const lang of Object.keys(allTranslations)) {
+      if (allTranslations[lang]?.[field]) translatedLanguages.add(lang);
+    }
+  }
+
   async function handleSave() {
     setSaving(true);
     setMsg(null);
     try {
-      await updateEvent(event.id, {
-        title,
-        description: description || null,
+      const entityData: Parameters<typeof updateEvent>[1] = {
         thumbnailUrl: thumbnailUrl || null,
         categoryId: categoryId || null,
         userGroupId: userGroupId || null,
@@ -63,7 +102,26 @@ export function EventEditor({
         videoUrl: videoUrl || null,
         videoType: videoType || null,
         streamChatEnabled,
-      });
+      };
+
+      if (activeLanguage === defaultLocale) {
+        entityData.title = title;
+        entityData.description = description || null;
+      }
+
+      await updateEvent(event.id, entityData);
+
+      if (activeLanguage !== defaultLocale) {
+        await Promise.all([
+          saveTranslation({ entityType: "event", entityId: event.id, field: "title", language: activeLanguage, value: title }),
+          saveTranslation({ entityType: "event", entityId: event.id, field: "description", language: activeLanguage, value: description }),
+        ]);
+        setAllTranslations((prev) => ({
+          ...prev,
+          [activeLanguage]: { ...prev[activeLanguage], title, description },
+        }));
+      }
+
       setMsg("Event saved");
     } catch {
       setMsg("Could not save event");
@@ -87,15 +145,23 @@ export function EventEditor({
     <div className="flex max-w-2xl flex-col gap-6">
       {/* Details */}
       <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
-        <h2 className="mb-4 text-lg font-semibold">Event Details</h2>
+        <h2 className="mb-4 text-lg font-semibold">{t("editEvent")}</h2>
+
+        <LanguageToggle
+          activeLanguage={activeLanguage}
+          onLanguageChange={handleLanguageChange}
+          translatedLanguages={translatedLanguages}
+          className="mb-4 border-b border-[var(--border)] pb-4"
+        />
+
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="title">Title</Label>
+            <Label htmlFor="title">{tc("title")}</Label>
             <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} />
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="description">Description</Label>
+            <Label htmlFor="description">{tc("description")}</Label>
             <textarea
               id="description"
               value={description}
@@ -107,7 +173,7 @@ export function EventEditor({
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="thumbnailUrl">Thumbnail URL</Label>
+            <Label htmlFor="thumbnailUrl">{t("thumbnail")}</Label>
             <Input
               id="thumbnailUrl"
               type="url"
@@ -119,7 +185,7 @@ export function EventEditor({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="category">Category</Label>
+              <Label htmlFor="category">{t("category")}</Label>
               <select
                 id="category"
                 value={categoryId}
@@ -136,7 +202,7 @@ export function EventEditor({
             </div>
 
             <div className="flex flex-col gap-2">
-              <Label htmlFor="usergroup">Usergroup (optional)</Label>
+              <Label htmlFor="usergroup">{t("userGroup")}</Label>
               <select
                 id="usergroup"
                 value={userGroupId}
@@ -155,7 +221,7 @@ export function EventEditor({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="startAt">Start Date & Time</Label>
+              <Label htmlFor="startAt">{t("startDateTime")}</Label>
               <Input
                 id="startAt"
                 type="datetime-local"
@@ -165,7 +231,7 @@ export function EventEditor({
             </div>
 
             <div className="flex flex-col gap-2">
-              <Label htmlFor="endAt">End Date & Time (optional)</Label>
+              <Label htmlFor="endAt">{t("endDateTime")}</Label>
               <Input
                 id="endAt"
                 type="datetime-local"
@@ -176,7 +242,7 @@ export function EventEditor({
           </div>
         </div>
         <Button size="sm" disabled={saving} className="mt-4" onClick={handleSave}>
-          {saving ? "Saving..." : "Save Details"}
+          {saving ? tc("loading") : tc("save")}
         </Button>
       </section>
 
@@ -185,7 +251,7 @@ export function EventEditor({
         <h2 className="mb-4 text-lg font-semibold">Video / Stream</h2>
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="videoType">Video Source</Label>
+            <Label htmlFor="videoType">{t("videoType")}</Label>
             <select
               id="videoType"
               value={videoType}
@@ -199,7 +265,7 @@ export function EventEditor({
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="videoUrl">Video URL</Label>
+            <Label htmlFor="videoUrl">{t("videoUrl")}</Label>
             <Input
               id="videoUrl"
               value={videoUrl}
@@ -215,7 +281,7 @@ export function EventEditor({
               onChange={(e) => setStreamChatEnabled(e.target.checked)}
               className="h-4 w-4"
             />
-            <span className="text-sm">Enable stream chat</span>
+            <span className="text-sm">{t("streamChat")}</span>
           </label>
         </div>
         <Button size="sm" disabled={saving} className="mt-4" onClick={handleSave}>
@@ -225,7 +291,7 @@ export function EventEditor({
 
       {/* Publish */}
       <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
-        <h2 className="mb-2 text-lg font-semibold">Publish</h2>
+        <h2 className="mb-2 text-lg font-semibold">{tc("publish")}</h2>
         <p className="mb-4 text-sm text-[var(--muted-foreground)]">
           {published
             ? "This event is visible to users."
@@ -236,7 +302,7 @@ export function EventEditor({
           disabled={saving}
           variant={published ? "outline" : "default"}
         >
-          {published ? "Unpublish" : "Publish Event"}
+          {published ? t("unpublishEvent") : t("publishEvent")}
         </Button>
       </section>
 

@@ -11,7 +11,7 @@ export default async function EditCoursePage({
   const { id } = await params;
   const { tenantId } = await requireAdmin();
 
-  const [course, categories, userGroups] = await Promise.all([
+  const [course, categories, userGroups, translations] = await Promise.all([
     prisma.course.findFirst({
       where: { id, tenantId },
       include: {
@@ -26,9 +26,19 @@ export default async function EditCoursePage({
       where: { tenantId },
       orderBy: { name: "asc" },
     }),
+    prisma.translation.findMany({
+      where: { entityType: "course", entityId: id, tenantId },
+    }),
   ]);
 
   if (!course) notFound();
+
+  // Build translations map: { language: { field: value } }
+  const translationsMap: Record<string, Record<string, string>> = {};
+  for (const tr of translations) {
+    if (!translationsMap[tr.language]) translationsMap[tr.language] = {};
+    translationsMap[tr.language][tr.field] = tr.value;
+  }
 
   return (
     <div className="p-6">
@@ -59,6 +69,7 @@ export default async function EditCoursePage({
             order: ch.order,
           })),
         }}
+        translations={translationsMap}
         categories={categories.map((c) => ({
           id: c.id,
           name: c.name,

@@ -2,10 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Button } from "@coledia/ui/button";
 import { Input } from "@coledia/ui/input";
 import { Label } from "@coledia/ui/label";
 import { updatePost } from "@/lib/content-actions";
+import { saveTranslation } from "@/lib/translation-actions";
+import { LanguageToggle } from "@/components/admin/language-toggle";
+import { defaultLocale, type Locale } from "@/i18n/config";
 
 type PostData = {
   id: string;
@@ -19,14 +23,25 @@ type PostData = {
 };
 
 type Category = { id: string; name: string; color: string };
+type Translations = Record<string, Record<string, string>>;
+
+const TRANSLATABLE_FIELDS = ["title", "description"] as const;
 
 export function PostEditor({
   post,
   categories,
+  translations: initialTranslations,
 }: {
   post: PostData;
   categories: Category[];
+  translations: Translations;
 }) {
+  const t = useTranslations("posts");
+  const tc = useTranslations("common");
+  const [activeLanguage, setActiveLanguage] = useState<Locale>(defaultLocale);
+  const [allTranslations, setAllTranslations] = useState<Translations>(initialTranslations);
+  const [translationEdits, setTranslationEdits] = useState<Record<string, Record<string, string>>>({});
+
   const [title, setTitle] = useState(post.title);
   const [description, setDescription] = useState(post.description ?? "");
   const [categoryId, setCategoryId] = useState(post.categoryId ?? "");
@@ -39,18 +54,61 @@ export function PostEditor({
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
+  function handleLanguageChange(lang: Locale) {
+    if (activeLanguage !== defaultLocale) {
+      setTranslationEdits((prev) => ({
+        ...prev,
+        [activeLanguage]: { ...prev[activeLanguage], title, description },
+      }));
+    }
+    setActiveLanguage(lang);
+    if (lang === defaultLocale) {
+      setTitle(post.title);
+      setDescription(post.description ?? "");
+    } else {
+      const cached = translationEdits[lang];
+      const stored = allTranslations[lang];
+      setTitle(cached?.title ?? stored?.title ?? "");
+      setDescription(cached?.description ?? stored?.description ?? "");
+    }
+  }
+
+  const translatedLanguages = new Set<string>();
+  for (const field of TRANSLATABLE_FIELDS) {
+    for (const lang of Object.keys(allTranslations)) {
+      if (allTranslations[lang]?.[field]) translatedLanguages.add(lang);
+    }
+  }
+
   async function handleSave() {
     setSaving(true);
     setMsg(null);
     try {
-      await updatePost(post.id, {
-        title,
-        description: description || null,
+      const entityData: Parameters<typeof updatePost>[1] = {
         categoryId: categoryId || null,
         imageUrl: imageUrl || null,
         gifUrl: gifUrl || null,
         scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
-      });
+      };
+
+      if (activeLanguage === defaultLocale) {
+        entityData.title = title;
+        entityData.description = description || null;
+      }
+
+      await updatePost(post.id, entityData);
+
+      if (activeLanguage !== defaultLocale) {
+        await Promise.all([
+          saveTranslation({ entityType: "post", entityId: post.id, field: "title", language: activeLanguage, value: title }),
+          saveTranslation({ entityType: "post", entityId: post.id, field: "description", language: activeLanguage, value: description }),
+        ]);
+        setAllTranslations((prev) => ({
+          ...prev,
+          [activeLanguage]: { ...prev[activeLanguage], title, description },
+        }));
+      }
+
       setMsg("Post saved");
     } catch {
       setMsg("Could not save post");
@@ -74,15 +132,23 @@ export function PostEditor({
     <div className="flex max-w-2xl flex-col gap-6">
       {/* Content */}
       <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
-        <h2 className="mb-4 text-lg font-semibold">Post Content</h2>
+        <h2 className="mb-4 text-lg font-semibold">{t("editPost")}</h2>
+
+        <LanguageToggle
+          activeLanguage={activeLanguage}
+          onLanguageChange={handleLanguageChange}
+          translatedLanguages={translatedLanguages}
+          className="mb-4 border-b border-[var(--border)] pb-4"
+        />
+
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="title">Title</Label>
+            <Label htmlFor="title">{tc("title")}</Label>
             <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} />
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="description">Description / Content</Label>
+            <Label htmlFor="description">{tc("description")}</Label>
             <textarea
               id="description"
               value={description}
@@ -94,7 +160,7 @@ export function PostEditor({
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="category">Category</Label>
+            <Label htmlFor="category">{t("editPost") === "Edit Post" ? "Category" : tc("title")}</Label>
             <select
               id="category"
               value={categoryId}
@@ -111,7 +177,7 @@ export function PostEditor({
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="imageUrl">Image URL (optional)</Label>
+            <Label htmlFor="imageUrl">{t("imageUrl")}</Label>
             <Input
               id="imageUrl"
               type="url"
@@ -122,7 +188,7 @@ export function PostEditor({
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="gifUrl">GIF URL (optional)</Label>
+            <Label htmlFor="gifUrl">{t("gifUrl")}</Label>
             <Input
               id="gifUrl"
               type="url"
@@ -133,7 +199,7 @@ export function PostEditor({
           </div>
         </div>
         <Button size="sm" disabled={saving} className="mt-4" onClick={handleSave}>
-          {saving ? "Saving..." : "Save Post"}
+          {saving ? tc("loading") : tc("save")}
         </Button>
       </section>
 
@@ -159,7 +225,7 @@ export function PostEditor({
 
       {/* Publish */}
       <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
-        <h2 className="mb-2 text-lg font-semibold">Publish</h2>
+        <h2 className="mb-2 text-lg font-semibold">{tc("publish")}</h2>
         <p className="mb-4 text-sm text-[var(--muted-foreground)]">
           {published
             ? "This post is live and visible to users."
@@ -170,7 +236,7 @@ export function PostEditor({
           disabled={saving}
           variant={published ? "outline" : "default"}
         >
-          {published ? "Unpublish" : "Publish Post"}
+          {published ? t("unpublishPost") : t("publishPost")}
         </Button>
       </section>
 

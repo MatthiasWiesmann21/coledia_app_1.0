@@ -11,15 +11,24 @@ export default async function EditPostPage({
   const { id } = await params;
   const { tenantId } = await requireAdmin();
 
-  const [post, categories] = await Promise.all([
+  const [post, categories, translations] = await Promise.all([
     prisma.post.findFirst({ where: { id, tenantId } }),
     prisma.category.findMany({
       where: { tenantId, isNews: true, published: true },
       orderBy: { name: "asc" },
     }),
+    prisma.translation.findMany({
+      where: { entityType: "post", entityId: id, tenantId },
+    }),
   ]);
 
   if (!post) notFound();
+
+  const translationsMap: Record<string, Record<string, string>> = {};
+  for (const tr of translations) {
+    if (!translationsMap[tr.language]) translationsMap[tr.language] = {};
+    translationsMap[tr.language][tr.field] = tr.value;
+  }
 
   return (
     <div className="p-6">
@@ -35,6 +44,7 @@ export default async function EditPostPage({
           published: post.published,
           scheduledAt: post.scheduledAt?.toISOString() ?? null,
         }}
+        translations={translationsMap}
         categories={categories.map((c) => ({
           id: c.id,
           name: c.name,

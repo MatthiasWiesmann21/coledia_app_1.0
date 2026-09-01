@@ -18,11 +18,22 @@ export default async function EditChapterPage({
 
   if (!course) notFound();
 
-  const chapter = await prisma.chapter.findFirst({
-    where: { id: chapterId, courseId: course.id },
-  });
+  const [chapter, translations] = await Promise.all([
+    prisma.chapter.findFirst({
+      where: { id: chapterId, courseId: course.id },
+    }),
+    prisma.translation.findMany({
+      where: { entityType: "chapter", entityId: chapterId, tenantId },
+    }),
+  ]);
 
   if (!chapter) notFound();
+
+  const translationsMap: Record<string, Record<string, string>> = {};
+  for (const tr of translations) {
+    if (!translationsMap[tr.language]) translationsMap[tr.language] = {};
+    translationsMap[tr.language][tr.field] = tr.value;
+  }
 
   return (
     <div className="p-6">
@@ -44,6 +55,7 @@ export default async function EditChapterPage({
           accessFree: chapter.accessFree,
           published: chapter.published,
         }}
+        translations={translationsMap}
       />
     </div>
   );

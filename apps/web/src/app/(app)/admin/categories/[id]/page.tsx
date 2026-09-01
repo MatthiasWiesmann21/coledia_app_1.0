@@ -11,11 +11,22 @@ export default async function EditCategoryPage({
   const { id } = await params;
   const { tenantId } = await requireAdmin();
 
-  const category = await prisma.category.findFirst({
-    where: { id, tenantId },
-  });
+  const [category, translations] = await Promise.all([
+    prisma.category.findFirst({
+      where: { id, tenantId },
+    }),
+    prisma.translation.findMany({
+      where: { entityType: "category", entityId: id, tenantId },
+    }),
+  ]);
 
   if (!category) notFound();
+
+  const translationsMap: Record<string, Record<string, string>> = {};
+  for (const tr of translations) {
+    if (!translationsMap[tr.language]) translationsMap[tr.language] = {};
+    translationsMap[tr.language][tr.field] = tr.value;
+  }
 
   return (
     <div className="p-6">
@@ -32,6 +43,7 @@ export default async function EditCategoryPage({
           textColorDark: category.textColorDark,
           published: category.published,
         }}
+        translations={translationsMap}
       />
     </div>
   );

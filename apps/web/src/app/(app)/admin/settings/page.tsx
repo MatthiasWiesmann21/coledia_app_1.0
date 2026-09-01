@@ -1,9 +1,9 @@
 ﻿import { prisma } from "@coledia/db";
-import { getTenantId } from "@/lib/tenant";
+import { requireAdmin } from "@/lib/admin-guard";
 import { SettingsPanel } from "@/components/admin/settings-panel";
 
 export default async function AdminSettingsPage() {
-  const tenantId = getTenantId();
+  const { tenantId } = await requireAdmin();
 
   const [tenant, apiKeys] = await Promise.all([
     prisma.tenant.findUnique({

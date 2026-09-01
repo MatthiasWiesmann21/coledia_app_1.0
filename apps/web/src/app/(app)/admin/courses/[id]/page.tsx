@@ -1,5 +1,5 @@
 import { prisma } from "@coledia/db";
-import { getTenantId } from "@/lib/tenant";
+import { requireAdmin } from "@/lib/admin-guard";
 import { notFound } from "next/navigation";
 import { CourseEditor } from "@/components/admin/course-editor";
 
@@ -9,7 +9,7 @@ export default async function EditCoursePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const tenantId = getTenantId();
+  const { tenantId } = await requireAdmin();
 
   const [course, categories, userGroups] = await Promise.all([
     prisma.course.findFirst({

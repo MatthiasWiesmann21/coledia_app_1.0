@@ -1,5 +1,5 @@
 import { prisma } from "@coledia/db";
-import { getTenantId } from "@/lib/tenant";
+import { requireAdmin } from "@/lib/admin-guard";
 import { notFound } from "next/navigation";
 import { PostEditor } from "@/components/admin/post-editor";
 
@@ -9,7 +9,7 @@ export default async function EditPostPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const tenantId = getTenantId();
+  const { tenantId } = await requireAdmin();
 
   const [post, categories] = await Promise.all([
     prisma.post.findFirst({ where: { id, tenantId } }),

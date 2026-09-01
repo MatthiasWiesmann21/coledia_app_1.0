@@ -37,6 +37,7 @@ const USER_NAV: NavItem[] = [
 ];
 
 const ADMIN_NAV: NavItem[] = [
+  { label: "Overview", href: "/admin", icon: LayoutDashboard },
   { label: "Courses", href: "/admin/courses", icon: BookOpen },
   { label: "Posts", href: "/admin/posts", icon: Newspaper },
   { label: "Live Events", href: "/admin/events", icon: CalendarDays },
@@ -111,7 +112,9 @@ export function Sidebar({
           {nav.map((item) => {
             const active =
               pathname === item.href ||
-              (item.href !== "/dashboard" && pathname.startsWith(item.href));
+              (item.href !== "/dashboard" &&
+                item.href !== "/admin" &&
+                pathname.startsWith(item.href));
             return (
               <li key={item.href}>
                 <Link

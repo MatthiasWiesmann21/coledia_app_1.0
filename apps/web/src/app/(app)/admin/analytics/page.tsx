@@ -1,9 +1,9 @@
 ﻿import { prisma } from "@coledia/db";
-import { getTenantId } from "@/lib/tenant";
+import { requireAdmin } from "@/lib/admin-guard";
 import { AnalyticsDashboard } from "@/components/admin/analytics-dashboard";
 
 export default async function AdminAnalyticsPage() {
-  const tenantId = getTenantId();
+  const { tenantId } = await requireAdmin();
 
   // Gather stats in parallel
   const [

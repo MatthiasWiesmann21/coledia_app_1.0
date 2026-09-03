@@ -49,6 +49,13 @@ export default async function NewsDetailPage({
       : null,
   ]);
 
+  // Get current user's profile for optimistic comment avatar
+  const currentUserProfile = session
+    ? await prisma.userProfile.findUnique({
+        where: { userId: session.user.id },
+      })
+    : null;
+
   return (
     <div className="p-6">
       <NewsDetail
@@ -69,9 +76,11 @@ export default async function NewsDetailPage({
           content: c.content,
           authorName: c.user.name ?? c.user.email,
           authorUsername: c.user.profile?.username ?? null,
+          authorAvatarUrl: c.user.profile?.avatarUrl ?? null,
           createdAt: c.createdAt.toISOString(),
         }))}
         isLoggedIn={!!session}
+        currentUserAvatarUrl={currentUserProfile?.avatarUrl ?? null}
         actions={{
           toggleLike: togglePostLike,
           addComment: addPostComment,

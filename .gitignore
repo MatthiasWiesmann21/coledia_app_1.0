@@ -30,3 +30,6 @@ npm-debug.log*
 
 # Docker volumes
 docker/data
+
+# Local file storage (uploaded documents, images, avatars, videos)
+uploads

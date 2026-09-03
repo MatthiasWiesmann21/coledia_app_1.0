@@ -2,6 +2,7 @@
 
 import { prisma } from "@coledia/db";
 import { getSession } from "./session";
+import { revalidatePath } from "next/cache";
 
 /**
  * Accept the privacy policy and terms of use.
@@ -41,6 +42,11 @@ export async function updateProfile(data: {
       ...data,
     },
   });
+
+  // Revalidate pages that display the user's avatar so they pick up the change
+  revalidatePath("/chat");
+  revalidatePath("/news", "layout");
+  revalidatePath("/settings/profile");
 }
 
 /**

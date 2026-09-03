@@ -42,6 +42,7 @@ const ADMIN_NAV: NavItem[] = [
   { labelKey: "admin.courses", href: "/admin/courses", icon: BookOpen },
   { labelKey: "admin.posts", href: "/admin/posts", icon: Newspaper },
   { labelKey: "admin.liveEvents", href: "/admin/events", icon: CalendarDays },
+  { labelKey: "admin.documents", href: "/admin/documents", icon: FileText },
   { labelKey: "admin.categories", href: "/admin/categories", icon: Tag },
   { labelKey: "admin.users", href: "/admin/users", icon: Users },
   { labelKey: "admin.usergroups", href: "/admin/usergroups", icon: FolderTree },
@@ -67,24 +68,25 @@ export function Sidebar({
   const nav = adminView ? ADMIN_NAV : USER_NAV;
 
   return (
-    <aside className="flex h-screen w-60 flex-col border-r border-[var(--border)] bg-[var(--card)]">
-      {/* Logo / Branding */}
-      <div className="flex h-16 items-center gap-2 border-b border-[var(--border)] px-4">
+    <aside className="flex h-screen w-58 flex-col border-r border-border bg-card">
+      {/* Logo / Branding — 16:9 custom logo placeholder */}
+      <div className="flex h-20 items-center justify-center border-b border-border px-4 py-2">
         <Link
           href={logoClickUrl ?? "/dashboard"}
-          className="flex items-center gap-2"
+          className="block w-full"
+          aria-label={tenantName}
         >
           {tenantLogoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={tenantLogoUrl}
               alt={tenantName}
-              className="h-8 w-auto"
+              className="h-full w-full max-w-[140px] object-contain"
             />
           ) : (
-            <span className="text-lg font-bold text-brand-gradient">
-              {tenantName}
-            </span>
+            <div className="mx-auto flex aspect-21/9 w-full max-w-40 items-center justify-center rounded-lg border border-dashed border-border bg-muted">
+              <span className="text-xs text-muted-foreground">Logo</span>
+            </div>
           )}
         </Link>
       </div>

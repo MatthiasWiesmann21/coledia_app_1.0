@@ -7,6 +7,7 @@ import { Sun, Moon, Globe, LogOut, User, CreditCard, ChevronDown } from "lucide-
 import { useTheme } from "next-themes";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@coledia/ui/lib/utils";
+import { GlobalSearch } from "@/components/global-search";
 
 const STATUS_COLORS: Record<string, string> = {
   online: "#31a354",
@@ -29,9 +30,6 @@ export function TopNav({
   userStatus,
   isAdmin,
   isOwner,
-  tenantName,
-  tenantLogoUrl,
-  logoClickUrl,
 }: {
   userName: string;
   userEmail: string;
@@ -39,9 +37,6 @@ export function TopNav({
   userStatus: string;
   isAdmin: boolean;
   isOwner: boolean;
-  tenantName: string;
-  tenantLogoUrl?: string | null;
-  logoClickUrl?: string | null;
 }) {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
@@ -71,22 +66,10 @@ export function TopNav({
   }
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-[var(--border)] bg-[var(--card)] px-4">
-      {/* Left: clickable logo */}
-      <div className="flex items-center gap-3">
-        <Link
-          href={logoClickUrl ?? "/dashboard"}
-          className="flex items-center gap-2"
-        >
-          {tenantLogoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={tenantLogoUrl} alt={tenantName} className="h-7 w-auto" />
-          ) : (
-            <span className="text-base font-bold text-brand-gradient">
-              {tenantName}
-            </span>
-          )}
-        </Link>
+    <header className="flex h-20 items-center justify-between border-b border-[var(--border)] bg-[var(--card)] px-4">
+      {/* Left: global search (Spotlight-style) */}
+      <div className="flex flex-1 items-center gap-3">
+        <GlobalSearch />
       </div>
 
       {/* Right: actions */}

@@ -21,6 +21,7 @@ import {
 } from "@/lib/course-actions";
 import { saveTranslation } from "@/lib/translation-actions";
 import { LanguageToggle } from "@/components/admin/language-toggle";
+import { UploadButton } from "@/components/upload-button";
 import { defaultLocale, type Locale } from "@/i18n/config";
 
 type Chapter = {
@@ -296,17 +297,13 @@ export function CourseEditor({
           </div>
 
           <div className="flex flex-col gap-2 sm:col-span-2">
-            <Label htmlFor="thumbnailUrl">{t("thumbnail")}</Label>
-            <Input
-              id="thumbnailUrl"
-              type="url"
-              value={thumbnailUrl}
-              onChange={(e) => setThumbnailUrl(e.target.value)}
-              placeholder="https://..."
+            <UploadButton
+              category="course-thumbnails"
+              value={thumbnailUrl || null}
+              onChange={(url) => setThumbnailUrl(url ?? "")}
+              label={t("thumbnail")}
+              aspectRatio="16/9"
             />
-            <p className="text-xs text-[var(--muted-foreground)]">
-              Thumbnail upload coming soon. For now, paste an image URL.
-            </p>
           </div>
 
           <div className="flex flex-col gap-2">

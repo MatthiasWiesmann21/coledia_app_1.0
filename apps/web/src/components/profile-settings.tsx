@@ -7,6 +7,7 @@ import { Input } from "@coledia/ui/input";
 import { Label } from "@coledia/ui/label";
 import { authClient } from "@/lib/auth-client";
 import { updateProfile, setActivityStatus, setUserLanguage } from "@/lib/actions";
+import { UploadButton } from "@/components/upload-button";
 import { locales, localeNames, localeFlags, type Locale } from "@/i18n/config";
 
 export function ProfileSettings({
@@ -154,17 +155,14 @@ export function ProfileSettings({
             />
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="avatarUrl">Avatar URL</Label>
-            <Input
-              id="avatarUrl"
-              type="url"
-              value={avatarUrl}
-              onChange={(e) => setAvatarUrl(e.target.value)}
-              placeholder="https://..."
+            <UploadButton
+              category="avatars"
+              value={avatarUrl || null}
+              onChange={(url) => setAvatarUrl(url ?? "")}
+              label="Avatar"
+              aspectRatio="square"
+              compact
             />
-            <p className="text-xs text-[var(--muted-foreground)]">
-              Avatar upload coming soon. For now, paste an image URL.
-            </p>
           </div>
           {profileMsg && (
             <p className="text-sm text-[var(--muted-foreground)]">{profileMsg}</p>

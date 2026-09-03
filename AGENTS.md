@@ -61,7 +61,7 @@ pnpm db:seed          # Seed dev tenant + admin user
 - **Deployment**: Dokploy containers, not Docker Compose. Each client = own container, shared DB.
 - **Tenant identity**: `TENANT_ID` env var per container, not hostname parsing.
 - **Audio/video chat**: Out of scope. Chat is text channels + DMs only.
-- **Documents module**: Route + nav item exist, but CRUD is deferred. Placeholder page for now.
+- **Documents module**: Full Doc-Hub with local file storage. Admins manage folders/files at `/admin/documents`, users browse at `/documents`. Files stored in `uploads/{tenantId}/` on disk. Visibility per folder via `visible`/`published`/`userGroupId`. Image uploads (avatars, logos, thumbnails) via `/api/upload/images`. Document uploads via `/api/upload/documents`. Files served from `/api/uploads/[...path]`.
 - **Pricing**: Starter (free, ≤50 members) / Club (29 CHF, ≤250) / Organization (69 CHF, unlimited + API)
 
 ## Plan

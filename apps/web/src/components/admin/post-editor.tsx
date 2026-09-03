@@ -9,6 +9,7 @@ import { Label } from "@coledia/ui/label";
 import { updatePost } from "@/lib/content-actions";
 import { saveTranslation } from "@/lib/translation-actions";
 import { LanguageToggle } from "@/components/admin/language-toggle";
+import { UploadButton } from "@/components/upload-button";
 import { defaultLocale, type Locale } from "@/i18n/config";
 
 type PostData = {
@@ -177,13 +178,12 @@ export function PostEditor({
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="imageUrl">{t("imageUrl")}</Label>
-            <Input
-              id="imageUrl"
-              type="url"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="https://..."
+            <UploadButton
+              category="post-images"
+              value={imageUrl || null}
+              onChange={(url) => setImageUrl(url ?? "")}
+              label={t("imageUrl")}
+              aspectRatio="16/9"
             />
           </div>
 

@@ -22,6 +22,7 @@ type Comment = {
   content: string;
   authorName: string;
   authorUsername: string | null;
+  authorAvatarUrl: string | null;
   createdAt: string;
 };
 
@@ -31,6 +32,7 @@ export function NewsDetail({
   likeCount,
   comments,
   isLoggedIn,
+  currentUserAvatarUrl,
   actions,
 }: {
   post: Post;
@@ -38,6 +40,7 @@ export function NewsDetail({
   likeCount: number;
   comments: Comment[];
   isLoggedIn: boolean;
+  currentUserAvatarUrl: string | null;
   actions: {
     toggleLike: (id: string) => Promise<any>;
     addComment: (id: string, content: string) => Promise<any>;
@@ -76,6 +79,7 @@ export function NewsDetail({
           content: commentText,
           authorName: "You",
           authorUsername: null,
+          authorAvatarUrl: currentUserAvatarUrl,
           createdAt: new Date().toISOString(),
         },
         ...commentList,
@@ -181,9 +185,18 @@ export function NewsDetail({
           <ul className="flex flex-col gap-4">
             {commentList.map((c) => (
               <li key={c.id} className="flex gap-3">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--tenant-primary)] text-sm font-medium text-white">
-                  {c.authorName.charAt(0).toUpperCase()}
-                </div>
+                {c.authorAvatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={c.authorAvatarUrl}
+                    alt={c.authorName}
+                    className="h-8 w-8 shrink-0 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--tenant-primary)] text-sm font-medium text-white">
+                    {c.authorName.charAt(0).toUpperCase()}
+                  </div>
+                )}
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">{c.authorName}</span>

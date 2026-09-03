@@ -71,9 +71,6 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
             userStatus={profile?.status ?? "online"}
             isAdmin={isAdmin}
             isOwner={isOwner}
-            tenantName={tenant.name}
-            tenantLogoUrl={tenant.branding?.logoLightUrl ?? tenant.branding?.logoDarkUrl}
-            logoClickUrl={tenant.branding?.logoClickUrl ?? null}
           />
           <main className="flex-1 overflow-y-auto">{children}</main>
         </div>

@@ -157,6 +157,7 @@ model UserGroup {
   members   UserGroupMember[]
   courses   Course[]
   events    Event[]
+  documentFolders Folder[]
 
   @@index([tenantId])
 }
@@ -428,13 +429,14 @@ model EventRegistration {
   @@index([eventId])
 }
 
-// ─── Documents (deferred — models kept for future implementation) ─
+// ─── Documents ───────────────────────────────────────────────────
 
 model Folder {
   id         String   @id @default(cuid())
   tenantId   String
   name       String
   parentId   String?
+  userGroupId String?
   visible    Boolean  @default(true)
   published  Boolean  @default(false)
   createdAt  DateTime @default(now())
@@ -443,9 +445,11 @@ model Folder {
   parent     Folder?  @relation("FolderTree", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   children   Folder[] @relation("FolderTree")
   documents  Document[]
+  userGroup  UserGroup? @relation(fields: [userGroupId], references: [id])
 
   @@index([tenantId])
   @@index([parentId])
+  @@index([userGroupId])
 }
 
 model Document {
@@ -454,8 +458,11 @@ model Document {
   name       String
   folderId   String?
   fileUrl    String?
-  fileSize   Int?
+  storagePath String?
+  fileSize   BigInt?
   fileType   String?
+  mimeType   String?
+  uploadedById String?
   visible    Boolean  @default(true)
   published  Boolean  @default(false)
   createdAt  DateTime @default(now())

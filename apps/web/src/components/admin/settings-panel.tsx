@@ -5,6 +5,7 @@ import { Plus, Trash2, Key, Copy, Check } from "lucide-react";
 import { Button } from "@coledia/ui/button";
 import { Input } from "@coledia/ui/input";
 import { Label } from "@coledia/ui/label";
+import { UploadButton } from "@/components/upload-button";
 import {
   updateTenantSettings,
   updateBranding,
@@ -174,26 +175,22 @@ export function SettingsPanel({
         <div className="mb-6">
           <h3 className="mb-3 text-sm font-semibold">Logos</h3>
           <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="logoLightUrl">Logo (Light Mode)</Label>
-              <Input
-                id="logoLightUrl"
-                type="url"
-                value={b.logoLightUrl}
-                onChange={(e) => setB({ ...b, logoLightUrl: e.target.value })}
-                placeholder="https://..."
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="logoDarkUrl">Logo (Dark Mode)</Label>
-              <Input
-                id="logoDarkUrl"
-                type="url"
-                value={b.logoDarkUrl}
-                onChange={(e) => setB({ ...b, logoDarkUrl: e.target.value })}
-                placeholder="https://..."
-              />
-            </div>
+            <UploadButton
+              category="logo"
+              value={b.logoLightUrl || null}
+              onChange={(url) => setB({ ...b, logoLightUrl: url ?? "" })}
+              label="Logo (Light Mode)"
+              aspectRatio="21/9"
+              compact
+            />
+            <UploadButton
+              category="logo"
+              value={b.logoDarkUrl || null}
+              onChange={(url) => setB({ ...b, logoDarkUrl: url ?? "" })}
+              label="Logo (Dark Mode)"
+              aspectRatio="21/9"
+              compact
+            />
             <div className="flex flex-col gap-2">
               <Label htmlFor="logoClickUrl">Logo Click URL</Label>
               <Input
@@ -203,16 +200,15 @@ export function SettingsPanel({
                 placeholder="/dashboard"
               />
             </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="faviconUrl">Favicon URL</Label>
-              <Input
-                id="faviconUrl"
-                type="url"
-                value={b.faviconUrl}
-                onChange={(e) => setB({ ...b, faviconUrl: e.target.value })}
-                placeholder="https://..."
-              />
-            </div>
+            <UploadButton
+              category="logo"
+              value={b.faviconUrl || null}
+              onChange={(url) => setB({ ...b, faviconUrl: url ?? "" })}
+              label="Favicon"
+              aspectRatio="square"
+              compact
+              maxSizeMB={1}
+            />
           </div>
         </div>
 

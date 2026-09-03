@@ -30,7 +30,7 @@ async function requireAdmin() {
 
 // ─── Chat Servers ───────────────────────────────────────────────
 
-export async function createChatServer(name: string) {
+export async function createChatServer(name: string, userGroupIds?: string[]) {
   const { session, tenantId } = await requireAdmin();
 
   const server = await prisma.chatServer.create({
@@ -38,6 +38,9 @@ export async function createChatServer(name: string) {
       name,
       tenantId,
       createdById: session.user.id,
+      userGroups: userGroupIds?.length
+        ? { connect: userGroupIds.map((id) => ({ id })) }
+        : undefined,
     },
   });
 
@@ -51,7 +54,28 @@ export async function createChatServer(name: string) {
   });
 
   revalidatePath("/chat");
+  revalidatePath("/admin/chat");
   return server;
+}
+
+export async function updateChatServer(id: string, data: { name?: string; userGroupIds?: string[] }) {
+  await requireAdmin();
+
+  const { userGroupIds, ...rest } = data;
+  const updateData: any = { ...rest };
+  if (userGroupIds !== undefined) {
+    updateData.userGroups = {
+      set: userGroupIds.map((gid) => ({ id: gid })),
+    };
+  }
+
+  await prisma.chatServer.update({
+    where: { id },
+    data: updateData,
+  });
+
+  revalidatePath("/chat");
+  revalidatePath("/admin/chat");
 }
 
 export async function deleteChatServer(id: string) {
@@ -60,11 +84,16 @@ export async function deleteChatServer(id: string) {
   await prisma.chatServer.delete({ where: { id } });
 
   revalidatePath("/chat");
+  revalidatePath("/admin/chat");
 }
 
 // ─── Channels ───────────────────────────────────────────────────
 
-export async function createChannel(chatServerId: string, name: string) {
+export async function createChannel(
+  chatServerId: string,
+  name: string,
+  userGroupIds?: string[],
+) {
   await requireAdmin();
 
   const channel = await prisma.channel.create({
@@ -72,11 +101,38 @@ export async function createChannel(chatServerId: string, name: string) {
       chatServerId,
       name,
       type: "text",
+      userGroups: userGroupIds?.length
+        ? { connect: userGroupIds.map((id) => ({ id })) }
+        : undefined,
     },
   });
 
   revalidatePath("/chat");
+  revalidatePath("/admin/chat");
   return channel;
+}
+
+export async function updateChannel(
+  id: string,
+  data: { name?: string; userGroupIds?: string[] },
+) {
+  await requireAdmin();
+
+  const { userGroupIds, ...rest } = data;
+  const updateData: any = { ...rest };
+  if (userGroupIds !== undefined) {
+    updateData.userGroups = {
+      set: userGroupIds.map((gid) => ({ id: gid })),
+    };
+  }
+
+  await prisma.channel.update({
+    where: { id },
+    data: updateData,
+  });
+
+  revalidatePath("/chat");
+  revalidatePath("/admin/chat");
 }
 
 export async function deleteChannel(id: string) {
@@ -85,6 +141,7 @@ export async function deleteChannel(id: string) {
   await prisma.channel.delete({ where: { id } });
 
   revalidatePath("/chat");
+  revalidatePath("/admin/chat");
 }
 
 // ─── Members ────────────────────────────────────────────────────

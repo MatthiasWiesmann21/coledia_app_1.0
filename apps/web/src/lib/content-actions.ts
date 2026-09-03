@@ -34,6 +34,7 @@ export async function createPost(data: {
   title: string;
   description?: string;
   categoryId?: string;
+  userGroupIds?: string[];
   imageUrl?: string;
   gifUrl?: string;
 }) {
@@ -41,13 +42,16 @@ export async function createPost(data: {
 
   const post = await prisma.post.create({
     data: {
-      ...data,
       tenantId,
+      title: data.title,
       description: data.description || null,
       categoryId: data.categoryId || null,
       imageUrl: data.imageUrl || null,
       gifUrl: data.gifUrl || null,
       published: false,
+      userGroups: data.userGroupIds?.length
+        ? { connect: data.userGroupIds.map((id) => ({ id })) }
+        : undefined,
     },
   });
 
@@ -61,6 +65,7 @@ export async function updatePost(
     title?: string;
     description?: string | null;
     categoryId?: string | null;
+    userGroupIds?: string[];
     imageUrl?: string | null;
     gifUrl?: string | null;
     published?: boolean;
@@ -69,9 +74,17 @@ export async function updatePost(
 ) {
   await requireAdmin();
 
+  const { userGroupIds, ...rest } = data;
+  const updateData: any = { ...rest };
+  if (userGroupIds !== undefined) {
+    updateData.userGroups = {
+      set: userGroupIds.map((gid) => ({ id: gid })),
+    };
+  }
+
   const post = await prisma.post.update({
     where: { id },
-    data,
+    data: updateData,
   });
 
   revalidatePath("/admin/posts");
@@ -101,6 +114,88 @@ export async function addPostComment(postId: string, content: string) {
       userId: session.user.id,
       tenantId,
       postId,
+      content,
+    },
+  });
+
+  revalidatePath(`/news/${postId}`);
+  return comment;
+}
+
+export async function getPostComments(postId: string) {
+  const session = await getSession();
+  if (!session) throw new Error("Unauthorized");
+
+  const allComments = await prisma.comment.findMany({
+    where: { postId },
+    include: { user: { include: { profile: true } } },
+    orderBy: { createdAt: "asc" },
+  });
+
+  const commentIds = allComments.map((c) => c.id);
+  const [commentLikeCounts, userCommentLikes] = await Promise.all([
+    prisma.like.groupBy({
+      by: ["targetId"],
+      where: { targetType: "comment", targetId: { in: commentIds } },
+      _count: { _all: true },
+    }),
+    prisma.like.findMany({
+      where: {
+        userId: session.user.id,
+        targetType: "comment",
+        targetId: { in: commentIds },
+      },
+      select: { targetId: true },
+    }),
+  ]);
+
+  const commentLikeCountMap = new Map(
+    commentLikeCounts.map((l) => [l.targetId, l._count._all]),
+  );
+  const userLikedCommentIds = new Set(userCommentLikes.map((l) => l.targetId));
+
+  // Build nested comment tree
+  const commentMap = new Map<string, any>();
+  allComments.forEach((c) => {
+    commentMap.set(c.id, {
+      id: c.id,
+      content: c.content,
+      authorName: c.user.name ?? c.user.email,
+      authorUsername: c.user.profile?.username ?? null,
+      authorAvatarUrl: c.user.profile?.avatarUrl ?? null,
+      createdAt: c.createdAt.toISOString(),
+      likeCount: commentLikeCountMap.get(c.id) ?? 0,
+      liked: userLikedCommentIds.has(c.id),
+      replies: [],
+    });
+  });
+
+  const topLevelComments: any[] = [];
+  allComments.forEach((c) => {
+    const node = commentMap.get(c.id);
+    if (c.parentId && commentMap.has(c.parentId)) {
+      commentMap.get(c.parentId).replies.push(node);
+    } else {
+      topLevelComments.push(node);
+    }
+  });
+  topLevelComments.reverse();
+
+  return topLevelComments;
+}
+
+export async function addCommentReply(postId: string, parentId: string, content: string) {
+  const session = await getSession();
+  if (!session) throw new Error("Unauthorized");
+
+  const tenantId = getTenantId();
+
+  const comment = await prisma.comment.create({
+    data: {
+      userId: session.user.id,
+      tenantId,
+      postId,
+      parentId,
       content,
     },
   });
@@ -141,6 +236,38 @@ export async function togglePostLike(postId: string) {
   revalidatePath(`/news/${postId}`);
 }
 
+export async function toggleCommentLike(commentId: string, postId: string) {
+  const session = await getSession();
+  if (!session) throw new Error("Unauthorized");
+
+  const tenantId = getTenantId();
+
+  const existing = await prisma.like.findUnique({
+    where: {
+      userId_targetType_targetId: {
+        userId: session.user.id,
+        targetType: "comment",
+        targetId: commentId,
+      },
+    },
+  });
+
+  if (existing) {
+    await prisma.like.delete({ where: { id: existing.id } });
+  } else {
+    await prisma.like.create({
+      data: {
+        userId: session.user.id,
+        tenantId,
+        targetType: "comment",
+        targetId: commentId,
+      },
+    });
+  }
+
+  revalidatePath(`/news/${postId}`);
+}
+
 // ─── Events ─────────────────────────────────────────────────────
 
 export async function createEvent(data: {
@@ -148,7 +275,7 @@ export async function createEvent(data: {
   description?: string;
   thumbnailUrl?: string;
   categoryId?: string;
-  userGroupId?: string;
+  userGroupIds?: string[];
   startAt: string; // ISO string
   endAt?: string;
   videoUrl?: string;
@@ -164,13 +291,15 @@ export async function createEvent(data: {
       description: data.description || null,
       thumbnailUrl: data.thumbnailUrl || null,
       categoryId: data.categoryId || null,
-      userGroupId: data.userGroupId || null,
       startAt: new Date(data.startAt),
       endAt: data.endAt ? new Date(data.endAt) : null,
       videoUrl: data.videoUrl || null,
       videoType: data.videoType || null,
       streamChatEnabled: data.streamChatEnabled ?? true,
       published: false,
+      userGroups: data.userGroupIds?.length
+        ? { connect: data.userGroupIds.map((id) => ({ id })) }
+        : undefined,
     },
   });
 
@@ -185,7 +314,7 @@ export async function updateEvent(
     description?: string | null;
     thumbnailUrl?: string | null;
     categoryId?: string | null;
-    userGroupId?: string | null;
+    userGroupIds?: string[];
     startAt?: Date;
     endAt?: Date | null;
     videoUrl?: string | null;
@@ -197,9 +326,17 @@ export async function updateEvent(
 ) {
   await requireAdmin();
 
+  const { userGroupIds, ...rest } = data;
+  const updateData: any = { ...rest };
+  if (userGroupIds !== undefined) {
+    updateData.userGroups = {
+      set: userGroupIds.map((gid) => ({ id: gid })),
+    };
+  }
+
   const event = await prisma.event.update({
     where: { id },
-    data,
+    data: updateData,
   });
 
   revalidatePath("/admin/events");

@@ -9,6 +9,7 @@ const updateDocSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   visible: z.boolean().optional(),
   published: z.boolean().optional(),
+  userGroupIds: z.array(z.string()).optional(),
 });
 
 async function requireAdmin(session: any) {
@@ -37,6 +38,7 @@ export async function GET(
 
   const document = await prisma.document.findFirst({
     where: { id, tenantId },
+    include: { userGroups: { select: { id: true, name: true } } },
   });
 
   if (!document) {
@@ -52,6 +54,7 @@ export async function GET(
       mimeType: document.mimeType,
       fileType: document.fileType,
       folderId: document.folderId,
+      userGroups: document.userGroups.map((g) => ({ id: g.id, name: g.name })),
       visible: document.visible,
       published: document.published,
       createdAt: document.createdAt.toISOString(),
@@ -78,13 +81,17 @@ export async function PATCH(
   const body = await request.json();
   const parsed = updateDocSchema.parse(body);
 
+  const { userGroupIds, ...rest } = parsed;
+  const updateData: any = { ...rest };
+  if (userGroupIds !== undefined) {
+    updateData.userGroups = {
+      set: userGroupIds.map((gid) => ({ id: gid })),
+    };
+  }
+
   const document = await prisma.document.update({
     where: { id },
-    data: {
-      ...(parsed.name !== undefined ? { name: parsed.name } : {}),
-      ...(parsed.visible !== undefined ? { visible: parsed.visible } : {}),
-      ...(parsed.published !== undefined ? { published: parsed.published } : {}),
-    },
+    data: updateData,
   });
 
   return NextResponse.json({

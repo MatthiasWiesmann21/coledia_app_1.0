@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2, Key, Copy, Check } from "lucide-react";
+import { Plus, Trash2, Key, Copy, Check, Sun, Moon, Monitor } from "lucide-react";
 import { Button } from "@coledia/ui/button";
 import { Input } from "@coledia/ui/input";
 import { Label } from "@coledia/ui/label";
 import { UploadButton } from "@/components/upload-button";
+import { themePresets, defaultPresetId } from "@coledia/ui";
 import {
   updateTenantSettings,
   updateBranding,
@@ -24,6 +25,8 @@ type BrandingData = {
   navTextColorDark: string | null;
   navBgColorLight: string | null;
   navBgColorDark: string | null;
+  themePreset: string | null;
+  themeMode: string | null;
 };
 
 type ApiKeyData = {
@@ -33,14 +36,22 @@ type ApiKeyData = {
   createdAt: string;
 };
 
+const THEME_MODES = [
+  { value: "light", label: "Light", icon: Sun },
+  { value: "dark", label: "Dark", icon: Moon },
+  { value: "system", label: "System", icon: Monitor },
+] as const;
+
 export function SettingsPanel({
   tenant,
   branding,
   apiKeys,
+  isOwner,
 }: {
   tenant: { name: string; status: string; plan: string };
   branding: BrandingData | null;
   apiKeys: ApiKeyData[];
+  isOwner: boolean;
 }) {
   const [name, setName] = useState(tenant.name);
   const [savingTenant, setSavingTenant] = useState(false);
@@ -52,12 +63,14 @@ export function SettingsPanel({
     logoDarkUrl: branding?.logoDarkUrl ?? "",
     logoClickUrl: branding?.logoClickUrl ?? "",
     faviconUrl: branding?.faviconUrl ?? "",
-    primaryColorLight: branding?.primaryColorLight ?? "#008080",
-    primaryColorDark: branding?.primaryColorDark ?? "#008080",
-    navTextColorLight: branding?.navTextColorLight ?? "#0c2340",
-    navTextColorDark: branding?.navTextColorDark ?? "#f4f6f8",
-    navBgColorLight: branding?.navBgColorLight ?? "#ffffff",
-    navBgColorDark: branding?.navBgColorDark ?? "#1a1a2e",
+    primaryColorLight: branding?.primaryColorLight ?? "",
+    primaryColorDark: branding?.primaryColorDark ?? "",
+    navTextColorLight: branding?.navTextColorLight ?? "",
+    navTextColorDark: branding?.navTextColorDark ?? "",
+    navBgColorLight: branding?.navBgColorLight ?? "",
+    navBgColorDark: branding?.navBgColorDark ?? "",
+    themePreset: branding?.themePreset ?? defaultPresetId,
+    themeMode: branding?.themeMode ?? "dark",
   });
   const [savingBranding, setSavingBranding] = useState(false);
   const [brandingMsg, setBrandingMsg] = useState<string | null>(null);
@@ -96,6 +109,8 @@ export function SettingsPanel({
         navTextColorDark: b.navTextColorDark || null,
         navBgColorLight: b.navBgColorLight || null,
         navBgColorDark: b.navBgColorDark || null,
+        themePreset: b.themePreset,
+        themeMode: b.themeMode,
       });
       setBrandingMsg("Branding saved");
     } catch {
@@ -136,10 +151,27 @@ export function SettingsPanel({
     }
   }
 
+  // When a preset is selected, load its colors into the custom fields
+  function handlePresetSelect(presetId: string) {
+    const preset = themePresets.find((p) => p.id === presetId);
+    if (!preset) return;
+    setB((prev) => ({
+      ...prev,
+      themePreset: presetId,
+      // Load preset colors as starting point for custom overrides
+      primaryColorLight: preset.light.tenantPrimary,
+      primaryColorDark: preset.dark.tenantPrimary,
+      navTextColorLight: preset.light.tenantNavText,
+      navTextColorDark: preset.dark.tenantNavText,
+      navBgColorLight: preset.light.tenantNavBg,
+      navBgColorDark: preset.dark.tenantNavBg,
+    }));
+  }
+
   return (
     <div className="flex max-w-3xl flex-col gap-6">
       {/* Tenant info */}
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+      <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="mb-4 text-lg font-semibold">Tenant Information</h2>
         <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col gap-2">
@@ -148,13 +180,13 @@ export function SettingsPanel({
           </div>
           <div className="flex flex-col gap-2">
             <Label>Plan</Label>
-            <div className="flex h-10 items-center rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-sm capitalize">
+            <div className="flex h-10 items-center rounded-lg border border-border bg-background px-3 text-sm capitalize">
               {tenant.plan}
             </div>
           </div>
           <div className="flex flex-col gap-2">
             <Label>Status</Label>
-            <div className="flex h-10 items-center rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-sm capitalize">
+            <div className="flex h-10 items-center rounded-lg border border-border bg-background px-3 text-sm capitalize">
               {tenant.status}
             </div>
           </div>
@@ -163,13 +195,95 @@ export function SettingsPanel({
           {savingTenant ? "Saving..." : "Save Tenant"}
         </Button>
         {tenantMsg && (
-          <p className="mt-2 text-sm text-[var(--muted-foreground)]">{tenantMsg}</p>
+          <p className="mt-2 text-sm text-muted-foreground">{tenantMsg}</p>
         )}
       </section>
 
       {/* Branding */}
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+      <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="mb-4 text-lg font-semibold">Branding & Design</h2>
+
+        {/* Theme Preset */}
+        <div className="mb-6">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-semibold">Theme Preset</h3>
+            {!isOwner && (
+              <span className="text-xs text-muted-foreground">Owner only</span>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {themePresets.map((preset) => {
+              const isActive = b.themePreset === preset.id;
+              return (
+                <button
+                  key={preset.id}
+                  type="button"
+                  disabled={!isOwner}
+                  onClick={() => handlePresetSelect(preset.id)}
+                  className={`flex flex-col gap-2 rounded-lg border p-3 text-left transition disabled:opacity-50 ${
+                    isActive
+                      ? "border-(--tenant-primary) bg-(--tenant-primary)/10"
+                      : "border-border hover:bg-muted"
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className="h-5 w-5 rounded-full border border-border"
+                      style={{ backgroundColor: preset.swatch.primary }}
+                    />
+                    <span
+                      className="h-5 w-5 rounded-full border border-border"
+                      style={{ backgroundColor: preset.swatch.accent }}
+                    />
+                    <span
+                      className="h-5 w-5 rounded-full border border-border"
+                      style={{ backgroundColor: preset.swatch.bg }}
+                    />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">{preset.name}</p>
+                    <p className="text-xs text-muted-foreground">{preset.description}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Theme Mode */}
+        <div className="mb-6">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-semibold">Default Theme Mode</h3>
+            {!isOwner && (
+              <span className="text-xs text-muted-foreground">Owner only</span>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {THEME_MODES.map((mode) => {
+              const Icon = mode.icon;
+              const isActive = b.themeMode === mode.value;
+              return (
+                <button
+                  key={mode.value}
+                  type="button"
+                  disabled={!isOwner}
+                  onClick={() => setB({ ...b, themeMode: mode.value })}
+                  className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition disabled:opacity-50 ${
+                    isActive
+                      ? "border-(--tenant-primary) bg-(--tenant-primary)/10"
+                      : "border-border hover:bg-muted"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {mode.label}
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            This sets the default theme for all users. Users can still switch between light and dark in their profile settings.
+          </p>
+        </div>
 
         {/* Logos */}
         <div className="mb-6">
@@ -214,7 +328,10 @@ export function SettingsPanel({
 
         {/* Colors */}
         <div className="mb-6">
-          <h3 className="mb-3 text-sm font-semibold">Colors</h3>
+          <h3 className="mb-3 text-sm font-semibold">Custom Colors</h3>
+          <p className="mb-3 text-xs text-muted-foreground">
+            Override individual colors from the preset. Leave blank to use the preset default.
+          </p>
           <div className="grid grid-cols-2 gap-4">
             <ColorInput
               label="Primary Color (Light)"
@@ -253,12 +370,12 @@ export function SettingsPanel({
           {savingBranding ? "Saving..." : "Save Branding"}
         </Button>
         {brandingMsg && (
-          <p className="mt-2 text-sm text-[var(--muted-foreground)]">{brandingMsg}</p>
+          <p className="mt-2 text-sm text-muted-foreground">{brandingMsg}</p>
         )}
       </section>
 
       {/* API Keys */}
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+      <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="mb-4 text-lg font-semibold">API Keys</h2>
 
         {/* Create new key */}
@@ -286,26 +403,26 @@ export function SettingsPanel({
               Your new API key:
             </p>
             <div className="flex items-center gap-2">
-              <code className="flex-1 rounded bg-[var(--background)] px-3 py-2 text-sm font-mono">
+              <code className="flex-1 rounded bg-background px-3 py-2 text-sm font-mono">
                 {newKey}
               </code>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={copyKey}
-                className="text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                className="text-muted-foreground hover:bg-muted"
               >
                 {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
               </Button>
             </div>
-            <p className="mt-2 text-xs text-[var(--muted-foreground)]">
+            <p className="mt-2 text-xs text-muted-foreground">
               Copy this key now — it won&apos;t be shown again.
             </p>
           </div>
         )}
 
         {keyMsg && (
-          <p className="mb-4 text-sm text-[var(--muted-foreground)]">{keyMsg}</p>
+          <p className="mb-4 text-sm text-muted-foreground">{keyMsg}</p>
         )}
 
         {/* Existing keys */}
@@ -314,11 +431,11 @@ export function SettingsPanel({
             {apiKeys.map((k) => (
               <li
                 key={k.id}
-                className="flex items-center justify-between rounded-lg border border-[var(--border)] px-3 py-2"
+                className="flex items-center justify-between rounded-lg border border-border px-3 py-2"
               >
                 <div>
                   <p className="text-sm font-medium">{k.name}</p>
-                  <p className="text-xs text-[var(--muted-foreground)]">
+                  <p className="text-xs text-muted-foreground">
                     Created {new Date(k.createdAt).toLocaleDateString()}
                     {k.lastUsedAt && ` · Last used ${new Date(k.lastUsedAt).toLocaleDateString()}`}
                   </p>
@@ -355,11 +472,16 @@ function ColorInput({
       <div className="flex items-center gap-2">
         <input
           type="color"
+          value={value || "#000000"}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-10 w-12 rounded border border-border"
+        />
+        <Input
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="h-10 w-12 rounded border border-[var(--border)]"
+          placeholder="Preset default"
+          className="flex-1"
         />
-        <Input value={value} onChange={(e) => onChange(e.target.value)} className="flex-1" />
       </div>
     </div>
   );

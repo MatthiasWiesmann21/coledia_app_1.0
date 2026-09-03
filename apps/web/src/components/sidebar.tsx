@@ -42,6 +42,7 @@ const ADMIN_NAV: NavItem[] = [
   { labelKey: "admin.courses", href: "/admin/courses", icon: BookOpen },
   { labelKey: "admin.posts", href: "/admin/posts", icon: Newspaper },
   { labelKey: "admin.liveEvents", href: "/admin/events", icon: CalendarDays },
+  { labelKey: "admin.chat", href: "/admin/chat", icon: MessageSquare },
   { labelKey: "admin.documents", href: "/admin/documents", icon: FileText },
   { labelKey: "admin.categories", href: "/admin/categories", icon: Tag },
   { labelKey: "admin.users", href: "/admin/users", icon: Users },
@@ -69,11 +70,11 @@ export function Sidebar({
 
   return (
     <aside className="flex h-screen w-58 flex-col border-r border-border bg-card">
-      {/* Logo / Branding — 16:9 custom logo placeholder */}
-      <div className="flex h-20 items-center justify-center border-b border-border px-4 py-2">
+      {/* Logo / Branding — contained, no overflow */}
+      <div className="flex h-20 shrink-0 items-center justify-center overflow-hidden border-b border-border px-4 py-2">
         <Link
           href={logoClickUrl ?? "/dashboard"}
-          className="block w-full"
+          className="flex h-full w-full items-center justify-center"
           aria-label={tenantName}
         >
           {tenantLogoUrl ? (
@@ -81,10 +82,10 @@ export function Sidebar({
             <img
               src={tenantLogoUrl}
               alt={tenantName}
-              className="h-full w-full max-w-[140px] object-contain"
+              className="max-h-full max-w-full object-contain"
             />
           ) : (
-            <div className="mx-auto flex aspect-21/9 w-full max-w-40 items-center justify-center rounded-lg border border-dashed border-border bg-muted">
+            <div className="flex aspect-21/9 max-w-40 items-center justify-center rounded-lg border border-dashed border-border bg-muted">
               <span className="text-xs text-muted-foreground">Logo</span>
             </div>
           )}
@@ -95,7 +96,7 @@ export function Sidebar({
       {isAdmin && (
         <button
           onClick={() => setAdminView(!adminView)}
-          className="mx-3 mt-3 flex items-center justify-between rounded-lg border border-[var(--border)] px-3 py-2 text-sm transition hover:bg-[var(--muted)]"
+          className="mx-3 mt-3 flex items-center justify-between rounded-lg border border-border px-3 py-2 text-sm transition hover:bg-muted"
         >
           <span className="flex items-center gap-2">
             <Shield className="h-4 w-4" />
@@ -126,8 +127,8 @@ export function Sidebar({
                   className={cn(
                     "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition",
                     active
-                      ? "bg-[var(--tenant-primary)]/15 text-[var(--tenant-primary)]"
-                      : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]",
+                      ? "bg-(--tenant-primary)/15 text-(--tenant-primary)"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                 >
                   <item.icon className="h-4 w-4 shrink-0" />
@@ -140,12 +141,12 @@ export function Sidebar({
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-[var(--border)] px-3 py-3">
+      <div className="border-t border-border px-3 py-3">
         <ul className="flex flex-col gap-1">
           <li>
             <Link
               href="/help"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-[var(--muted-foreground)] transition hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition hover:bg-muted hover:text-foreground"
             >
               <HelpCircle className="h-4 w-4" />
               {t("nav.help")}
@@ -154,14 +155,14 @@ export function Sidebar({
           <li>
             <Link
               href="/privacy"
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-[var(--muted-foreground)] transition hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition hover:bg-muted hover:text-foreground"
             >
               <FileText className="h-4 w-4" />
               {t("nav.privacyPolicy")}
             </Link>
           </li>
         </ul>
-        <p className="mt-2 px-3 text-xs text-[var(--muted-foreground)]">
+        <p className="mt-2 px-3 text-xs text-muted-foreground">
           {t("nav.madeByColedia")}
         </p>
       </div>

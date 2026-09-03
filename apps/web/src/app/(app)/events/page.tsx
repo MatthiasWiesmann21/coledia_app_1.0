@@ -1,15 +1,34 @@
 ﻿import { prisma } from "@coledia/db";
 import { getTenantId } from "@/lib/tenant";
+import { getSession } from "@/lib/session";
 import { EventsList } from "@/components/events/events-list-view";
 import { getUserLocale } from "@/i18n/get-locale";
 
 export default async function EventsPage() {
   const tenantId = getTenantId();
   const locale = await getUserLocale();
+  const session = await getSession();
+
+  // Get user's group IDs for access filtering
+  const userGroupIds = session
+    ? (
+        await prisma.userGroupMember.findMany({
+          where: { userId: session.user.id },
+          select: { userGroupId: true },
+        })
+      ).map((m) => m.userGroupId)
+    : [];
 
   const [events, categories, translations] = await Promise.all([
     prisma.event.findMany({
-      where: { tenantId, published: true },
+      where: {
+        tenantId,
+        published: true,
+        OR: [
+          { userGroups: { none: {} } },
+          { userGroups: { some: { id: { in: userGroupIds } } } },
+        ],
+      },
       include: {
         category: true,
         _count: { select: { registrations: true } },

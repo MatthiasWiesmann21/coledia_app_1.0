@@ -67,6 +67,10 @@ model Branding {
   navBgColorLight    String?
   navBgColorDark     String?
 
+  // Design — theme preset + mode (owner-controlled)
+  themePreset  String? @default("coledia") // coledia | ocean | forest | midnight | sunset | rose
+  themeMode    String? // light | dark | system (null = dark fallback)
+
   // Design — auth page logos
   authLogoSignUpLight   String?
   authLogoSignUpDark    String?
@@ -105,6 +109,7 @@ model User {
   likes         Like[]
   favourites    Favourite[]
   messages      Message[]
+  messageReactions MessageReaction[]
   directConversations1 DirectConversation[] @relation("directUser1")
   directConversations2 DirectConversation[] @relation("directUser2")
   notifications Notification[]
@@ -157,7 +162,11 @@ model UserGroup {
   members   UserGroupMember[]
   courses   Course[]
   events    Event[]
-  documentFolders Folder[]
+  posts     Post[]
+  chatServers ChatServer[]
+  channels    Channel[]
+  folders     Folder[]
+  documents Document[]
 
   @@index([tenantId])
 }
@@ -205,7 +214,6 @@ model Course {
   description      String?  @db.Text
   thumbnailUrl     String?
   categoryId       String?
-  userGroupId      String?
   duration         String?
   level            String?  // beginner | intermediate | advanced
   specialStatus    String?  // featured | trending | exclusive
@@ -218,7 +226,7 @@ model Course {
   updatedAt        DateTime @updatedAt
   tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   category         Category? @relation(fields: [categoryId], references: [id])
-  userGroup        UserGroup? @relation(fields: [userGroupId], references: [id])
+  userGroups       UserGroup[]
   chapters         Chapter[]
   enrollments      Enrollment[]
   certificates     Certificate[]
@@ -332,6 +340,7 @@ model Post {
   updatedAt   DateTime  @updatedAt
   tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   category    Category? @relation(fields: [categoryId], references: [id])
+  userGroups  UserGroup[]
   comments    Comment[]
 
   @@index([tenantId, published])
@@ -397,7 +406,6 @@ model Event {
   description       String?   @db.Text
   thumbnailUrl      String?
   categoryId        String?
-  userGroupId       String?
   startAt           DateTime
   endAt             DateTime?
   videoUrl          String?
@@ -409,7 +417,7 @@ model Event {
   updatedAt         DateTime  @updatedAt
   tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   category          Category? @relation(fields: [categoryId], references: [id])
-  userGroup         UserGroup? @relation(fields: [userGroupId], references: [id])
+  userGroups        UserGroup[]
   registrations     EventRegistration[]
 
   @@index([tenantId, published])
@@ -436,7 +444,6 @@ model Folder {
   tenantId   String
   name       String
   parentId   String?
-  userGroupId String?
   visible    Boolean  @default(true)
   published  Boolean  @default(false)
   createdAt  DateTime @default(now())
@@ -445,11 +452,10 @@ model Folder {
   parent     Folder?  @relation("FolderTree", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   children   Folder[] @relation("FolderTree")
   documents  Document[]
-  userGroup  UserGroup? @relation(fields: [userGroupId], references: [id])
+  userGroups UserGroup[]
 
   @@index([tenantId])
   @@index([parentId])
-  @@index([userGroupId])
 }
 
 model Document {
@@ -469,6 +475,7 @@ model Document {
   updatedAt  DateTime @updatedAt
   tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   folder     Folder?  @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  userGroups UserGroup[]
   versions   DocumentVersion[]
 
   @@index([tenantId])
@@ -497,6 +504,7 @@ model ChatServer {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userGroups  UserGroup[]
   channels    Channel[]
   members     ChatServerMember[]
 
@@ -512,6 +520,7 @@ model Channel {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   chatServer   ChatServer @relation(fields: [chatServerId], references: [id], onDelete: Cascade)
+  userGroups   UserGroup[]
   members      ChannelMember[]
   messages     Message[]
 
@@ -546,15 +555,33 @@ model Message {
   directConversationId String?
   userId       String
   content      String   @db.Text
+  replyToId    String?
   attachments  Json?    // array of {name, url, type}
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   channel      Channel? @relation(fields: [channelId], references: [id], onDelete: Cascade)
   directConversation DirectConversation? @relation(fields: [directConversationId], references: [id], onDelete: Cascade)
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replyTo      Message? @relation("MessageReply", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies      Message[] @relation("MessageReply")
+  reactions    MessageReaction[]
 
   @@index([channelId, createdAt])
   @@index([directConversationId, createdAt])
+  @@index([replyToId])
+}
+
+model MessageReaction {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
 }
 
 model DirectConversation {

@@ -1,9 +1,14 @@
 "use client";
 import * as React from "react";
+import {
+  getPresetById,
+  defaultPresetId,
+  type ThemePresetColors,
+} from "../theme-presets";
 
 /**
  * Branding configuration for a tenant.
- * All fields are optional — when null, the Coledia default brand values apply.
+ * All fields are optional — when null, the preset defaults apply.
  */
 export interface TenantBranding {
   // Container settings
@@ -29,6 +34,10 @@ export interface TenantBranding {
   authLogoSignInDark?: string | null;
   authLogoForgotLight?: string | null;
   authLogoForgotDark?: string | null;
+
+  // Theme preset + mode
+  themePreset?: string | null;
+  themeMode?: string | null;
 }
 
 interface TenantThemeContextValue {
@@ -49,14 +58,32 @@ interface TenantThemeProviderProps {
 }
 
 /**
+ * Maps a ThemePresetColors object to CSS custom property key-value pairs.
+ */
+function colorsToVars(colors: ThemePresetColors): Record<string, string> {
+  return {
+    "--background": colors.background,
+    "--foreground": colors.foreground,
+    "--card": colors.card,
+    "--card-foreground": colors.cardForeground,
+    "--muted": colors.muted,
+    "--muted-foreground": colors.mutedForeground,
+    "--border": colors.border,
+    "--ring": colors.ring,
+    "--tenant-primary": colors.tenantPrimary,
+    "--tenant-nav-text": colors.tenantNavText,
+    "--tenant-nav-bg": colors.tenantNavBg,
+  };
+}
+
+/**
  * Injects per-tenant CSS custom properties for light + dark mode.
- * Powers the old Clubyte "Design Settings" + "Container Settings".
  *
- * In light mode: --tenant-primary, --tenant-nav-text, --tenant-nav-bg
- *   are set from the *Light branding fields.
- * In dark mode (.dark class): they're overridden from the *Dark fields.
- *
- * When a field is null, the default from globals.css applies.
+ * 1. Looks up the theme preset (defaults to "coledia") and injects its
+ *    full color palette as CSS variables for :root (light) and .dark.
+ * 2. Overlays any custom color overrides from the branding fields
+ *    (primaryColorLight/Dark, navTextColorLight/Dark, navBgColorLight/Dark)
+ *    on top of the preset — custom values take priority.
  */
 export function TenantThemeProvider({
   branding,
@@ -65,23 +92,28 @@ export function TenantThemeProvider({
   const styleRef = React.useRef<HTMLStyleElement>(null);
 
   React.useEffect(() => {
-    if (!branding) return;
+    const preset = getPresetById(branding?.themePreset) ??
+      getPresetById(defaultPresetId)!;
 
-    const lightVars: Record<string, string> = {};
-    const darkVars: Record<string, string> = {};
+    // Start with preset colors
+    const lightVars = colorsToVars(preset.light);
+    const darkVars = colorsToVars(preset.dark);
 
-    if (branding.primaryColorLight)
-      lightVars["--tenant-primary"] = branding.primaryColorLight;
-    if (branding.primaryColorDark)
-      darkVars["--tenant-primary"] = branding.primaryColorDark;
-    if (branding.navTextColorLight)
-      lightVars["--tenant-nav-text"] = branding.navTextColorLight;
-    if (branding.navTextColorDark)
-      darkVars["--tenant-nav-text"] = branding.navTextColorDark;
-    if (branding.navBgColorLight)
-      lightVars["--tenant-nav-bg"] = branding.navBgColorLight;
-    if (branding.navBgColorDark)
-      darkVars["--tenant-nav-bg"] = branding.navBgColorDark;
+    // Overlay custom branding overrides (non-null values take priority)
+    if (branding) {
+      if (branding.primaryColorLight)
+        lightVars["--tenant-primary"] = branding.primaryColorLight;
+      if (branding.primaryColorDark)
+        darkVars["--tenant-primary"] = branding.primaryColorDark;
+      if (branding.navTextColorLight)
+        lightVars["--tenant-nav-text"] = branding.navTextColorLight;
+      if (branding.navTextColorDark)
+        darkVars["--tenant-nav-text"] = branding.navTextColorDark;
+      if (branding.navBgColorLight)
+        lightVars["--tenant-nav-bg"] = branding.navBgColorLight;
+      if (branding.navBgColorDark)
+        darkVars["--tenant-nav-bg"] = branding.navBgColorDark;
+    }
 
     const lightEntries = Object.entries(lightVars)
       .map(([k, v]) => `${k}: ${v};`)
@@ -90,10 +122,7 @@ export function TenantThemeProvider({
       .map(([k, v]) => `${k}: ${v};`)
       .join(" ");
 
-    const css = `
-      :root { ${lightEntries} }
-      .dark { ${darkEntries} }
-    `;
+    const css = `:root { ${lightEntries} } .dark { ${darkEntries} }`;
 
     let styleEl = styleRef.current;
     if (!styleEl) {

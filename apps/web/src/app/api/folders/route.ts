@@ -7,7 +7,7 @@ import { z } from "zod";
 const createFolderSchema = z.object({
   name: z.string().min(1).max(255),
   parentId: z.string().nullable().optional(),
-  userGroupId: z.string().nullable().optional(),
+  userGroupIds: z.array(z.string()).optional(),
   visible: z.boolean().optional(),
   published: z.boolean().optional(),
 });
@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
   const tenantId = getTenantId();
   const { searchParams } = new URL(request.url);
   const parentId = searchParams.get("parentId") || null;
+  const includeAll = searchParams.get("includeAll") === "true";
 
   // Check admin status
   const membership = await prisma.membership.findUnique({
@@ -44,15 +45,18 @@ export async function GET(request: NextRequest) {
     parentId: parentId || null,
   };
 
+  // userGroup filtering applies to everyone unless explicitly bypassed (admin manager)
+  if (!includeAll) {
+    where.OR = [
+      { userGroups: { none: {} } },
+      { userGroups: { some: { id: { in: userGroupIds } } } },
+    ];
+  }
+
+  // visible/published filtering only for non-admins
   if (!isAdmin) {
-    // Non-admins only see visible + published folders
     where.visible = true;
     where.published = true;
-    // Folder must have no userGroup restriction OR user is a member
-    where.OR = [
-      { userGroupId: null },
-      { userGroupId: { in: userGroupIds } },
-    ];
   }
 
   const folders = await prisma.folder.findMany({
@@ -61,7 +65,7 @@ export async function GET(request: NextRequest) {
       _count: {
         select: { documents: true, children: true },
       },
-      userGroup: {
+      userGroups: {
         select: { id: true, name: true },
       },
     },
@@ -73,8 +77,7 @@ export async function GET(request: NextRequest) {
       id: f.id,
       name: f.name,
       parentId: f.parentId,
-      userGroupId: f.userGroupId,
-      userGroupName: f.userGroup?.name ?? null,
+      userGroups: f.userGroups.map((g) => ({ id: g.id, name: g.name })),
       visible: f.visible,
       published: f.published,
       fileCount: f._count.documents,
@@ -118,9 +121,11 @@ export async function POST(request: NextRequest) {
       tenantId,
       name: parsed.name,
       parentId: parsed.parentId ?? null,
-      userGroupId: parsed.userGroupId ?? null,
       visible: parsed.visible ?? true,
       published: parsed.published ?? false,
+      userGroups: parsed.userGroupIds?.length
+        ? { connect: parsed.userGroupIds.map((id) => ({ id })) }
+        : undefined,
     },
   });
 
@@ -130,7 +135,6 @@ export async function POST(request: NextRequest) {
         id: folder.id,
         name: folder.name,
         parentId: folder.parentId,
-        userGroupId: folder.userGroupId,
         visible: folder.visible,
         published: folder.published,
         createdAt: folder.createdAt.toISOString(),

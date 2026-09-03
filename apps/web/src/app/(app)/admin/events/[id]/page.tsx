@@ -12,7 +12,10 @@ export default async function EditEventPage({
   const { tenantId } = await requireAdmin();
 
   const [event, categories, userGroups, translations] = await Promise.all([
-    prisma.event.findFirst({ where: { id, tenantId } }),
+    prisma.event.findFirst({
+      where: { id, tenantId },
+      include: { userGroups: { select: { id: true, name: true } } },
+    }),
     prisma.category.findMany({
       where: { tenantId, isEvent: true, published: true },
       orderBy: { name: "asc" },
@@ -44,7 +47,7 @@ export default async function EditEventPage({
           description: event.description,
           thumbnailUrl: event.thumbnailUrl,
           categoryId: event.categoryId,
-          userGroupId: event.userGroupId,
+          userGroupIds: event.userGroups.map((g) => g.id),
           startAt: event.startAt.toISOString().slice(0, 16),
           endAt: event.endAt?.toISOString().slice(0, 16) ?? "",
           videoUrl: event.videoUrl,

@@ -97,12 +97,27 @@ io.on("connection", (socket) => {
       where: { id: channelId },
       include: {
         chatServer: { select: { tenantId: true } },
+        userGroups: { select: { id: true } },
       },
     });
 
     if (!channel || channel.chatServer.tenantId !== tenantId) {
       socket.emit("error", { message: "Channel not found" });
       return;
+    }
+
+    // Enforce channel-level user group access
+    if (channel.userGroups.length > 0) {
+      const membership = await prisma.userGroupMember.findFirst({
+        where: {
+          userId,
+          userGroupId: { in: channel.userGroups.map((g) => g.id) },
+        },
+      });
+      if (!membership) {
+        socket.emit("error", { message: "No access to this channel" });
+        return;
+      }
     }
 
     socket.join(`channel:${channelId}`);
@@ -123,13 +138,14 @@ io.on("connection", (socket) => {
 
   socket.on(
     "channel:message",
-    async (data: { channelId: string; content: string }) => {
+    async (data: { channelId: string; content: string; replyToId?: string }) => {
       try {
-        // Verify membership
+        // Verify membership and channel user group access
         const channel = await prisma.channel.findUnique({
           where: { id: data.channelId },
           include: {
             chatServer: { select: { tenantId: true } },
+            userGroups: { select: { id: true } },
           },
         });
 
@@ -137,18 +153,47 @@ io.on("connection", (socket) => {
           return;
         }
 
+        if (channel.userGroups.length > 0) {
+          const membership = await prisma.userGroupMember.findFirst({
+            where: {
+              userId,
+              userGroupId: { in: channel.userGroups.map((g) => g.id) },
+            },
+          });
+          if (!membership) {
+            return;
+          }
+        }
+
+        // Validate reply target belongs to same channel
+        let replyToId: string | undefined;
+        if (data.replyToId) {
+          const replyTarget = await prisma.message.findUnique({
+            where: { id: data.replyToId },
+            select: { channelId: true },
+          });
+          if (replyTarget && replyTarget.channelId === data.channelId) {
+            replyToId = data.replyToId;
+          }
+        }
+
         const message = await prisma.message.create({
           data: {
             channelId: data.channelId,
             userId,
             content: data.content,
+            replyToId: replyToId ?? null,
           },
           include: {
             user: {
+              select: { id: true, name: true, email: true },
+            },
+            replyTo: {
               select: {
                 id: true,
-                name: true,
-                email: true,
+                content: true,
+                userId: true,
+                user: { select: { name: true, email: true } },
               },
             },
           },
@@ -161,6 +206,16 @@ io.on("connection", (socket) => {
           userName: message.user.name ?? message.user.email,
           content: message.content,
           createdAt: message.createdAt.toISOString(),
+          replyTo: message.replyTo
+            ? {
+                id: message.replyTo.id,
+                content: message.replyTo.content,
+                userId: message.replyTo.userId,
+                userName:
+                  message.replyTo.user.name ?? message.replyTo.user.email,
+              }
+            : null,
+          reactions: [],
         });
       } catch (err) {
         console.error("[realtime] channel:message error:", err);
@@ -201,7 +256,7 @@ io.on("connection", (socket) => {
 
   socket.on(
     "dm:message",
-    async (data: { otherUserId: string; content: string }) => {
+    async (data: { otherUserId: string; content: string; replyToId?: string }) => {
       try {
         const [user1Id, user2Id] =
           userId < data.otherUserId
@@ -216,15 +271,39 @@ io.on("connection", (socket) => {
           create: { tenantId, user1Id, user2Id },
         });
 
+        // Validate reply target belongs to same conversation
+        let replyToId: string | undefined;
+        if (data.replyToId) {
+          const replyTarget = await prisma.message.findUnique({
+            where: { id: data.replyToId },
+            select: { directConversationId: true },
+          });
+          if (
+            replyTarget &&
+            replyTarget.directConversationId === conversation.id
+          ) {
+            replyToId = data.replyToId;
+          }
+        }
+
         const message = await prisma.message.create({
           data: {
             directConversationId: conversation.id,
             userId,
             content: data.content,
+            replyToId: replyToId ?? null,
           },
           include: {
             user: {
               select: { id: true, name: true, email: true },
+            },
+            replyTo: {
+              select: {
+                id: true,
+                content: true,
+                userId: true,
+                user: { select: { name: true, email: true } },
+              },
             },
           },
         });
@@ -236,6 +315,16 @@ io.on("connection", (socket) => {
           userName: message.user.name ?? message.user.email,
           content: message.content,
           createdAt: message.createdAt.toISOString(),
+          replyTo: message.replyTo
+            ? {
+                id: message.replyTo.id,
+                content: message.replyTo.content,
+                userId: message.replyTo.userId,
+                userName:
+                  message.replyTo.user.name ?? message.replyTo.user.email,
+              }
+            : null,
+          reactions: [],
         });
       } catch (err) {
         console.error("[realtime] dm:message error:", err);
@@ -256,6 +345,133 @@ io.on("connection", (socket) => {
       isTyping: data.isTyping,
     });
   });
+
+  // ─── Reactions ──────────────────────────────────────────────
+
+  socket.on(
+    "channel:react",
+    async (data: { channelId: string; messageId: string; emoji: string }) => {
+      try {
+        // Verify channel access
+        const channel = await prisma.channel.findUnique({
+          where: { id: data.channelId },
+          include: {
+            chatServer: { select: { tenantId: true } },
+            userGroups: { select: { id: true } },
+          },
+        });
+
+        if (!channel || channel.chatServer.tenantId !== tenantId) return;
+
+        if (channel.userGroups.length > 0) {
+          const membership = await prisma.userGroupMember.findFirst({
+            where: {
+              userId,
+              userGroupId: { in: channel.userGroups.map((g) => g.id) },
+            },
+          });
+          if (!membership) return;
+        }
+
+        // Toggle reaction
+        const existing = await prisma.messageReaction.findUnique({
+          where: {
+            messageId_userId_emoji: {
+              messageId: data.messageId,
+              userId,
+              emoji: data.emoji,
+            },
+          },
+        });
+
+        if (existing) {
+          await prisma.messageReaction.delete({ where: { id: existing.id } });
+        } else {
+          await prisma.messageReaction.create({
+            data: {
+              messageId: data.messageId,
+              userId,
+              emoji: data.emoji,
+            },
+          });
+        }
+
+        // Broadcast updated reaction list for this message
+        const reactions = await prisma.messageReaction.findMany({
+          where: { messageId: data.messageId },
+          select: { userId: true, emoji: true },
+        });
+
+        io.to(`channel:${data.channelId}`).emit("channel:reaction", {
+          messageId: data.messageId,
+          reactions: reactions.map((r) => ({ userId: r.userId, emoji: r.emoji })),
+        });
+      } catch (err) {
+        console.error("[realtime] channel:react error:", err);
+      }
+    },
+  );
+
+  socket.on(
+    "dm:react",
+    async (data: { otherUserId: string; messageId: string; emoji: string }) => {
+      try {
+        const [user1Id, user2Id] =
+          userId < data.otherUserId
+            ? [userId, data.otherUserId]
+            : [data.otherUserId, userId];
+
+        const conversation = await prisma.directConversation.findUnique({
+          where: { user1Id_user2Id: { user1Id, user2Id } },
+        });
+
+        if (!conversation || conversation.tenantId !== tenantId) return;
+
+        // Verify message belongs to this conversation
+        const msg = await prisma.message.findUnique({
+          where: { id: data.messageId },
+          select: { directConversationId: true },
+        });
+        if (!msg || msg.directConversationId !== conversation.id) return;
+
+        // Toggle reaction
+        const existing = await prisma.messageReaction.findUnique({
+          where: {
+            messageId_userId_emoji: {
+              messageId: data.messageId,
+              userId,
+              emoji: data.emoji,
+            },
+          },
+        });
+
+        if (existing) {
+          await prisma.messageReaction.delete({ where: { id: existing.id } });
+        } else {
+          await prisma.messageReaction.create({
+            data: {
+              messageId: data.messageId,
+              userId,
+              emoji: data.emoji,
+            },
+          });
+        }
+
+        // Broadcast updated reaction list
+        const reactions = await prisma.messageReaction.findMany({
+          where: { messageId: data.messageId },
+          select: { userId: true, emoji: true },
+        });
+
+        io.to(`dm:${conversation.id}`).emit("dm:reaction", {
+          messageId: data.messageId,
+          reactions: reactions.map((r) => ({ userId: r.userId, emoji: r.emoji })),
+        });
+      } catch (err) {
+        console.error("[realtime] dm:react error:", err);
+      }
+    },
+  );
 
   // Join personal room for DMs and presence
   socket.join(`user:${userId}`);

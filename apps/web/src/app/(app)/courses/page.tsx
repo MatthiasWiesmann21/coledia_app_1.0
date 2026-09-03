@@ -7,10 +7,28 @@ import { getUserLocale } from "@/i18n/get-locale";
 export default async function CoursesPage() {
   const tenantId = getTenantId();
   const locale = await getUserLocale();
+  const session = await getSession();
+
+  // Get user's group IDs for access filtering
+  const userGroupIds = session
+    ? (
+        await prisma.userGroupMember.findMany({
+          where: { userId: session.user.id },
+          select: { userGroupId: true },
+        })
+      ).map((m) => m.userGroupId)
+    : [];
 
   const [courses, categories, translations] = await Promise.all([
     prisma.course.findMany({
-      where: { tenantId, published: true },
+      where: {
+        tenantId,
+        published: true,
+        OR: [
+          { userGroups: { none: {} } },
+          { userGroups: { some: { id: { in: userGroupIds } } } },
+        ],
+      },
       include: {
         category: true,
         _count: { select: { chapters: true } },

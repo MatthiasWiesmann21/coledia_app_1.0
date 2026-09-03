@@ -27,6 +27,7 @@ export async function GET(
 
   const document = await prisma.document.findFirst({
     where: { id, tenantId },
+    include: { userGroups: { select: { id: true } } },
   });
 
   if (!document || !document.storagePath) {
@@ -38,22 +39,33 @@ export async function GET(
     if (!document.visible || !document.published) {
       return NextResponse.json({ error: "File not found" }, { status: 404 });
     }
+    // Check document-level userGroup access
+    if (document.userGroups.length > 0) {
+      const groupMember = await prisma.userGroupMember.findFirst({
+        where: {
+          userId: session.user.id,
+          userGroupId: { in: document.userGroups.map((g) => g.id) },
+        },
+      });
+      if (!groupMember) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    }
     // Check folder visibility chain
     if (document.folderId) {
       const folder = await prisma.folder.findFirst({
         where: { id: document.folderId, visible: true, published: true },
+        include: { userGroups: { select: { id: true } } },
       });
       if (!folder) {
         return NextResponse.json({ error: "File not found" }, { status: 404 });
       }
-      // Check userGroup access if folder has one
-      if (folder.userGroupId) {
-        const groupMember = await prisma.userGroupMember.findUnique({
+      // Check userGroup access if folder has any assigned groups
+      if (folder.userGroups.length > 0) {
+        const groupMember = await prisma.userGroupMember.findFirst({
           where: {
-            userGroupId_userId: {
-              userGroupId: folder.userGroupId,
-              userId: session.user.id,
-            },
+            userId: session.user.id,
+            userGroupId: { in: folder.userGroups.map((g) => g.id) },
           },
         });
         if (!groupMember) {

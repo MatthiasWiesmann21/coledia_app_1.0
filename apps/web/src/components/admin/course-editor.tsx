@@ -22,6 +22,7 @@ import {
 import { saveTranslation } from "@/lib/translation-actions";
 import { LanguageToggle } from "@/components/admin/language-toggle";
 import { UploadButton } from "@/components/upload-button";
+import { UserGroupMultiSelect } from "@/components/admin/usergroup-multiselect";
 import { defaultLocale, type Locale } from "@/i18n/config";
 
 type Chapter = {
@@ -43,7 +44,7 @@ type CourseData = {
   description?: string | null;
   thumbnailUrl?: string | null;
   categoryId?: string | null;
-  userGroupId?: string | null;
+  userGroupIds?: string[];
   duration?: string | null;
   level?: string | null;
   specialStatus?: string | null;
@@ -80,7 +81,7 @@ export function CourseEditor({
   const [description, setDescription] = useState(course.description ?? "");
   const [thumbnailUrl, setThumbnailUrl] = useState(course.thumbnailUrl ?? "");
   const [categoryId, setCategoryId] = useState(course.categoryId ?? "");
-  const [userGroupId, setUserGroupId] = useState(course.userGroupId ?? "");
+  const [userGroupIds, setUserGroupIds] = useState<string[]>(course.userGroupIds ?? []);
   const [duration, setDuration] = useState(course.duration ?? "");
   const [level, setLevel] = useState(course.level ?? "");
   const [specialStatus, setSpecialStatus] = useState(course.specialStatus ?? "");
@@ -145,7 +146,7 @@ export function CourseEditor({
       const entityData: Parameters<typeof updateCourse>[1] = {
         thumbnailUrl: thumbnailUrl || null,
         categoryId: categoryId || null,
-        userGroupId: userGroupId || null,
+        userGroupIds,
         duration: duration || null,
         level: level || null,
         specialStatus: specialStatus || null,
@@ -251,7 +252,7 @@ export function CourseEditor({
   return (
     <div className="flex flex-col gap-6">
       {/* Course Details */}
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+      <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="mb-4 text-lg font-semibold">{t("details")}</h2>
 
         {/* Language toggle */}
@@ -259,7 +260,7 @@ export function CourseEditor({
           activeLanguage={activeLanguage}
           onLanguageChange={handleLanguageChange}
           translatedLanguages={translatedLanguages}
-          className="mb-4 border-b border-[var(--border)] pb-4"
+          className="mb-4 border-b border-border pb-4"
         />
 
         {/* Thumbnail preview */}
@@ -291,7 +292,7 @@ export function CourseEditor({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
-              className="flex w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm placeholder:text-[var(--muted-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+              className="flex w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               placeholder="What does this course cover?"
             />
           </div>
@@ -312,7 +313,7 @@ export function CourseEditor({
               id="category"
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
-              className="flex h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-sm"
+              className="flex h-10 w-full rounded-lg border border-border bg-background px-3 text-sm"
             >
               <option value="">No category</option>
               {categories.map((c) => (
@@ -324,20 +325,15 @@ export function CourseEditor({
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="usergroup">Usergroup (optional)</Label>
-            <select
-              id="usergroup"
-              value={userGroupId}
-              onChange={(e) => setUserGroupId(e.target.value)}
-              className="flex h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-sm"
-            >
-              <option value="">All users</option>
-              {userGroups.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name}
-                </option>
-              ))}
-            </select>
+            <Label>User Groups</Label>
+            <UserGroupMultiSelect
+              userGroups={userGroups}
+              selectedIds={userGroupIds}
+              onChange={setUserGroupIds}
+            />
+            <p className="text-xs text-muted-foreground">
+              Leave empty to make this course visible to all users.
+            </p>
           </div>
 
           <div className="flex flex-col gap-2">
@@ -356,7 +352,7 @@ export function CourseEditor({
               id="level"
               value={level}
               onChange={(e) => setLevel(e.target.value)}
-              className="flex h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-sm"
+              className="flex h-10 w-full rounded-lg border border-border bg-background px-3 text-sm"
             >
               <option value="">No level</option>
               <option value="beginner">Beginner</option>
@@ -371,7 +367,7 @@ export function CourseEditor({
               id="specialStatus"
               value={specialStatus}
               onChange={(e) => setSpecialStatus(e.target.value)}
-              className="flex h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-sm"
+              className="flex h-10 w-full rounded-lg border border-border bg-background px-3 text-sm"
             >
               <option value="">None</option>
               <option value="featured">Featured</option>
@@ -405,7 +401,7 @@ export function CourseEditor({
       </section>
 
       {/* Chapters */}
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+      <section className="rounded-xl border border-border bg-card p-6">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">
             Chapters ({chapters.length})
@@ -423,7 +419,7 @@ export function CourseEditor({
         {showAddChapter && (
           <form
             onSubmit={handleAddChapter}
-            className="mb-4 flex items-end gap-3 rounded-lg border border-[var(--border)] p-4"
+            className="mb-4 flex items-end gap-3 rounded-lg border border-border p-4"
           >
             <div className="flex flex-1 flex-col gap-1">
               <Label htmlFor="newChapter">Chapter Title</Label>
@@ -450,7 +446,7 @@ export function CourseEditor({
         )}
 
         {chapters.length === 0 ? (
-          <p className="py-4 text-center text-sm text-[var(--muted-foreground)]">
+          <p className="py-4 text-center text-sm text-muted-foreground">
             No chapters yet. Add one to start building your course.
           </p>
         ) : (
@@ -458,15 +454,15 @@ export function CourseEditor({
             {chapters.map((ch, i) => (
               <li
                 key={ch.id}
-                className="flex items-center gap-3 rounded-lg border border-[var(--border)] px-4 py-3"
+                className="flex items-center gap-3 rounded-lg border border-border px-4 py-3"
               >
-                <GripVertical className="h-4 w-4 text-[var(--muted-foreground)]" />
-                <span className="text-sm text-[var(--muted-foreground)]">
+                <GripVertical className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">
                   {i + 1}.
                 </span>
                 <div className="flex-1">
                   <p className="text-sm font-medium">{ch.title}</p>
-                  <div className="mt-0.5 flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
+                  <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
                     {ch.videoUrl && (
                       <span className="flex items-center gap-1">
                         <Video className="h-3 w-3" />
@@ -493,7 +489,7 @@ export function CourseEditor({
                 </div>
                 <Link
                   href={`/admin/courses/${course.id}/chapters/${ch.id}`}
-                  className="rounded-lg px-3 py-1 text-sm text-[var(--tenant-primary)] transition hover:bg-[var(--tenant-primary)]/10"
+                  className="rounded-lg px-3 py-1 text-sm text-(--tenant-primary) transition hover:bg-(--tenant-primary)/10"
                 >
                   Edit
                 </Link>
@@ -512,9 +508,9 @@ export function CourseEditor({
       </section>
 
       {/* Publish */}
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+      <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="mb-2 text-lg font-semibold">Publish</h2>
-        <p className="mb-4 text-sm text-[var(--muted-foreground)]">
+        <p className="mb-4 text-sm text-muted-foreground">
           {published
             ? "This course is live and visible to users."
             : "This course is a draft and not visible to users."}
@@ -529,12 +525,12 @@ export function CourseEditor({
       </section>
 
       {msg && (
-        <p className="text-sm text-[var(--muted-foreground)]">{msg}</p>
+        <p className="text-sm text-muted-foreground">{msg}</p>
       )}
 
       <Link
         href="/admin/courses"
-        className="text-sm text-[var(--tenant-primary)] hover:underline"
+        className="text-sm text-(--tenant-primary) hover:underline"
       >
         ← Back to courses
       </Link>

@@ -10,6 +10,7 @@ import { updatePost } from "@/lib/content-actions";
 import { saveTranslation } from "@/lib/translation-actions";
 import { LanguageToggle } from "@/components/admin/language-toggle";
 import { UploadButton } from "@/components/upload-button";
+import { UserGroupMultiSelect } from "@/components/admin/usergroup-multiselect";
 import { defaultLocale, type Locale } from "@/i18n/config";
 
 type PostData = {
@@ -17,6 +18,7 @@ type PostData = {
   title: string;
   description?: string | null;
   categoryId?: string | null;
+  userGroupIds?: string[];
   imageUrl?: string | null;
   gifUrl?: string | null;
   published: boolean;
@@ -24,6 +26,7 @@ type PostData = {
 };
 
 type Category = { id: string; name: string; color: string };
+type UserGroup = { id: string; name: string };
 type Translations = Record<string, Record<string, string>>;
 
 const TRANSLATABLE_FIELDS = ["title", "description"] as const;
@@ -31,10 +34,12 @@ const TRANSLATABLE_FIELDS = ["title", "description"] as const;
 export function PostEditor({
   post,
   categories,
+  userGroups,
   translations: initialTranslations,
 }: {
   post: PostData;
   categories: Category[];
+  userGroups: UserGroup[];
   translations: Translations;
 }) {
   const t = useTranslations("posts");
@@ -46,6 +51,7 @@ export function PostEditor({
   const [title, setTitle] = useState(post.title);
   const [description, setDescription] = useState(post.description ?? "");
   const [categoryId, setCategoryId] = useState(post.categoryId ?? "");
+  const [userGroupIds, setUserGroupIds] = useState<string[]>(post.userGroupIds ?? []);
   const [imageUrl, setImageUrl] = useState(post.imageUrl ?? "");
   const [gifUrl, setGifUrl] = useState(post.gifUrl ?? "");
   const [published, setPublished] = useState(post.published);
@@ -87,6 +93,7 @@ export function PostEditor({
     try {
       const entityData: Parameters<typeof updatePost>[1] = {
         categoryId: categoryId || null,
+        userGroupIds,
         imageUrl: imageUrl || null,
         gifUrl: gifUrl || null,
         scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
@@ -132,14 +139,14 @@ export function PostEditor({
   return (
     <div className="flex max-w-2xl flex-col gap-6">
       {/* Content */}
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+      <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="mb-4 text-lg font-semibold">{t("editPost")}</h2>
 
         <LanguageToggle
           activeLanguage={activeLanguage}
           onLanguageChange={handleLanguageChange}
           translatedLanguages={translatedLanguages}
-          className="mb-4 border-b border-[var(--border)] pb-4"
+          className="mb-4 border-b border-border pb-4"
         />
 
         <div className="flex flex-col gap-4">
@@ -155,7 +162,7 @@ export function PostEditor({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={8}
-              className="flex w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm placeholder:text-[var(--muted-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+              className="flex w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               placeholder="Write your post content here..."
             />
           </div>
@@ -166,7 +173,7 @@ export function PostEditor({
               id="category"
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
-              className="flex h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-sm"
+              className="flex h-10 w-full rounded-lg border border-border bg-background px-3 text-sm"
             >
               <option value="">No category</option>
               {categories.map((c) => (
@@ -175,6 +182,18 @@ export function PostEditor({
                 </option>
               ))}
             </select>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label>User Groups</Label>
+            <UserGroupMultiSelect
+              userGroups={userGroups}
+              selectedIds={userGroupIds}
+              onChange={setUserGroupIds}
+            />
+            <p className="text-xs text-muted-foreground">
+              Leave empty to make this post visible to all users.
+            </p>
           </div>
 
           <div className="flex flex-col gap-2">
@@ -204,7 +223,7 @@ export function PostEditor({
       </section>
 
       {/* Scheduling */}
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+      <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="mb-4 text-lg font-semibold">Scheduling</h2>
         <div className="flex flex-col gap-2">
           <Label htmlFor="scheduledAt">Schedule for later (optional)</Label>
@@ -214,7 +233,7 @@ export function PostEditor({
             value={scheduledAt}
             onChange={(e) => setScheduledAt(e.target.value)}
           />
-          <p className="text-xs text-[var(--muted-foreground)]">
+          <p className="text-xs text-muted-foreground">
             Leave empty to publish immediately when you click Publish.
           </p>
         </div>
@@ -224,9 +243,9 @@ export function PostEditor({
       </section>
 
       {/* Publish */}
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+      <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="mb-2 text-lg font-semibold">{tc("publish")}</h2>
-        <p className="mb-4 text-sm text-[var(--muted-foreground)]">
+        <p className="mb-4 text-sm text-muted-foreground">
           {published
             ? "This post is live and visible to users."
             : "This post is a draft and not visible to users."}
@@ -240,9 +259,9 @@ export function PostEditor({
         </Button>
       </section>
 
-      {msg && <p className="text-sm text-[var(--muted-foreground)]">{msg}</p>}
+      {msg && <p className="text-sm text-muted-foreground">{msg}</p>}
 
-      <Link href="/admin/posts" className="text-sm text-[var(--tenant-primary)] hover:underline">
+      <Link href="/admin/posts" className="text-sm text-(--tenant-primary) hover:underline">
         ← Back to posts
       </Link>
     </div>

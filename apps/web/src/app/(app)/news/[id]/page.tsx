@@ -3,7 +3,13 @@ import { getTenantId } from "@/lib/tenant";
 import { getSession } from "@/lib/session";
 import { notFound } from "next/navigation";
 import { NewsDetail } from "@/components/news/news-detail";
-import { addPostComment, togglePostLike } from "@/lib/content-actions";
+import {
+  addPostComment,
+  addCommentReply,
+  togglePostLike,
+  toggleCommentLike,
+  getPostComments,
+} from "@/lib/content-actions";
 
 export default async function NewsDetailPage({
   params,
@@ -14,25 +20,43 @@ export default async function NewsDetailPage({
   const tenantId = getTenantId();
   const session = await getSession();
 
+  // Get user's group IDs for access filtering
+  const userGroupIds = session
+    ? (
+        await prisma.userGroupMember.findMany({
+          where: { userId: session.user.id },
+          select: { userGroupId: true },
+        })
+      ).map((m) => m.userGroupId)
+    : [];
+
   const post = await prisma.post.findFirst({
     where: {
       id,
       tenantId,
       published: true,
-      OR: [{ scheduledAt: null }, { scheduledAt: { lte: new Date() } }],
+      AND: [
+        {
+          OR: [
+            { scheduledAt: null },
+            { scheduledAt: { lte: new Date() } },
+          ],
+        },
+        {
+          OR: [
+            { userGroups: { none: {} } },
+            { userGroups: { some: { id: { in: userGroupIds } } } },
+          ],
+        },
+      ],
     },
     include: { category: true },
   });
 
   if (!post) notFound();
 
-  // Get comments, likes, user like
-  const [comments, likeCount, userLike] = await Promise.all([
-    prisma.comment.findMany({
-      where: { postId: post.id },
-      include: { user: { include: { profile: true } } },
-      orderBy: { createdAt: "desc" },
-    }),
+  // Get post likes, user's post like, comment count, and current user's profile
+  const [likeCount, userLike, commentCount, currentUserProfile] = await Promise.all([
     prisma.like.count({
       where: { targetType: "post", targetId: post.id },
     }),
@@ -47,14 +71,15 @@ export default async function NewsDetailPage({
           },
         })
       : null,
+    prisma.comment.count({
+      where: { postId: post.id, parentId: null },
+    }),
+    session
+      ? prisma.userProfile.findUnique({
+          where: { userId: session.user.id },
+        })
+      : null,
   ]);
-
-  // Get current user's profile for optimistic comment avatar
-  const currentUserProfile = session
-    ? await prisma.userProfile.findUnique({
-        where: { userId: session.user.id },
-      })
-    : null;
 
   return (
     <div className="p-6">
@@ -71,19 +96,15 @@ export default async function NewsDetailPage({
         }}
         liked={!!userLike}
         likeCount={likeCount}
-        comments={comments.map((c) => ({
-          id: c.id,
-          content: c.content,
-          authorName: c.user.name ?? c.user.email,
-          authorUsername: c.user.profile?.username ?? null,
-          authorAvatarUrl: c.user.profile?.avatarUrl ?? null,
-          createdAt: c.createdAt.toISOString(),
-        }))}
+        commentCount={commentCount}
         isLoggedIn={!!session}
         currentUserAvatarUrl={currentUserProfile?.avatarUrl ?? null}
         actions={{
           toggleLike: togglePostLike,
           addComment: addPostComment,
+          addReply: addCommentReply,
+          toggleCommentLike,
+          getComments: getPostComments,
         }}
       />
     </div>

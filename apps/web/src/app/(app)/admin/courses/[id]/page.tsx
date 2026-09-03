@@ -16,6 +16,7 @@ export default async function EditCoursePage({
       where: { id, tenantId },
       include: {
         chapters: { orderBy: { order: "asc" } },
+        userGroups: { select: { id: true, name: true } },
       },
     }),
     prisma.category.findMany({
@@ -50,7 +51,7 @@ export default async function EditCoursePage({
           description: course.description,
           thumbnailUrl: course.thumbnailUrl,
           categoryId: course.categoryId,
-          userGroupId: course.userGroupId,
+          userGroupIds: course.userGroups.map((g) => g.id),
           duration: course.duration,
           level: course.level,
           specialStatus: course.specialStatus,

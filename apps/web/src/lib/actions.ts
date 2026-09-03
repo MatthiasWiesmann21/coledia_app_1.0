@@ -69,6 +69,11 @@ export async function setUserLanguage(language: string) {
       language,
     },
   });
+
+  // Revalidate all layouts and pages so AppShell re-reads the locale
+  revalidatePath("/", "layout");
+  revalidatePath("/settings/profile");
+  revalidatePath("/settings/profile", "page");
 }
 
 /**

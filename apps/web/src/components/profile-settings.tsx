@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
+import { useTheme } from "next-themes";
+import { Sun, Moon } from "lucide-react";
 import { Button } from "@coledia/ui/button";
 import { Input } from "@coledia/ui/input";
 import { Label } from "@coledia/ui/label";
@@ -24,6 +26,8 @@ export function ProfileSettings({
   initialLanguage: string;
 }) {
   const t = useTranslations("profile");
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
   const [username, setUsername] = useState(initialUsername ?? "");
   const [bio, setBio] = useState(initialBio ?? "");
   const [avatarUrl, setAvatarUrl] = useState(initialAvatarUrl ?? "");
@@ -39,6 +43,9 @@ export function ProfileSettings({
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState(false);
   const [loadingLang, setLoadingLang] = useState(false);
+
+  // Avoid hydration mismatch for theme — next-themes reads localStorage on client only
+  useEffect(() => setMounted(true), []);
 
   // Password change state
   const [currentPassword, setCurrentPassword] = useState("");
@@ -79,9 +86,11 @@ export function ProfileSettings({
     setLangMsg(null);
     try {
       await setUserLanguage(newLang);
-      setLangMsg("Language updated — reload to see changes");
-      // Reload the page to apply the new locale
-      setTimeout(() => window.location.reload(), 500);
+      setLangMsg("Language updated — reloading...");
+      // Full page reload is the most reliable way to force AppShell
+      // (which provides NextIntlClientProvider) to re-render with
+      // the new locale and messages from the database
+      window.location.reload();
     } catch {
       setLangMsg("Could not update language");
     }
@@ -151,7 +160,7 @@ export function ProfileSettings({
               onChange={(e) => setBio(e.target.value)}
               rows={4}
               placeholder="Tell us about yourself..."
-              className="flex w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm placeholder:text-[var(--muted-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+              className="flex w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </div>
           <div className="flex flex-col gap-2">
@@ -165,7 +174,7 @@ export function ProfileSettings({
             />
           </div>
           {profileMsg && (
-            <p className="text-sm text-[var(--muted-foreground)]">{profileMsg}</p>
+            <p className="text-sm text-muted-foreground">{profileMsg}</p>
           )}
           <Button type="submit" disabled={loadingProfile} className="w-fit">
             {loadingProfile ? "Saving..." : "Save profile"}
@@ -183,8 +192,8 @@ export function ProfileSettings({
               onClick={() => handleStatusChange(s.value)}
               className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${
                 status === s.value
-                  ? "border-[var(--tenant-primary)] bg-[var(--tenant-primary)]/10"
-                  : "border-[var(--border)] hover:bg-[var(--muted)]"
+                  ? "border-(--tenant-primary) bg-(--tenant-primary)/10"
+                  : "border-border hover:bg-muted"
               }`}
             >
               <span
@@ -196,7 +205,7 @@ export function ProfileSettings({
           ))}
         </div>
         {statusMsg && (
-          <p className="text-sm text-[var(--muted-foreground)]">{statusMsg}</p>
+          <p className="text-sm text-muted-foreground">{statusMsg}</p>
         )}
       </section>
 
@@ -211,8 +220,8 @@ export function ProfileSettings({
               disabled={loadingLang}
               className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${
                 language === loc
-                  ? "border-[var(--tenant-primary)] bg-[var(--tenant-primary)]/10"
-                  : "border-[var(--border)] hover:bg-[var(--muted)]"
+                  ? "border-(--tenant-primary) bg-(--tenant-primary)/10"
+                  : "border-border hover:bg-muted"
               }`}
             >
               <span>{localeFlags[loc]}</span>
@@ -221,8 +230,40 @@ export function ProfileSettings({
           ))}
         </div>
         {langMsg && (
-          <p className="text-sm text-[var(--muted-foreground)]">{langMsg}</p>
+          <p className="text-sm text-muted-foreground">{langMsg}</p>
         )}
+      </section>
+
+      {/* Appearance — theme mode */}
+      <section className="flex flex-col gap-4">
+        <h2 className="text-lg font-semibold">Appearance</h2>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setTheme("light")}
+            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${
+              mounted && theme === "light"
+                ? "border-(--tenant-primary) bg-(--tenant-primary)/10"
+                : "border-border hover:bg-muted"
+            }`}
+          >
+            <Sun className="h-4 w-4" />
+            Light
+          </button>
+          <button
+            onClick={() => setTheme("dark")}
+            className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${
+              mounted && theme === "dark"
+                ? "border-(--tenant-primary) bg-(--tenant-primary)/10"
+                : "border-border hover:bg-muted"
+            }`}
+          >
+            <Moon className="h-4 w-4" />
+            Dark
+          </button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Overrides the organization default theme mode. Set by the owner in admin settings.
+        </p>
       </section>
 
       {/* Change password */}

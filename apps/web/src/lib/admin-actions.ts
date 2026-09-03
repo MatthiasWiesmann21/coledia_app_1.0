@@ -4,6 +4,7 @@ import { prisma } from "@coledia/db";
 import { getSession } from "./session";
 import { getTenantId } from "./tenant";
 import { revalidatePath } from "next/cache";
+import { validPresetIds } from "@coledia/ui";
 
 async function requireAdmin() {
   const session = await getSession();
@@ -114,8 +115,32 @@ export async function updateBranding(data: {
   authLogoSignInDark?: string | null;
   authLogoForgotLight?: string | null;
   authLogoForgotDark?: string | null;
+  themePreset?: string | null;
+  themeMode?: string | null;
 }) {
-  const { tenantId } = await requireAdmin();
+  const { tenantId, membership } = await requireAdmin();
+
+  // Validate themePreset
+  if (data.themePreset !== undefined && data.themePreset !== null) {
+    if (!validPresetIds.includes(data.themePreset)) {
+      throw new Error("Invalid theme preset");
+    }
+  }
+
+  // Validate themeMode
+  if (data.themeMode !== undefined && data.themeMode !== null) {
+    if (!["light", "dark", "system"].includes(data.themeMode)) {
+      throw new Error("Invalid theme mode");
+    }
+  }
+
+  // Only owners can change theme preset or mode
+  if (
+    (data.themePreset !== undefined || data.themeMode !== undefined) &&
+    membership.role !== "owner"
+  ) {
+    throw new Error("Only owners can change the theme preset or mode");
+  }
 
   // Upsert branding record
   const existing = await prisma.branding.findUnique({
@@ -134,6 +159,7 @@ export async function updateBranding(data: {
   }
 
   revalidatePath("/admin/settings");
+  revalidatePath("/", "layout");
   revalidatePath("/dashboard");
   revalidatePath("/courses");
 }

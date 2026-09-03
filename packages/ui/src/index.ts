@@ -11,3 +11,4 @@ export * from "./components/dropdown-menu";
 export * from "./components/dialog";
 export * from "./components/tabs";
 export * from "./components/tenant-theme";
+export * from "./theme-presets";

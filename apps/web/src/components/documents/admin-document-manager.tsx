@@ -12,7 +12,6 @@ import {
   Trash2,
   Pencil,
   Eye,
-  EyeOff,
   Download,
   FileText,
   Users,
@@ -23,13 +22,13 @@ import { Button } from "@coledia/ui/button";
 import { Input } from "@coledia/ui/input";
 import { Label } from "@coledia/ui/label";
 import { cn } from "@coledia/ui/lib/utils";
+import { UserGroupMultiSelect } from "@/components/admin/usergroup-multiselect";
 
 interface FolderItem {
   id: string;
   name: string;
   parentId: string | null;
-  userGroupId: string | null;
-  userGroupName: string | null;
+  userGroups: { id: string; name: string }[];
   visible: boolean;
   published: boolean;
   fileCount: number;
@@ -45,6 +44,7 @@ interface DocumentItem {
   mimeType: string | null;
   fileType: string | null;
   folderId: string | null;
+  userGroups: { id: string; name: string }[];
   visible: boolean;
   published: boolean;
   createdAt: string;
@@ -73,13 +73,19 @@ export function AdminDocumentManager() {
   // New folder state
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
-  const [newFolderUserGroupId, setNewFolderUserGroupId] = useState<string>("");
+  const [newFolderUserGroupIds, setNewFolderUserGroupIds] = useState<string[]>([]);
 
-  // Settings panel state
+  // Settings panel state (folders)
   const [settingsFolderId, setSettingsFolderId] = useState<string | null>(null);
   const [settingsVisible, setSettingsVisible] = useState(true);
   const [settingsPublished, setSettingsPublished] = useState(false);
-  const [settingsUserGroupId, setSettingsUserGroupId] = useState<string>("");
+  const [settingsUserGroupIds, setSettingsUserGroupIds] = useState<string[]>([]);
+
+  // Settings panel state (documents)
+  const [settingsDocId, setSettingsDocId] = useState<string | null>(null);
+  const [settingsDocVisible, setSettingsDocVisible] = useState(true);
+  const [settingsDocPublished, setSettingsDocPublished] = useState(false);
+  const [settingsDocUserGroupIds, setSettingsDocUserGroupIds] = useState<string[]>([]);
 
   // Rename state
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -98,12 +104,14 @@ export function AdminDocumentManager() {
     try {
       const folderParams = new URLSearchParams();
       if (folderId) folderParams.append("parentId", folderId);
+      folderParams.append("includeAll", "true");
       const foldersRes = await fetch(`/api/folders?${folderParams.toString()}`);
       const foldersData = await foldersRes.json();
       setFolders(foldersData.folders ?? []);
 
       const docParams = new URLSearchParams();
       docParams.append("folderId", folderId ?? "");
+      docParams.append("includeAll", "true");
       const docsRes = await fetch(`/api/documents?${docParams.toString()}`);
       const docsData = await docsRes.json();
       setDocuments(docsData.documents ?? []);
@@ -169,14 +177,14 @@ export function AdminDocumentManager() {
         body: JSON.stringify({
           name: newFolderName,
           parentId: currentFolderId,
-          userGroupId: newFolderUserGroupId || null,
+          userGroupIds: newFolderUserGroupIds,
           visible: true,
           published: false, // Default to draft so admin can review before going live
         }),
       });
       if (res.ok) {
         setNewFolderName("");
-        setNewFolderUserGroupId("");
+        setNewFolderUserGroupIds([]);
         setShowNewFolder(false);
         loadContent(currentFolderId);
       }
@@ -274,31 +282,11 @@ export function AdminDocumentManager() {
     }
   }
 
-  async function handleToggleField(
-    type: "folder" | "document",
-    id: string,
-    field: "visible" | "published",
-    value: boolean,
-  ) {
-    try {
-      const url =
-        type === "folder" ? `/api/folders/${id}` : `/api/documents/${id}`;
-      await fetch(url, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [field]: value }),
-      });
-      loadContent(currentFolderId);
-    } catch {
-      // ignore
-    }
-  }
-
   function openSettings(folder: FolderItem) {
     setSettingsFolderId(folder.id);
     setSettingsVisible(folder.visible);
     setSettingsPublished(folder.published);
-    setSettingsUserGroupId(folder.userGroupId ?? "");
+    setSettingsUserGroupIds(folder.userGroups.map((g) => g.id));
   }
 
   async function saveSettings() {
@@ -310,10 +298,36 @@ export function AdminDocumentManager() {
         body: JSON.stringify({
           visible: settingsVisible,
           published: settingsPublished,
-          userGroupId: settingsUserGroupId || null,
+          userGroupIds: settingsUserGroupIds,
         }),
       });
       setSettingsFolderId(null);
+      loadContent(currentFolderId);
+    } catch {
+      // ignore
+    }
+  }
+
+  function openDocSettings(doc: DocumentItem) {
+    setSettingsDocId(doc.id);
+    setSettingsDocVisible(doc.visible);
+    setSettingsDocPublished(doc.published);
+    setSettingsDocUserGroupIds(doc.userGroups.map((g) => g.id));
+  }
+
+  async function saveDocSettings() {
+    if (!settingsDocId) return;
+    try {
+      await fetch(`/api/documents/${settingsDocId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          visible: settingsDocVisible,
+          published: settingsDocPublished,
+          userGroupIds: settingsDocUserGroupIds,
+        }),
+      });
+      setSettingsDocId(null);
       loadContent(currentFolderId);
     } catch {
       // ignore
@@ -341,10 +355,10 @@ export function AdminDocumentManager() {
     >
       {/* Drag & drop overlay */}
       {dragOver && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-[var(--tenant-primary)]/10 backdrop-blur-sm">
-          <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-[var(--tenant-primary)] bg-[var(--card)] p-8">
-            <Upload className="h-12 w-12 text-[var(--tenant-primary)]" />
-            <p className="text-lg font-medium text-[var(--tenant-primary)]">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-(--tenant-primary)/10 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-(--tenant-primary) bg-card p-8">
+            <Upload className="h-12 w-12 text-(--tenant-primary)" />
+            <p className="text-lg font-medium text-(--tenant-primary)">
               Drop files to upload
             </p>
           </div>
@@ -352,20 +366,20 @@ export function AdminDocumentManager() {
       )}
 
       {/* Breadcrumbs */}
-      <nav className="flex items-center gap-1 text-sm text-[var(--muted-foreground)]">
+      <nav className="flex items-center gap-1 text-sm text-muted-foreground">
         <button
           onClick={() => handleBreadcrumbClick(-1)}
-          className="flex items-center gap-1 rounded-md px-2 py-1 transition hover:bg-[var(--muted)]"
+          className="flex items-center gap-1 rounded-md px-2 py-1 transition hover:bg-muted"
         >
           <Home className="h-3.5 w-3.5" />
           Browse
         </button>
         {breadcrumbs.map((crumb, i) => (
           <span key={crumb.id} className="flex items-center gap-1">
-            <ChevronRight className="h-3.5 w-3.5 text-[var(--muted-foreground)]" />
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
             <button
               onClick={() => handleBreadcrumbClick(i)}
-              className="rounded-md px-2 py-1 transition hover:bg-[var(--muted)]"
+              className="rounded-md px-2 py-1 transition hover:bg-muted"
             >
               {crumb.name}
             </button>
@@ -376,7 +390,7 @@ export function AdminDocumentManager() {
       {/* Action bar */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted-foreground)]" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -408,7 +422,7 @@ export function AdminDocumentManager() {
 
       {/* New folder form */}
       {showNewFolder && (
-        <div className="flex flex-col gap-3 rounded-lg border border-[var(--border)] bg-[var(--card)] p-4">
+        <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
           <div className="flex items-center gap-2">
             <Input
               value={newFolderName}
@@ -420,18 +434,11 @@ export function AdminDocumentManager() {
                 if (e.key === "Escape") setShowNewFolder(false);
               }}
             />
-            <select
-              value={newFolderUserGroupId}
-              onChange={(e) => setNewFolderUserGroupId(e.target.value)}
-              className="h-10 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-sm"
-            >
-              <option value="">All users</option>
-              {userGroups.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name}
-                </option>
-              ))}
-            </select>
+            <UserGroupMultiSelect
+              userGroups={userGroups}
+              selectedIds={newFolderUserGroupIds}
+              onChange={setNewFolderUserGroupIds}
+            />
             <Button size="sm" onClick={handleCreateFolder}>
               Create
             </Button>
@@ -439,7 +446,7 @@ export function AdminDocumentManager() {
               Cancel
             </Button>
           </div>
-          <p className="text-xs text-[var(--muted-foreground)]">
+          <p className="text-xs text-muted-foreground">
             Select a user group to restrict access, or leave as "All users".
           </p>
         </div>
@@ -447,7 +454,7 @@ export function AdminDocumentManager() {
 
       {/* Content */}
       {loading ? (
-        <div className="flex items-center justify-center p-8 text-sm text-[var(--muted-foreground)]">
+        <div className="flex items-center justify-center p-8 text-sm text-muted-foreground">
           Loading…
         </div>
       ) : (
@@ -455,14 +462,14 @@ export function AdminDocumentManager() {
           {/* Folders */}
           {filteredFolders.length > 0 && (
             <div>
-              <h3 className="mb-2 text-xs font-semibold uppercase text-[var(--muted-foreground)]">
+              <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
                 Folders
               </h3>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                 {filteredFolders.map((folder) => (
                   <div
                     key={folder.id}
-                    className="group relative flex flex-col items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 transition hover:bg-[var(--muted)]"
+                    className="group relative flex flex-col items-center gap-1 rounded-xl border border-border bg-card p-4 transition hover:bg-muted"
                   >
                     <button
                       onClick={() => handleFolderClick(folder)}
@@ -472,14 +479,14 @@ export function AdminDocumentManager() {
                         className={cn(
                           "h-8 w-8",
                           folder.visible
-                            ? "text-[var(--tenant-primary)]"
-                            : "text-[var(--muted-foreground)]",
+                            ? "text-(--tenant-primary)"
+                            : "text-muted-foreground",
                         )}
                       />
                       <span className="w-full truncate text-center text-sm font-medium">
                         {folder.name}
                       </span>
-                      <div className="flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <span>
                           {folder.fileCount}
                           {folder.folderCount > 0 ? ` + ${folder.folderCount}` : ""} items
@@ -489,10 +496,10 @@ export function AdminDocumentManager() {
                             Draft
                           </span>
                         )}
-                        {folder.userGroupName && (
+                        {folder.userGroups.length > 0 && (
                           <span className="flex items-center gap-0.5">
                             <Users className="h-3 w-3" />
-                            {folder.userGroupName}
+                            {folder.userGroups.map((g) => g.name).join(", ")}
                           </span>
                         )}
                       </div>
@@ -500,7 +507,7 @@ export function AdminDocumentManager() {
                     <div className="absolute right-1 top-1 flex gap-0.5 opacity-0 transition group-hover:opacity-100">
                       <button
                         onClick={() => openSettings(folder)}
-                        className="rounded-md p-1 text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                        className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
                         title="Settings"
                       >
                         <Eye className="h-3.5 w-3.5" />
@@ -511,7 +518,7 @@ export function AdminDocumentManager() {
                           setRenamingId(folder.id);
                           setRenameValue(folder.name);
                         }}
-                        className="rounded-md p-1 text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                        className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
                         title="Rename"
                       >
                         <Pencil className="h-3.5 w-3.5" />
@@ -533,11 +540,11 @@ export function AdminDocumentManager() {
           {/* Documents */}
           {filteredDocuments.length > 0 && (
             <div>
-              <h3 className="mb-2 text-xs font-semibold uppercase text-[var(--muted-foreground)]">
+              <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
                 Documents
               </h3>
-              <div className="overflow-hidden rounded-lg border border-[var(--border)]">
-                <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-4 border-b border-[var(--border)] bg-[var(--muted)] px-4 py-2 text-xs font-semibold text-[var(--muted-foreground)]">
+              <div className="overflow-hidden rounded-lg border border-border">
+                <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-4 border-b border-border bg-muted px-4 py-2 text-xs font-semibold text-muted-foreground">
                   <span>Name</span>
                   <span className="hidden sm:block">Size</span>
                   <span className="hidden md:block">Modified</span>
@@ -546,7 +553,7 @@ export function AdminDocumentManager() {
                 {filteredDocuments.map((doc) => (
                   <div
                     key={doc.id}
-                    className="group grid grid-cols-[1fr_auto_auto_auto] items-center gap-4 border-b border-[var(--border)] px-4 py-3 last:border-0 hover:bg-[var(--muted)]/50"
+                    className="group grid grid-cols-[1fr_auto_auto_auto] items-center gap-4 border-b border-border px-4 py-3 last:border-0 hover:bg-(--muted)/50"
                   >
                     <div className="flex items-center gap-3">
                       <span className="text-lg">
@@ -559,10 +566,10 @@ export function AdminDocumentManager() {
                         </span>
                       )}
                     </div>
-                    <span className="hidden text-sm text-[var(--muted-foreground)] sm:block">
+                    <span className="hidden text-sm text-muted-foreground sm:block">
                       {formatFileSize(BigInt(doc.fileSize))}
                     </span>
-                    <span className="hidden text-sm text-[var(--muted-foreground)] md:block">
+                    <span className="hidden text-sm text-muted-foreground md:block">
                       {new Date(doc.createdAt).toLocaleDateString()}
                     </span>
                     <div className="flex items-center gap-1 opacity-0 transition group-hover:opacity-100">
@@ -577,6 +584,14 @@ export function AdminDocumentManager() {
                       <Button
                         variant="ghost"
                         size="icon"
+                        onClick={() => openDocSettings(doc)}
+                        title="Settings"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => {
                           setRenameType("document");
                           setRenamingId(doc.id);
@@ -585,14 +600,6 @@ export function AdminDocumentManager() {
                         title="Rename"
                       >
                         <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleToggleField("document", doc.id, "visible", !doc.visible)}
-                        title={doc.visible ? "Hide" : "Show"}
-                      >
-                        {doc.visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                       </Button>
                       <Button
                         variant="ghost"
@@ -613,8 +620,8 @@ export function AdminDocumentManager() {
           {/* Empty state */}
           {filteredFolders.length === 0 && filteredDocuments.length === 0 && !loading && (
             <div className="flex flex-col items-center gap-3 py-12 text-center">
-              <Folder className="h-12 w-12 text-[var(--muted-foreground)]" />
-              <p className="text-sm text-[var(--muted-foreground)]">
+              <Folder className="h-12 w-12 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
                 This folder is empty — upload files or create subfolders to get started
               </p>
             </div>
@@ -630,7 +637,7 @@ export function AdminDocumentManager() {
             if (e.target === e.currentTarget) setRenamingId(null);
           }}
         >
-          <div className="w-full max-w-sm rounded-xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-lg">
+          <div className="w-full max-w-sm rounded-xl border border-border bg-card p-6 shadow-lg">
             <h3 className="mb-4 text-lg font-semibold">
               {renameType === "folder" ? "Rename Folder" : "Rename File"}
             </h3>
@@ -662,9 +669,9 @@ export function AdminDocumentManager() {
             if (e.target === e.currentTarget) setConfirmDelete(null);
           }}
         >
-          <div className="w-full max-w-sm rounded-xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-lg">
+          <div className="w-full max-w-sm rounded-xl border border-border bg-card p-6 shadow-lg">
             <h3 className="mb-2 text-lg font-semibold">Confirm Delete</h3>
-            <p className="text-sm text-[var(--muted-foreground)]">
+            <p className="text-sm text-muted-foreground">
               Are you sure you want to delete &ldquo;{confirmDelete.name}&rdquo;?
               {confirmDelete.type === "folder"
                 ? " All contents will be permanently deleted."
@@ -690,12 +697,12 @@ export function AdminDocumentManager() {
             if (e.target === e.currentTarget) setSettingsFolderId(null);
           }}
         >
-          <div className="w-full max-w-sm rounded-xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-lg">
+          <div className="w-full max-w-sm rounded-xl border border-border bg-card p-6 shadow-lg">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold">Folder Settings</h3>
               <button
                 onClick={() => setSettingsFolderId(null)}
-                className="rounded-md p-1 text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                className="rounded-md p-1 text-muted-foreground hover:bg-muted"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -707,7 +714,7 @@ export function AdminDocumentManager() {
                   onClick={() => setSettingsVisible(!settingsVisible)}
                   className={cn(
                     "relative h-6 w-11 rounded-full transition",
-                    settingsVisible ? "bg-[var(--tenant-primary)]" : "bg-[var(--muted)]",
+                    settingsVisible ? "bg-(--tenant-primary)" : "bg-muted",
                   )}
                 >
                   <span
@@ -724,7 +731,7 @@ export function AdminDocumentManager() {
                   onClick={() => setSettingsPublished(!settingsPublished)}
                   className={cn(
                     "relative h-6 w-11 rounded-full transition",
-                    settingsPublished ? "bg-[var(--tenant-primary)]" : "bg-[var(--muted)]",
+                    settingsPublished ? "bg-(--tenant-primary)" : "bg-muted",
                   )}
                 >
                   <span
@@ -736,25 +743,84 @@ export function AdminDocumentManager() {
                 </button>
               </div>
               <div className="flex flex-col gap-2">
-                <Label>Restrict to User Group</Label>
-                <select
-                  value={settingsUserGroupId}
-                  onChange={(e) => setSettingsUserGroupId(e.target.value)}
-                  className="h-10 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-sm"
-                >
-                  <option value="">All users</option>
-                  {userGroups.map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.name}
-                    </option>
-                  ))}
-                </select>
+                <Label>Restrict to User Groups</Label>
+                <UserGroupMultiSelect
+                  userGroups={userGroups}
+                  selectedIds={settingsUserGroupIds}
+                  onChange={setSettingsUserGroupIds}
+                />
               </div>
               <div className="flex justify-end gap-2">
                 <Button variant="ghost" onClick={() => setSettingsFolderId(null)}>
                   Cancel
                 </Button>
                 <Button onClick={saveSettings}>Save</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Document settings modal */}
+      {settingsDocId && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSettingsDocId(null);
+          }}
+        >
+          <div className="w-full max-w-md rounded-xl bg-card p-6 shadow-xl">
+            <h2 className="mb-4 text-lg font-semibold">Document Settings</h2>
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <Label>Visible</Label>
+                <button
+                  type="button"
+                  onClick={() => setSettingsDocVisible(!settingsDocVisible)}
+                  className={cn(
+                    "relative h-6 w-11 rounded-full transition",
+                    settingsDocVisible ? "bg-(--tenant-primary)" : "bg-muted",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all",
+                      settingsDocVisible ? "left-5" : "left-0.5",
+                    )}
+                  />
+                </button>
+              </div>
+              <div className="flex items-center justify-between">
+                <Label>Published</Label>
+                <button
+                  type="button"
+                  onClick={() => setSettingsDocPublished(!settingsDocPublished)}
+                  className={cn(
+                    "relative h-6 w-11 rounded-full transition",
+                    settingsDocPublished ? "bg-(--tenant-primary)" : "bg-muted",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all",
+                      settingsDocPublished ? "left-5" : "left-0.5",
+                    )}
+                  />
+                </button>
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label>Restrict to User Groups</Label>
+                <UserGroupMultiSelect
+                  userGroups={userGroups}
+                  selectedIds={settingsDocUserGroupIds}
+                  onChange={setSettingsDocUserGroupIds}
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="ghost" onClick={() => setSettingsDocId(null)}>
+                  Cancel
+                </Button>
+                <Button onClick={saveDocSettings}>Save</Button>
               </div>
             </div>
           </div>

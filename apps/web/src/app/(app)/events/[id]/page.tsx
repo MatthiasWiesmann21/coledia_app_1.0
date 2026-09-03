@@ -14,8 +14,26 @@ export default async function EventDetailPage({
   const tenantId = getTenantId();
   const session = await getSession();
 
+  // Get user's group IDs for access filtering
+  const userGroupIds = session
+    ? (
+        await prisma.userGroupMember.findMany({
+          where: { userId: session.user.id },
+          select: { userGroupId: true },
+        })
+      ).map((m) => m.userGroupId)
+    : [];
+
   const event = await prisma.event.findFirst({
-    where: { id, tenantId, published: true },
+    where: {
+      id,
+      tenantId,
+      published: true,
+      OR: [
+        { userGroups: { none: {} } },
+        { userGroups: { some: { id: { in: userGroupIds } } } },
+      ],
+    },
     include: {
       category: true,
       _count: { select: { registrations: true } },

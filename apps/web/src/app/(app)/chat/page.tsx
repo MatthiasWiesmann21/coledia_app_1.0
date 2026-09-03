@@ -10,11 +10,30 @@ export default async function ChatPage() {
 
   const tenantId = getTenantId();
 
-  // Fetch chat servers with channels
+  // Get user's group IDs for access filtering
+  const userGroupIds = (
+    await prisma.userGroupMember.findMany({
+      where: { userId: session.user.id },
+      select: { userGroupId: true },
+    })
+  ).map((m) => m.userGroupId);
+
+  // Fetch chat servers with channels (filtered by user group)
   const chatServers = await prisma.chatServer.findMany({
-    where: { tenantId },
+    where: {
+      tenantId,
+      OR: [
+        { userGroups: { none: {} } },
+        { userGroups: { some: { id: { in: userGroupIds } } } },
+      ],
+    },
     include: {
-      channels: { orderBy: { createdAt: "asc" } },
+      channels: {
+        include: {
+          userGroups: { select: { id: true } },
+        },
+        orderBy: { createdAt: "asc" },
+      },
       members: {
         include: {
           user: {
@@ -25,6 +44,18 @@ export default async function ChatPage() {
     },
     orderBy: { createdAt: "asc" },
   });
+
+  // Filter channels per server by user group access:
+  // keep channel if it has no user groups (visible to all server members)
+  // OR the user is in one of the channel's user groups
+  const filteredServers = chatServers.map((s) => ({
+    ...s,
+    channels: s.channels.filter(
+      (c) =>
+        c.userGroups.length === 0 ||
+        c.userGroups.some((g) => userGroupIds.includes(g.id)),
+    ),
+  }));
 
   // Fetch all tenant members for DM list
   const tenantMembers = await prisma.membership.findMany({
@@ -49,12 +80,12 @@ export default async function ChatPage() {
   });
 
   return (
-    <div className="h-[calc(100vh-4rem)]">
+    <div className="h-full overflow-hidden">
       <ChatInterface
         currentUserId={session.user.id}
         currentUserName={session.user.name ?? session.user.email}
         tenantId={tenantId}
-        chatServers={chatServers.map((s) => ({
+        chatServers={filteredServers.map((s) => ({
           id: s.id,
           name: s.name,
           channels: s.channels.map((c) => ({

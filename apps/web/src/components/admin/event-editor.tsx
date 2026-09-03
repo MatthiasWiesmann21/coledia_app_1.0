@@ -10,6 +10,7 @@ import { updateEvent } from "@/lib/content-actions";
 import { saveTranslation } from "@/lib/translation-actions";
 import { LanguageToggle } from "@/components/admin/language-toggle";
 import { UploadButton } from "@/components/upload-button";
+import { UserGroupMultiSelect } from "@/components/admin/usergroup-multiselect";
 import { defaultLocale, type Locale } from "@/i18n/config";
 
 type EventData = {
@@ -18,7 +19,7 @@ type EventData = {
   description?: string | null;
   thumbnailUrl?: string | null;
   categoryId?: string | null;
-  userGroupId?: string | null;
+  userGroupIds?: string[];
   startAt: string;
   endAt?: string | null;
   videoUrl?: string | null;
@@ -54,7 +55,7 @@ export function EventEditor({
   const [description, setDescription] = useState(event.description ?? "");
   const [thumbnailUrl, setThumbnailUrl] = useState(event.thumbnailUrl ?? "");
   const [categoryId, setCategoryId] = useState(event.categoryId ?? "");
-  const [userGroupId, setUserGroupId] = useState(event.userGroupId ?? "");
+  const [userGroupIds, setUserGroupIds] = useState<string[]>(event.userGroupIds ?? []);
   const [startAt, setStartAt] = useState(event.startAt);
   const [endAt, setEndAt] = useState(event.endAt ?? "");
   const [videoUrl, setVideoUrl] = useState(event.videoUrl ?? "");
@@ -97,7 +98,7 @@ export function EventEditor({
       const entityData: Parameters<typeof updateEvent>[1] = {
         thumbnailUrl: thumbnailUrl || null,
         categoryId: categoryId || null,
-        userGroupId: userGroupId || null,
+        userGroupIds,
         startAt: new Date(startAt),
         endAt: endAt ? new Date(endAt) : null,
         videoUrl: videoUrl || null,
@@ -145,14 +146,14 @@ export function EventEditor({
   return (
     <div className="flex max-w-2xl flex-col gap-6">
       {/* Details */}
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+      <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="mb-4 text-lg font-semibold">{t("editEvent")}</h2>
 
         <LanguageToggle
           activeLanguage={activeLanguage}
           onLanguageChange={handleLanguageChange}
           translatedLanguages={translatedLanguages}
-          className="mb-4 border-b border-[var(--border)] pb-4"
+          className="mb-4 border-b border-border pb-4"
         />
 
         <div className="flex flex-col gap-4">
@@ -168,7 +169,7 @@ export function EventEditor({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
-              className="flex w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm placeholder:text-[var(--muted-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+              className="flex w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               placeholder="What is this event about?"
             />
           </div>
@@ -190,7 +191,7 @@ export function EventEditor({
                 id="category"
                 value={categoryId}
                 onChange={(e) => setCategoryId(e.target.value)}
-                className="flex h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-sm"
+                className="flex h-10 w-full rounded-lg border border-border bg-background px-3 text-sm"
               >
                 <option value="">No category</option>
                 {categories.map((c) => (
@@ -202,20 +203,15 @@ export function EventEditor({
             </div>
 
             <div className="flex flex-col gap-2">
-              <Label htmlFor="usergroup">{t("userGroup")}</Label>
-              <select
-                id="usergroup"
-                value={userGroupId}
-                onChange={(e) => setUserGroupId(e.target.value)}
-                className="flex h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-sm"
-              >
-                <option value="">All users</option>
-                {userGroups.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name}
-                  </option>
-                ))}
-              </select>
+              <Label>User Groups</Label>
+              <UserGroupMultiSelect
+                userGroups={userGroups}
+                selectedIds={userGroupIds}
+                onChange={setUserGroupIds}
+              />
+              <p className="text-xs text-muted-foreground">
+                Leave empty to make this event visible to all users.
+              </p>
             </div>
           </div>
 
@@ -247,7 +243,7 @@ export function EventEditor({
       </section>
 
       {/* Video / Stream */}
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+      <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="mb-4 text-lg font-semibold">Video / Stream</h2>
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
@@ -256,7 +252,7 @@ export function EventEditor({
               id="videoType"
               value={videoType}
               onChange={(e) => setVideoType(e.target.value)}
-              className="flex h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-sm"
+              className="flex h-10 w-full rounded-lg border border-border bg-background px-3 text-sm"
             >
               <option value="youtube">YouTube</option>
               <option value="vimeo">Vimeo</option>
@@ -290,9 +286,9 @@ export function EventEditor({
       </section>
 
       {/* Publish */}
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+      <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="mb-2 text-lg font-semibold">{tc("publish")}</h2>
-        <p className="mb-4 text-sm text-[var(--muted-foreground)]">
+        <p className="mb-4 text-sm text-muted-foreground">
           {published
             ? "This event is visible to users."
             : "This event is a draft and not visible to users."}
@@ -306,9 +302,9 @@ export function EventEditor({
         </Button>
       </section>
 
-      {msg && <p className="text-sm text-[var(--muted-foreground)]">{msg}</p>}
+      {msg && <p className="text-sm text-muted-foreground">{msg}</p>}
 
-      <Link href="/admin/events" className="text-sm text-[var(--tenant-primary)] hover:underline">
+      <Link href="/admin/events" className="text-sm text-(--tenant-primary) hover:underline">
         ← Back to events
       </Link>
     </div>

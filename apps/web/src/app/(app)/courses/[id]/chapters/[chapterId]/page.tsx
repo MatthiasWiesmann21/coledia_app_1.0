@@ -6,8 +6,11 @@ import { ChapterView } from "@/components/courses/chapter-view";
 import {
   toggleChapterLike,
   toggleChapterFavourite,
-  markChapterComplete,
+  toggleChapterComplete,
   addComment,
+  addCommentReply,
+  toggleChapterCommentLike,
+  getChapterComments,
 } from "@/lib/course-actions";
 
 export default async function ChapterPage({
@@ -57,7 +60,7 @@ export default async function ChapterPage({
   }
 
   // Get chapter progress, likes, favourites, comments
-  const [progress, userLike, userFav, comments, likeCount] = await Promise.all([
+  const [progress, userLike, userFav, allComments, likeCount] = await Promise.all([
     prisma.chapterProgress.findUnique({
       where: {
         userId_chapterId: {
@@ -89,12 +92,61 @@ export default async function ChapterPage({
       include: {
         user: { include: { profile: true } },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: "asc" },
     }),
     prisma.like.count({
       where: { targetType: "chapter", targetId: chapter.id },
     }),
   ]);
+
+  // Build comment tree with like counts
+  const commentIds = allComments.map((c) => c.id);
+  const [commentLikeCounts, userCommentLikes] = await Promise.all([
+    prisma.like.groupBy({
+      by: ["targetId"],
+      where: { targetType: "comment", targetId: { in: commentIds } },
+      _count: { _all: true },
+    }),
+    prisma.like.findMany({
+      where: {
+        userId: session.user.id,
+        targetType: "comment",
+        targetId: { in: commentIds },
+      },
+      select: { targetId: true },
+    }),
+  ]);
+
+  const commentLikeCountMap = new Map(
+    commentLikeCounts.map((l) => [l.targetId, l._count._all]),
+  );
+  const userLikedCommentIds = new Set(userCommentLikes.map((l) => l.targetId));
+
+  const commentMap = new Map<string, any>();
+  allComments.forEach((c) => {
+    commentMap.set(c.id, {
+      id: c.id,
+      content: c.content,
+      authorName: c.user.name ?? c.user.email,
+      authorUsername: c.user.profile?.username ?? null,
+      authorAvatarUrl: c.user.profile?.avatarUrl ?? null,
+      createdAt: c.createdAt.toISOString(),
+      likeCount: commentLikeCountMap.get(c.id) ?? 0,
+      liked: userLikedCommentIds.has(c.id),
+      replies: [] as any[],
+    });
+  });
+
+  const topLevelComments: any[] = [];
+  allComments.forEach((c) => {
+    const node = commentMap.get(c.id);
+    if (c.parentId && commentMap.has(c.parentId)) {
+      commentMap.get(c.parentId).replies.push(node);
+    } else {
+      topLevelComments.push(node);
+    }
+  });
+  topLevelComments.reverse();
 
   // Find next/prev chapters
   const currentIndex = course.chapters.findIndex((c) => c.id === chapter.id);
@@ -103,6 +155,21 @@ export default async function ChapterPage({
     currentIndex < course.chapters.length - 1
       ? course.chapters[currentIndex + 1]
       : null;
+
+  // Fetch all completed chapters for this course (for timeline)
+  const completedProgress = await prisma.chapterProgress.findMany({
+    where: {
+      userId: session.user.id,
+      chapter: { courseId: course.id },
+      completed: true,
+    },
+    select: { chapterId: true },
+  });
+  const completedChapterIds = completedProgress.map((p) => p.chapterId);
+  const completedCount = completedChapterIds.length;
+  const totalChapters = course.chapters.length;
+  const progressPct =
+    totalChapters > 0 ? (completedCount / totalChapters) * 100 : 0;
 
   return (
     <div className="p-6">
@@ -128,20 +195,19 @@ export default async function ChapterPage({
         liked={!!userLike}
         favourited={!!userFav}
         likeCount={likeCount}
-        comments={comments.map((c) => ({
-          id: c.id,
-          content: c.content,
-          authorName: c.user.name ?? c.user.email,
-          authorUsername: c.user.profile?.username ?? null,
-          createdAt: c.createdAt.toISOString(),
-        }))}
+        comments={topLevelComments}
+        completedChapterIds={completedChapterIds}
+        progressPct={progressPct}
         prevChapterId={prevChapter?.id ?? null}
         nextChapterId={nextChapter?.id ?? null}
         actions={{
           toggleLike: toggleChapterLike,
           toggleFavourite: toggleChapterFavourite,
-          markComplete: markChapterComplete,
+          markComplete: toggleChapterComplete,
           addComment,
+          addReply: addCommentReply,
+          toggleCommentLike: toggleChapterCommentLike,
+          getComments: getChapterComments,
         }}
       />
     </div>

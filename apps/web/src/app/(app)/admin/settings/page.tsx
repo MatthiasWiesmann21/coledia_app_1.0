@@ -3,7 +3,7 @@ import { requireAdmin } from "@/lib/admin-guard";
 import { SettingsPanel } from "@/components/admin/settings-panel";
 
 export default async function AdminSettingsPage() {
-  const { tenantId } = await requireAdmin();
+  const { tenantId, membership } = await requireAdmin();
 
   const [tenant, apiKeys] = await Promise.all([
     prisma.tenant.findUnique({
@@ -19,6 +19,8 @@ export default async function AdminSettingsPage() {
   if (!tenant) {
     return <div>Tenant not found</div>;
   }
+
+  const isOwner = membership.role === "owner";
 
   return (
     <div className="p-6">
@@ -41,6 +43,8 @@ export default async function AdminSettingsPage() {
               navTextColorDark: tenant.branding.navTextColorDark,
               navBgColorLight: tenant.branding.navBgColorLight,
               navBgColorDark: tenant.branding.navBgColorDark,
+              themePreset: tenant.branding.themePreset,
+              themeMode: tenant.branding.themeMode,
             }
           : null}
         apiKeys={apiKeys.map((k) => ({
@@ -49,6 +53,7 @@ export default async function AdminSettingsPage() {
           lastUsedAt: k.lastUsedAt?.toISOString() ?? null,
           createdAt: k.createdAt.toISOString(),
         }))}
+        isOwner={isOwner}
       />
     </div>
   );

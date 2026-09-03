@@ -1,7 +1,17 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Hash, Send, Users, MessageCircle, Plus, ChevronDown } from "lucide-react";
+import {
+  Hash,
+  Send,
+  Users,
+  MessageCircle,
+  Plus,
+  ChevronDown,
+  Smile,
+  Reply,
+  X,
+} from "lucide-react";
 import { getSocket, disconnectSocket } from "@/lib/socket";
 
 type Channel = { id: string; name: string; type: string };
@@ -33,13 +43,26 @@ type DMConversation = {
   otherUserAvatarUrl: string | null;
 };
 
+type Reaction = { userId: string; emoji: string };
+
+type ReplyData = {
+  id: string;
+  content: string;
+  userId: string;
+  userName: string;
+};
+
 type Message = {
   id: string;
   userId: string;
   userName: string;
   content: string;
   createdAt: string;
+  replyTo?: ReplyData | null;
+  reactions?: Reaction[];
 };
+
+const QUICK_REACTIONS = ["👍", "❤️", "😂", "🎉", "👀", "🔥"];
 
 export function ChatInterface({
   currentUserId,
@@ -67,6 +90,14 @@ export function ChatInterface({
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
   const [socket, setSocket] = useState<ReturnType<typeof getSocket> | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Reply state
+  const [replyTo, setReplyTo] = useState<Message | null>(null);
+
+  // Reaction picker state: which message id is showing the picker
+  const [reactionPickerFor, setReactionPickerFor] = useState<string | null>(
+    null,
+  );
 
   // Initialize socket connection
   useEffect(() => {
@@ -100,8 +131,19 @@ export function ChatInterface({
   useEffect(() => {
     if (!socket || !activeChannelId) return;
 
+    let cancelled = false;
     setMessages([]);
     setTypingUsers(new Set());
+
+    // Fetch message history from the database
+    fetch(`/api/chat/channels/${activeChannelId}/messages`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled && data.messages) {
+          setMessages(data.messages);
+        }
+      })
+      .catch(() => {});
 
     socket.emit("channel:join", activeChannelId);
 
@@ -133,9 +175,27 @@ export function ChatInterface({
     socket.on("channel:message", handleMessage);
     socket.on("channel:typing", handleTyping);
 
+    const handleReaction = ({
+      messageId,
+      reactions,
+    }: {
+      messageId: string;
+      reactions: Reaction[];
+    }) => {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId ? { ...m, reactions } : m,
+        ),
+      );
+    };
+
+    socket.on("channel:reaction", handleReaction);
+
     return () => {
+      cancelled = true;
       socket.off("channel:message", handleMessage);
       socket.off("channel:typing", handleTyping);
+      socket.off("channel:reaction", handleReaction);
       socket.emit("channel:leave", activeChannelId);
     };
   }, [socket, activeChannelId, currentUserId]);
@@ -144,8 +204,19 @@ export function ChatInterface({
   useEffect(() => {
     if (!socket || !activeDMUserId) return;
 
+    let cancelled = false;
     setMessages([]);
     setTypingUsers(new Set());
+
+    // Fetch message history from the database
+    fetch(`/api/chat/dms/${activeDMUserId}/messages`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled && data.messages) {
+          setMessages(data.messages);
+        }
+      })
+      .catch(() => {});
 
     socket.emit("dm:join", activeDMUserId);
 
@@ -168,9 +239,27 @@ export function ChatInterface({
     socket.on("dm:message", handleMessage);
     socket.on("dm:typing", handleTyping);
 
+    const handleReaction = ({
+      messageId,
+      reactions,
+    }: {
+      messageId: string;
+      reactions: Reaction[];
+    }) => {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId ? { ...m, reactions } : m,
+        ),
+      );
+    };
+
+    socket.on("dm:reaction", handleReaction);
+
     return () => {
+      cancelled = true;
       socket.off("dm:message", handleMessage);
       socket.off("dm:typing", handleTyping);
+      socket.off("dm:reaction", handleReaction);
     };
   }, [socket, activeDMUserId, currentUserId]);
 
@@ -187,15 +276,46 @@ export function ChatInterface({
       socket.emit("channel:message", {
         channelId: activeChannelId,
         content: input,
+        replyToId: replyTo?.id,
       });
     } else if (mode === "dms" && activeDMUserId) {
       socket.emit("dm:message", {
         otherUserId: activeDMUserId,
         content: input,
+        replyToId: replyTo?.id,
       });
     }
 
     setInput("");
+    setReplyTo(null);
+  }
+
+  function handleReact(messageId: string, emoji: string) {
+    if (!socket) return;
+    setReactionPickerFor(null);
+
+    if (mode === "channels" && activeChannelId) {
+      socket.emit("channel:react", {
+        channelId: activeChannelId,
+        messageId,
+        emoji,
+      });
+    } else if (mode === "dms" && activeDMUserId) {
+      socket.emit("dm:react", {
+        otherUserId: activeDMUserId,
+        messageId,
+        emoji,
+      });
+    }
+  }
+
+  function handleReply(msg: Message) {
+    setReplyTo(msg);
+    // Focus the input
+    const inputEl = document.querySelector<HTMLInputElement>(
+      'input[placeholder^="Message"], input[placeholder^="Type"]',
+    );
+    inputEl?.focus();
   }
 
   function handleTypingChange(value: string) {
@@ -224,17 +344,17 @@ export function ChatInterface({
   const activeDMUser = tenantMembers.find((m) => m.userId === activeDMUserId);
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full overflow-hidden">
       {/* Sidebar — server/channel list */}
-      <div className="flex w-60 flex-col border-r border-[var(--border)] bg-[var(--card)]">
+      <div className="flex w-60 flex-col border-r border-border bg-card">
         {/* Mode toggle */}
-        <div className="flex border-b border-[var(--border)] p-2">
+        <div className="flex border-b border-border p-2">
           <button
             onClick={() => setMode("channels")}
             className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-sm transition ${
               mode === "channels"
-                ? "bg-[var(--tenant-primary)]/15 text-[var(--tenant-primary)]"
-                : "text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                ? "bg-(--tenant-primary)/15 text-(--tenant-primary)"
+                : "text-muted-foreground hover:bg-muted"
             }`}
           >
             <Hash className="h-4 w-4" />
@@ -244,8 +364,8 @@ export function ChatInterface({
             onClick={() => setMode("dms")}
             className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-sm transition ${
               mode === "dms"
-                ? "bg-[var(--tenant-primary)]/15 text-[var(--tenant-primary)]"
-                : "text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                ? "bg-(--tenant-primary)/15 text-(--tenant-primary)"
+                : "text-muted-foreground hover:bg-muted"
             }`}
           >
             <MessageCircle className="h-4 w-4" />
@@ -257,13 +377,13 @@ export function ChatInterface({
         {mode === "channels" ? (
           <div className="flex-1 overflow-y-auto p-2">
             {chatServers.length === 0 ? (
-              <p className="py-4 text-center text-xs text-[var(--muted-foreground)]">
+              <p className="py-4 text-center text-xs text-muted-foreground">
                 No chat servers yet. Ask an admin to create one.
               </p>
             ) : (
               chatServers.map((server) => (
                 <div key={server.id} className="mb-4">
-                  <p className="mb-1 px-2 text-xs font-semibold uppercase text-[var(--muted-foreground)]">
+                  <p className="mb-1 px-2 text-xs font-semibold uppercase text-muted-foreground">
                     {server.name}
                   </p>
                   <ul className="flex flex-col gap-0.5">
@@ -276,8 +396,8 @@ export function ChatInterface({
                           }}
                           className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition ${
                             activeChannelId === channel.id
-                              ? "bg-[var(--tenant-primary)]/15 text-[var(--tenant-primary)]"
-                              : "text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                              ? "bg-(--tenant-primary)/15 text-(--tenant-primary)"
+                              : "text-muted-foreground hover:bg-muted"
                           }`}
                         >
                           <Hash className="h-3.5 w-3.5" />
@@ -295,7 +415,7 @@ export function ChatInterface({
             {/* Existing DMs */}
             {dmConversations.length > 0 && (
               <div className="mb-4">
-                <p className="mb-1 px-2 text-xs font-semibold uppercase text-[var(--muted-foreground)]">
+                <p className="mb-1 px-2 text-xs font-semibold uppercase text-muted-foreground">
                   Conversations
                 </p>
                 <ul className="flex flex-col gap-0.5">
@@ -308,8 +428,8 @@ export function ChatInterface({
                         }}
                         className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition ${
                           activeDMUserId === dm.otherUserId
-                            ? "bg-[var(--tenant-primary)]/15 text-[var(--tenant-primary)]"
-                            : "text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                            ? "bg-(--tenant-primary)/15 text-(--tenant-primary)"
+                            : "text-muted-foreground hover:bg-muted"
                         }`}
                       >
                         <div className="relative">
@@ -321,12 +441,12 @@ export function ChatInterface({
                               className="h-6 w-6 rounded-full"
                             />
                           ) : (
-                            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--tenant-primary)] text-xs font-medium text-white">
+                            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-(--tenant-primary) text-xs font-medium text-white">
                               {dm.otherUserName.charAt(0).toUpperCase()}
                             </div>
                           )}
                           {onlineUsers.has(dm.otherUserId) && (
-                            <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full border border-[var(--card)] bg-green-500" />
+                            <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full border border-card bg-green-500" />
                           )}
                         </div>
                         <span className="truncate">{dm.otherUserName}</span>
@@ -339,7 +459,7 @@ export function ChatInterface({
 
             {/* All members */}
             <div>
-              <p className="mb-1 px-2 text-xs font-semibold uppercase text-[var(--muted-foreground)]">
+              <p className="mb-1 px-2 text-xs font-semibold uppercase text-muted-foreground">
                 Members
               </p>
               <ul className="flex flex-col gap-0.5">
@@ -354,8 +474,8 @@ export function ChatInterface({
                         }}
                         className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition ${
                           activeDMUserId === m.userId
-                            ? "bg-[var(--tenant-primary)]/15 text-[var(--tenant-primary)]"
-                            : "text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                            ? "bg-(--tenant-primary)/15 text-(--tenant-primary)"
+                            : "text-muted-foreground hover:bg-muted"
                         }`}
                       >
                         <div className="relative">
@@ -367,12 +487,12 @@ export function ChatInterface({
                               className="h-6 w-6 rounded-full"
                             />
                           ) : (
-                            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--tenant-primary)] text-xs font-medium text-white">
+                            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-(--tenant-primary) text-xs font-medium text-white">
                               {m.name.charAt(0).toUpperCase()}
                             </div>
                           )}
                           {onlineUsers.has(m.userId) && (
-                            <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full border border-[var(--card)] bg-green-500" />
+                            <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full border border-card bg-green-500" />
                           )}
                         </div>
                         <span className="truncate">{m.name}</span>
@@ -388,10 +508,10 @@ export function ChatInterface({
       {/* Main chat area */}
       <div className="flex flex-1 flex-col">
         {/* Header */}
-        <div className="flex h-12 items-center gap-2 border-b border-[var(--border)] px-4">
+        <div className="flex h-12 items-center gap-2 border-b border-border px-4">
           {mode === "channels" && activeChannel ? (
             <>
-              <Hash className="h-4 w-4 text-[var(--muted-foreground)]" />
+              <Hash className="h-4 w-4 text-muted-foreground" />
               <span className="font-semibold">{activeChannel.name}</span>
             </>
           ) : mode === "dms" && (activeDM || activeDMUser) ? (
@@ -405,12 +525,12 @@ export function ChatInterface({
                     className="h-6 w-6 rounded-full"
                   />
                 ) : (
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--tenant-primary)] text-xs font-medium text-white">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-(--tenant-primary) text-xs font-medium text-white">
                     {(activeDM?.otherUserName ?? activeDMUser?.name ?? "?").charAt(0).toUpperCase()}
                   </div>
                 )}
                 {activeDMUserId && onlineUsers.has(activeDMUserId) && (
-                  <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full border border-[var(--card)] bg-green-500" />
+                  <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full border border-card bg-green-500" />
                 )}
               </div>
               <span className="font-semibold">
@@ -418,7 +538,7 @@ export function ChatInterface({
               </span>
             </>
           ) : (
-            <span className="text-sm text-[var(--muted-foreground)]">
+            <span className="text-sm text-muted-foreground">
               Select a channel or DM to start chatting
             </span>
           )}
@@ -428,7 +548,7 @@ export function ChatInterface({
         <div className="flex-1 overflow-y-auto p-4">
           {messages.length === 0 ? (
             <div className="flex h-full items-center justify-center">
-              <p className="text-sm text-[var(--muted-foreground)]">
+              <p className="text-sm text-muted-foreground">
                 {mode === "channels" && activeChannel
                   ? `This is the beginning of #${activeChannel.name}`
                   : mode === "dms" && activeDMUserId
@@ -438,29 +558,138 @@ export function ChatInterface({
             </div>
           ) : (
             <ul className="flex flex-col gap-3">
-              {messages.map((msg) => (
-                <li key={msg.id} className="flex gap-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--tenant-primary)] text-sm font-medium text-white">
-                    {msg.userName.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-sm font-medium">
-                        {msg.userId === currentUserId ? "You" : msg.userName}
-                      </span>
-                      <span className="text-xs text-[var(--muted-foreground)]">
-                        {new Date(msg.createdAt).toLocaleTimeString("en", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
+              {messages.map((msg) => {
+                // Group reactions by emoji
+                const reactionGroups: Record<
+                  string,
+                  { userIds: string[]; count: number }
+                > = {};
+                for (const r of msg.reactions ?? []) {
+                  if (!reactionGroups[r.emoji]) {
+                    reactionGroups[r.emoji] = { userIds: [], count: 0 };
+                  }
+                  reactionGroups[r.emoji].userIds.push(r.userId);
+                  reactionGroups[r.emoji].count++;
+                }
+                const reactionEntries = Object.entries(reactionGroups);
+
+                return (
+                  <li
+                    key={msg.id}
+                    className="group relative flex gap-3 rounded-lg px-2 py-1 hover:bg-(--muted)/50"
+                  >
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-(--tenant-primary) text-sm font-medium text-white">
+                      {msg.userName.charAt(0).toUpperCase()}
                     </div>
-                    <p className="text-sm text-[var(--foreground)]">{msg.content}</p>
-                  </div>
-                </li>
-              ))}
+                    <div className="min-w-0 flex-1">
+                      {/* Reply quote */}
+                      {msg.replyTo && (
+                        <div className="mb-1 flex items-center gap-1.5 border-l-2 border-(--tenant-primary)/40 pl-2 text-xs text-muted-foreground">
+                          <Reply className="h-3 w-3 shrink-0" />
+                          <span className="font-medium">
+                            {msg.replyTo.userId === currentUserId
+                              ? "You"
+                              : msg.replyTo.userName}
+                          </span>
+                          <span className="truncate">
+                            {msg.replyTo.content}
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-sm font-medium">
+                          {msg.userId === currentUserId ? "You" : msg.userName}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(msg.createdAt).toLocaleTimeString("en", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                      </div>
+                      <p className="text-sm text-foreground">
+                        {msg.content}
+                      </p>
+
+                      {/* Reactions */}
+                      {reactionEntries.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {reactionEntries.map(([emoji, info]) => {
+                            const hasMine = info.userIds.includes(
+                              currentUserId,
+                            );
+                            return (
+                              <button
+                                key={emoji}
+                                onClick={() => handleReact(msg.id, emoji)}
+                                className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs transition ${
+                                  hasMine
+                                    ? "bg-(--tenant-primary)/20 text-(--tenant-primary) ring-1 ring-(--tenant-primary)/30"
+                                    : "bg-muted text-muted-foreground hover:bg-(--muted)/70"
+                                }`}
+                              >
+                                <span>{emoji}</span>
+                                <span>{info.count}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Hover actions */}
+                    <div className="absolute -top-3 right-2 flex items-center gap-0.5 rounded-lg border border-border bg-card p-0.5 opacity-0 shadow-sm transition group-hover:opacity-100">
+                      {/* Quick reactions */}
+                      {QUICK_REACTIONS.slice(0, 3).map((emoji) => (
+                        <button
+                          key={emoji}
+                          onClick={() => handleReact(msg.id, emoji)}
+                          className="flex h-7 w-7 items-center justify-center rounded text-base transition hover:bg-muted"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                      {/* More reactions */}
+                      <div className="relative">
+                        <button
+                          onClick={() =>
+                            setReactionPickerFor(
+                              reactionPickerFor === msg.id ? null : msg.id,
+                            )
+                          }
+                          className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground transition hover:bg-muted"
+                        >
+                          <Smile className="h-4 w-4" />
+                        </button>
+                        {reactionPickerFor === msg.id && (
+                          <div className="absolute right-0 top-8 z-10 flex gap-1 rounded-lg border border-border bg-card p-2 shadow-md">
+                            {QUICK_REACTIONS.map((emoji) => (
+                              <button
+                                key={emoji}
+                                onClick={() => handleReact(msg.id, emoji)}
+                                className="flex h-8 w-8 items-center justify-center rounded text-lg transition hover:bg-muted"
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      {/* Reply */}
+                      <button
+                        onClick={() => handleReply(msg)}
+                        className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground transition hover:bg-muted"
+                        title="Reply"
+                      >
+                        <Reply className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
               {typingUsers.size > 0 && (
-                <li className="text-xs text-[var(--muted-foreground)]">
+                <li className="text-xs text-muted-foreground">
                   {typingUsers.size} {typingUsers.size === 1 ? "person is" : "people are"} typing...
                 </li>
               )}
@@ -470,7 +699,30 @@ export function ChatInterface({
         </div>
 
         {/* Input */}
-        <div className="border-t border-[var(--border)] p-4">
+        <div className="border-t border-border p-4">
+          {/* Reply preview */}
+          {replyTo && (
+            <div className="mb-2 flex items-center justify-between rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs">
+              <div className="flex min-w-0 items-center gap-2">
+                <Reply className="h-3.5 w-3.5 shrink-0 text-(--tenant-primary)" />
+                <div className="min-w-0">
+                  <span className="font-medium text-(--tenant-primary)">
+                    Replying to{" "}
+                    {replyTo.userId === currentUserId ? "yourself" : replyTo.userName}
+                  </span>
+                  <p className="truncate text-muted-foreground">
+                    {replyTo.content}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setReplyTo(null)}
+                className="shrink-0 rounded p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
           <form onSubmit={handleSend} className="flex items-center gap-2">
             <input
               type="text"
@@ -484,12 +736,12 @@ export function ChatInterface({
                     : "Select a channel or DM first"
               }
               disabled={!activeChannelId && !activeDMUserId}
-              className="flex-1 rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm placeholder:text-[var(--muted-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] disabled:opacity-50"
+              className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
             />
             <button
               type="submit"
               disabled={!input.trim() || (!activeChannelId && !activeDMUserId)}
-              className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--tenant-primary)] text-white transition hover:opacity-90 disabled:opacity-50"
+              className="flex h-10 w-10 items-center justify-center rounded-lg bg-(--tenant-primary) text-white transition hover:opacity-90 disabled:opacity-50"
             >
               <Send className="h-4 w-4" />
             </button>
@@ -499,9 +751,9 @@ export function ChatInterface({
 
       {/* Members sidebar (channel mode only) */}
       {mode === "channels" && activeChannel && (
-        <div className="hidden w-48 flex-col border-l border-[var(--border)] bg-[var(--card)] lg:flex">
-          <div className="border-b border-[var(--border)] p-3">
-            <p className="flex items-center gap-1.5 text-xs font-semibold uppercase text-[var(--muted-foreground)]">
+        <div className="hidden w-48 flex-col border-l border-border bg-card lg:flex">
+          <div className="border-b border-border p-3">
+            <p className="flex items-center gap-1.5 text-xs font-semibold uppercase text-muted-foreground">
               <Users className="h-3.5 w-3.5" />
               Members
             </p>
@@ -528,15 +780,15 @@ export function ChatInterface({
                           className="h-6 w-6 rounded-full"
                         />
                       ) : (
-                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--tenant-primary)] text-xs font-medium text-white">
+                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-(--tenant-primary) text-xs font-medium text-white">
                           {m.name.charAt(0).toUpperCase()}
                         </div>
                       )}
                       {onlineUsers.has(m.userId) && (
-                        <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full border border-[var(--card)] bg-green-500" />
+                        <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full border border-card bg-green-500" />
                       )}
                     </div>
-                    <span className="truncate text-[var(--muted-foreground)]">
+                    <span className="truncate text-muted-foreground">
                       {m.userId === currentUserId ? "You" : m.name}
                     </span>
                   </li>

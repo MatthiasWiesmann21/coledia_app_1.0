@@ -13,8 +13,6 @@ import {
   Search,
   Trash2,
   Pencil,
-  Eye,
-  EyeOff,
   Users,
 } from "lucide-react";
 import { formatFileSize, getFileIcon } from "@/lib/file-utils";
@@ -27,8 +25,7 @@ interface FolderItem {
   id: string;
   name: string;
   parentId: string | null;
-  userGroupId: string | null;
-  userGroupName: string | null;
+  userGroups: { id: string; name: string }[];
   visible: boolean;
   published: boolean;
   fileCount: number;
@@ -44,6 +41,7 @@ interface DocumentItem {
   mimeType: string | null;
   fileType: string | null;
   folderId: string | null;
+  userGroups: { id: string; name: string }[];
   visible: boolean;
   published: boolean;
   createdAt: string;
@@ -211,20 +209,6 @@ export function DocumentBrowser({ initialFolders, initialDocuments, isAdmin }: P
     }
   }
 
-  async function handleToggleVisibility(type: "folder" | "document", id: string, field: "visible" | "published", value: boolean) {
-    try {
-      const url = type === "folder" ? `/api/folders/${id}` : `/api/documents/${id}`;
-      await fetch(url, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [field]: value }),
-      });
-      loadContent(currentFolderId);
-    } catch {
-      // ignore
-    }
-  }
-
   const filteredDocuments = searchQuery
     ? documents.filter((d) =>
         d.name.toLowerCase().includes(searchQuery.toLowerCase()),
@@ -240,20 +224,20 @@ export function DocumentBrowser({ initialFolders, initialDocuments, isAdmin }: P
   return (
     <div className="flex flex-col gap-4">
       {/* Breadcrumbs */}
-      <nav className="flex items-center gap-1 text-sm text-[var(--muted-foreground)]">
+      <nav className="flex items-center gap-1 text-sm text-muted-foreground">
         <button
           onClick={() => handleBreadcrumbClick(-1)}
-          className="flex items-center gap-1 rounded-md px-2 py-1 transition hover:bg-[var(--muted)]"
+          className="flex items-center gap-1 rounded-md px-2 py-1 transition hover:bg-muted"
         >
           <Home className="h-3.5 w-3.5" />
           {t("browse")}
         </button>
         {breadcrumbs.map((crumb, i) => (
           <span key={crumb.id} className="flex items-center gap-1">
-            <ChevronRight className="h-3.5 w-3.5 text-[var(--muted-foreground)]" />
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
             <button
               onClick={() => handleBreadcrumbClick(i)}
-              className="rounded-md px-2 py-1 transition hover:bg-[var(--muted)]"
+              className="rounded-md px-2 py-1 transition hover:bg-muted"
             >
               {crumb.name}
             </button>
@@ -264,7 +248,7 @@ export function DocumentBrowser({ initialFolders, initialDocuments, isAdmin }: P
       {/* Action bar */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted-foreground)]" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -286,7 +270,7 @@ export function DocumentBrowser({ initialFolders, initialDocuments, isAdmin }: P
 
       {/* New folder form */}
       {showNewFolder && isAdmin && (
-        <div className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--card)] p-3">
+        <div className="flex items-center gap-2 rounded-lg border border-border bg-card p-3">
           <Input
             value={newFolderName}
             onChange={(e) => setNewFolderName(e.target.value)}
@@ -308,7 +292,7 @@ export function DocumentBrowser({ initialFolders, initialDocuments, isAdmin }: P
 
       {/* Content */}
       {loading ? (
-        <div className="flex items-center justify-center p-8 text-sm text-[var(--muted-foreground)]">
+        <div className="flex items-center justify-center p-8 text-sm text-muted-foreground">
           {tc("loading")}
         </div>
       ) : (
@@ -316,29 +300,29 @@ export function DocumentBrowser({ initialFolders, initialDocuments, isAdmin }: P
           {/* Folders */}
           {filteredFolders.length > 0 && (
             <div>
-              <h3 className="mb-2 text-xs font-semibold uppercase text-[var(--muted-foreground)]">
+              <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
                 {t("folders")}
               </h3>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                 {filteredFolders.map((folder) => (
                   <div
                     key={folder.id}
-                    className="group relative flex flex-col items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 transition hover:bg-[var(--muted)]"
+                    className="group relative flex flex-col items-center gap-1 rounded-xl border border-border bg-card p-4 transition hover:bg-muted"
                   >
                     <button
                       onClick={() => handleFolderClick(folder)}
                       className="flex w-full flex-col items-center gap-2"
                     >
-                      <Folder className="h-8 w-8 text-[var(--tenant-primary)]" />
+                      <Folder className="h-8 w-8 text-(--tenant-primary)" />
                       <span className="w-full truncate text-center text-sm font-medium">
                         {folder.name}
                       </span>
-                      <div className="flex items-center gap-1 text-xs text-[var(--muted-foreground)]">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <span>{folder.fileCount} {tc("chapters").toLowerCase()}</span>
-                        {folder.userGroupName && (
+                        {folder.userGroups.length > 0 && (
                           <span className="flex items-center gap-0.5">
                             <Users className="h-3 w-3" />
-                            {folder.userGroupName}
+                            {folder.userGroups.map((g) => g.name).join(", ")}
                           </span>
                         )}
                       </div>
@@ -351,21 +335,14 @@ export function DocumentBrowser({ initialFolders, initialDocuments, isAdmin }: P
                             setRenamingId(folder.id);
                             setRenameValue(folder.name);
                           }}
-                          className="rounded-md p-1 text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                          className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
                           title={t("rename")}
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
                         <button
-                          onClick={() => handleToggleVisibility("folder", folder.id, "visible", !folder.visible)}
-                          className="rounded-md p-1 text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
-                          title={folder.visible ? t("visible") : "Hidden"}
-                        >
-                          {folder.visible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-                        </button>
-                        <button
                           onClick={() => handleDeleteFolder(folder.id)}
-                          className="rounded-md p-1 text-[var(--muted-foreground)] hover:bg-red-500/10 hover:text-red-500"
+                          className="rounded-md p-1 text-muted-foreground hover:bg-red-500/10 hover:text-red-500"
                           title={t("delete")}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -381,11 +358,11 @@ export function DocumentBrowser({ initialFolders, initialDocuments, isAdmin }: P
           {/* Documents */}
           {filteredDocuments.length > 0 && (
             <div>
-              <h3 className="mb-2 text-xs font-semibold uppercase text-[var(--muted-foreground)]">
+              <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
                 {t("documents")}
               </h3>
-              <div className="overflow-hidden rounded-lg border border-[var(--border)]">
-                <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-4 border-b border-[var(--border)] bg-[var(--muted)] px-4 py-2 text-xs font-semibold text-[var(--muted-foreground)]">
+              <div className="overflow-hidden rounded-lg border border-border">
+                <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-4 border-b border-border bg-muted px-4 py-2 text-xs font-semibold text-muted-foreground">
                   <span>{t("name")}</span>
                   <span className="hidden sm:block">{t("size")}</span>
                   <span className="hidden md:block">{t("modified")}</span>
@@ -394,16 +371,16 @@ export function DocumentBrowser({ initialFolders, initialDocuments, isAdmin }: P
                 {filteredDocuments.map((doc) => (
                   <div
                     key={doc.id}
-                    className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-4 border-b border-[var(--border)] px-4 py-3 last:border-0 hover:bg-[var(--muted)]/50"
+                    className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-4 border-b border-border px-4 py-3 last:border-0 hover:bg-(--muted)/50"
                   >
                     <div className="flex items-center gap-3">
                       <span className="text-lg">{getFileIcon(doc.mimeType, doc.fileType)}</span>
                       <span className="truncate text-sm font-medium">{doc.name}</span>
                     </div>
-                    <span className="hidden text-sm text-[var(--muted-foreground)] sm:block">
+                    <span className="hidden text-sm text-muted-foreground sm:block">
                       {formatFileSize(BigInt(doc.fileSize))}
                     </span>
-                    <span className="hidden text-sm text-[var(--muted-foreground)] md:block">
+                    <span className="hidden text-sm text-muted-foreground md:block">
                       {new Date(doc.createdAt).toLocaleDateString()}
                     </span>
                     <div className="flex items-center gap-1">
@@ -432,14 +409,6 @@ export function DocumentBrowser({ initialFolders, initialDocuments, isAdmin }: P
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleToggleVisibility("document", doc.id, "visible", !doc.visible)}
-                            title={doc.visible ? t("visible") : "Hidden"}
-                          >
-                            {doc.visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
                             onClick={() => handleDeleteDocument(doc.id)}
                             className="text-red-500 hover:bg-red-500/10"
                             title={t("delete")}
@@ -458,8 +427,8 @@ export function DocumentBrowser({ initialFolders, initialDocuments, isAdmin }: P
           {/* Empty state */}
           {filteredFolders.length === 0 && filteredDocuments.length === 0 && (
             <div className="flex flex-col items-center gap-3 py-12 text-center">
-              <Folder className="h-12 w-12 text-[var(--muted-foreground)]" />
-              <p className="text-sm text-[var(--muted-foreground)]">
+              <Folder className="h-12 w-12 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
                 {t("emptyState")}
               </p>
             </div>
@@ -475,7 +444,7 @@ export function DocumentBrowser({ initialFolders, initialDocuments, isAdmin }: P
             if (e.target === e.currentTarget) setRenamingId(null);
           }}
         >
-          <div className="w-full max-w-sm rounded-xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-lg">
+          <div className="w-full max-w-sm rounded-xl border border-border bg-card p-6 shadow-lg">
             <h3 className="mb-4 text-lg font-semibold">
               {renameType === "folder" ? t("renameFolder") : t("renameFile")}
             </h3>

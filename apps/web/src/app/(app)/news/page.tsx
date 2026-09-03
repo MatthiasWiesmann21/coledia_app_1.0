@@ -1,20 +1,42 @@
 ﻿import { prisma } from "@coledia/db";
 import { getTenantId } from "@/lib/tenant";
+import { getSession } from "@/lib/session";
 import { NewsFeed } from "@/components/news/news-feed";
 import { getUserLocale } from "@/i18n/get-locale";
 
 export default async function NewsPage() {
   const tenantId = getTenantId();
   const locale = await getUserLocale();
+  const session = await getSession();
+
+  // Get user's group IDs for access filtering
+  const userGroupIds = session
+    ? (
+        await prisma.userGroupMember.findMany({
+          where: { userId: session.user.id },
+          select: { userGroupId: true },
+        })
+      ).map((m) => m.userGroupId)
+    : [];
 
   const [posts, categories, translations] = await Promise.all([
     prisma.post.findMany({
       where: {
         tenantId,
         published: true,
-        OR: [
-          { scheduledAt: null },
-          { scheduledAt: { lte: new Date() } },
+        AND: [
+          {
+            OR: [
+              { scheduledAt: null },
+              { scheduledAt: { lte: new Date() } },
+            ],
+          },
+          {
+            OR: [
+              { userGroups: { none: {} } },
+              { userGroups: { some: { id: { in: userGroupIds } } } },
+            ],
+          },
         ],
       },
       include: { category: true },

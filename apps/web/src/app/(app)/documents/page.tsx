@@ -24,33 +24,46 @@ export default async function DocumentsPage() {
     })
   ).map((m) => m.userGroupId);
 
-  // Fetch root folders (visible + published for non-admins)
+  // Fetch root folders — userGroup filtering applies to everyone (including admins)
   const folders = await prisma.folder.findMany({
     where: {
       tenantId,
       parentId: null,
+      OR: [
+        { userGroups: { none: {} } },
+        { userGroups: { some: { id: { in: userGroupIds } } } },
+      ],
       ...(!isAdmin
         ? {
             visible: true,
             published: true,
-            OR: [{ userGroupId: null }, { userGroupId: { in: userGroupIds } }],
           }
         : {}),
     },
     include: {
       _count: { select: { documents: true, children: true } },
-      userGroup: { select: { id: true, name: true } },
+      userGroups: { select: { id: true, name: true } },
     },
     orderBy: { name: "asc" },
   });
 
-  // Fetch root documents (visible + published for non-admins)
+  // Fetch root documents — userGroup filtering applies to everyone (including admins)
   const documents = await prisma.document.findMany({
     where: {
       tenantId,
       folderId: null,
-      ...(!isAdmin ? { visible: true, published: true } : {}),
+      OR: [
+        { userGroups: { none: {} } },
+        { userGroups: { some: { id: { in: userGroupIds } } } },
+      ],
+      ...(!isAdmin
+        ? {
+            visible: true,
+            published: true,
+          }
+        : {}),
     },
+    include: { userGroups: { select: { id: true, name: true } } },
     orderBy: { name: "asc" },
   });
 
@@ -62,8 +75,7 @@ export default async function DocumentsPage() {
           id: f.id,
           name: f.name,
           parentId: f.parentId,
-          userGroupId: f.userGroupId,
-          userGroupName: f.userGroup?.name ?? null,
+          userGroups: f.userGroups.map((g) => ({ id: g.id, name: g.name })),
           visible: f.visible,
           published: f.published,
           fileCount: f._count.documents,
@@ -78,6 +90,7 @@ export default async function DocumentsPage() {
           mimeType: d.mimeType,
           fileType: d.fileType,
           folderId: d.folderId,
+          userGroups: d.userGroups.map((g) => ({ id: g.id, name: g.name })),
           visible: d.visible,
           published: d.published,
           createdAt: d.createdAt.toISOString(),

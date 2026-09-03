@@ -9,7 +9,7 @@ const updateFolderSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   visible: z.boolean().optional(),
   published: z.boolean().optional(),
-  userGroupId: z.string().nullable().optional(),
+  userGroupIds: z.array(z.string()).optional(),
 });
 
 async function requireAdmin(session: any) {
@@ -40,7 +40,7 @@ export async function GET(
     where: { id, tenantId },
     include: {
       _count: { select: { documents: true, children: true } },
-      userGroup: { select: { id: true, name: true } },
+      userGroups: { select: { id: true, name: true } },
     },
   });
 
@@ -53,8 +53,7 @@ export async function GET(
       id: folder.id,
       name: folder.name,
       parentId: folder.parentId,
-      userGroupId: folder.userGroupId,
-      userGroupName: folder.userGroup?.name ?? null,
+      userGroups: folder.userGroups.map((g) => ({ id: g.id, name: g.name })),
       visible: folder.visible,
       published: folder.published,
       fileCount: folder._count.documents,
@@ -83,16 +82,17 @@ export async function PATCH(
   const body = await request.json();
   const parsed = updateFolderSchema.parse(body);
 
+  const { userGroupIds, ...rest } = parsed;
+  const updateData: any = { ...rest };
+  if (userGroupIds !== undefined) {
+    updateData.userGroups = {
+      set: userGroupIds.map((gid) => ({ id: gid })),
+    };
+  }
+
   const folder = await prisma.folder.update({
     where: { id },
-    data: {
-      ...(parsed.name !== undefined ? { name: parsed.name } : {}),
-      ...(parsed.visible !== undefined ? { visible: parsed.visible } : {}),
-      ...(parsed.published !== undefined ? { published: parsed.published } : {}),
-      ...(parsed.userGroupId !== undefined
-        ? { userGroupId: parsed.userGroupId }
-        : {}),
-    },
+    data: updateData,
   });
 
   return NextResponse.json({
@@ -101,7 +101,6 @@ export async function PATCH(
       name: folder.name,
       visible: folder.visible,
       published: folder.published,
-      userGroupId: folder.userGroupId,
     },
   });
 }

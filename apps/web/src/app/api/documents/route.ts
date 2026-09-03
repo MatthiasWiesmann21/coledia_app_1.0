@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
   const tenantId = getTenantId();
   const { searchParams } = new URL(request.url);
   const folderId = searchParams.get("folderId") || null;
+  const includeAll = searchParams.get("includeAll") === "true";
 
   // Check admin status
   const membership = await prisma.membership.findUnique({
@@ -21,12 +22,29 @@ export async function GET(request: NextRequest) {
   const isAdmin =
     membership && ["owner", "admin", "operator"].includes(membership.role);
 
+  // Get user's group IDs for role-based filtering
+  const userGroupIds = (
+    await prisma.userGroupMember.findMany({
+      where: { userId: session.user.id },
+      select: { userGroupId: true },
+    })
+  ).map((m) => m.userGroupId);
+
   // Build where clause
   const where: any = {
     tenantId,
     folderId: folderId || null,
   };
 
+  // userGroup filtering applies to everyone unless explicitly bypassed (admin manager)
+  if (!includeAll) {
+    where.OR = [
+      { userGroups: { none: {} } },
+      { userGroups: { some: { id: { in: userGroupIds } } } },
+    ];
+  }
+
+  // visible/published filtering only for non-admins
   if (!isAdmin) {
     where.visible = true;
     where.published = true;
@@ -34,6 +52,7 @@ export async function GET(request: NextRequest) {
 
   const documents = await prisma.document.findMany({
     where,
+    include: { userGroups: { select: { id: true, name: true } } },
     orderBy: { name: "asc" },
   });
 
@@ -46,6 +65,7 @@ export async function GET(request: NextRequest) {
       mimeType: d.mimeType,
       fileType: d.fileType,
       folderId: d.folderId,
+      userGroups: d.userGroups.map((g) => ({ id: g.id, name: g.name })),
       visible: d.visible,
       published: d.published,
       createdAt: d.createdAt.toISOString(),

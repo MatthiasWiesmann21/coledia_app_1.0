@@ -11,10 +11,17 @@ export default async function EditPostPage({
   const { id } = await params;
   const { tenantId } = await requireAdmin();
 
-  const [post, categories, translations] = await Promise.all([
-    prisma.post.findFirst({ where: { id, tenantId } }),
+  const [post, categories, userGroups, translations] = await Promise.all([
+    prisma.post.findFirst({
+      where: { id, tenantId },
+      include: { userGroups: { select: { id: true, name: true } } },
+    }),
     prisma.category.findMany({
       where: { tenantId, isNews: true, published: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.userGroup.findMany({
+      where: { tenantId },
       orderBy: { name: "asc" },
     }),
     prisma.translation.findMany({
@@ -39,6 +46,7 @@ export default async function EditPostPage({
           title: post.title,
           description: post.description,
           categoryId: post.categoryId,
+          userGroupIds: post.userGroups.map((g) => g.id),
           imageUrl: post.imageUrl,
           gifUrl: post.gifUrl,
           published: post.published,
@@ -49,6 +57,10 @@ export default async function EditPostPage({
           id: c.id,
           name: c.name,
           color: c.color,
+        }))}
+        userGroups={userGroups.map((g) => ({
+          id: g.id,
+          name: g.name,
         }))}
       />
     </div>

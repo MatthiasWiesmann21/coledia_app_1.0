@@ -151,7 +151,7 @@ export async function createCourse(data: {
   description?: string;
   thumbnailUrl?: string;
   categoryId?: string;
-  userGroupId?: string;
+  userGroupIds?: string[];
   duration?: string;
   level?: string;
   specialStatus?: string;
@@ -161,10 +161,19 @@ export async function createCourse(data: {
 
   const course = await prisma.course.create({
     data: {
-      ...data,
       tenantId,
+      title: data.title,
+      description: data.description || null,
+      thumbnailUrl: data.thumbnailUrl || null,
+      categoryId: data.categoryId || null,
+      duration: data.duration || null,
+      level: data.level || null,
+      specialStatus: data.specialStatus || null,
       price: data.price ?? null,
       published: false,
+      userGroups: data.userGroupIds?.length
+        ? { connect: data.userGroupIds.map((id) => ({ id })) }
+        : undefined,
     },
   });
 
@@ -179,7 +188,7 @@ export async function updateCourse(
     description?: string | null;
     thumbnailUrl?: string | null;
     categoryId?: string | null;
-    userGroupId?: string | null;
+    userGroupIds?: string[];
     duration?: string | null;
     level?: string | null;
     specialStatus?: string | null;
@@ -190,9 +199,17 @@ export async function updateCourse(
 ) {
   await requireAdmin();
 
+  const { userGroupIds, ...rest } = data;
+  const updateData: any = { ...rest };
+  if (userGroupIds !== undefined) {
+    updateData.userGroups = {
+      set: userGroupIds.map((gid) => ({ id: gid })),
+    };
+  }
+
   const course = await prisma.course.update({
     where: { id },
-    data,
+    data: updateData,
   });
 
   revalidatePath("/admin/courses");
@@ -302,9 +319,21 @@ export async function enrollInCourse(courseId: string) {
   return enrollment;
 }
 
-export async function markChapterComplete(chapterId: string) {
+export async function toggleChapterComplete(chapterId: string) {
   const session = await getSession();
   if (!session) throw new Error("Unauthorized");
+
+  // Find existing progress to determine new state
+  const existing = await prisma.chapterProgress.findUnique({
+    where: {
+      userId_chapterId: {
+        userId: session.user.id,
+        chapterId,
+      },
+    },
+  });
+
+  const newCompleted = !existing?.completed;
 
   await prisma.chapterProgress.upsert({
     where: {
@@ -313,12 +342,12 @@ export async function markChapterComplete(chapterId: string) {
         chapterId,
       },
     },
-    update: { completed: true, completedAt: new Date() },
+    update: { completed: newCompleted, completedAt: newCompleted ? new Date() : null },
     create: {
       userId: session.user.id,
       chapterId,
-      completed: true,
-      completedAt: new Date(),
+      completed: newCompleted,
+      completedAt: newCompleted ? new Date() : null,
     },
   });
 
@@ -344,14 +373,20 @@ export async function markChapterComplete(chapterId: string) {
     const progressPct =
       totalChapters > 0 ? (completedChapters / totalChapters) * 100 : 0;
 
-    await prisma.enrollment.update({
+    await prisma.enrollment.upsert({
       where: {
         userId_courseId: {
           userId: session.user.id,
           courseId: chapter.courseId,
         },
       },
-      data: {
+      update: {
+        progressPct,
+        completedAt: progressPct >= 100 ? new Date() : null,
+      },
+      create: {
+        userId: session.user.id,
+        courseId: chapter.courseId,
         progressPct,
         completedAt: progressPct >= 100 ? new Date() : null,
       },
@@ -359,6 +394,13 @@ export async function markChapterComplete(chapterId: string) {
 
     revalidatePath(`/courses/${chapter.courseId}`);
   }
+
+  return newCompleted;
+}
+
+// Keep markChapterComplete as an alias for backward compatibility
+export async function markChapterComplete(chapterId: string) {
+  return toggleChapterComplete(chapterId);
 }
 
 // ─── Likes / Favourites ─────────────────────────────────────────
@@ -446,4 +488,125 @@ export async function addComment(chapterId: string, content: string) {
 
   revalidatePath(`/courses/chapters/${chapterId}`);
   return comment;
+}
+
+export async function addCommentReply(
+  chapterId: string,
+  parentId: string,
+  content: string,
+) {
+  const session = await getSession();
+  if (!session) throw new Error("Unauthorized");
+
+  const tenantId = getTenantId();
+
+  const comment = await prisma.comment.create({
+    data: {
+      userId: session.user.id,
+      tenantId,
+      chapterId,
+      parentId,
+      content,
+    },
+  });
+
+  revalidatePath(`/courses/chapters/${chapterId}`);
+  return comment;
+}
+
+export async function toggleChapterCommentLike(
+  commentId: string,
+  chapterId: string,
+) {
+  const session = await getSession();
+  if (!session) throw new Error("Unauthorized");
+
+  const tenantId = getTenantId();
+
+  const existing = await prisma.like.findUnique({
+    where: {
+      userId_targetType_targetId: {
+        userId: session.user.id,
+        targetType: "comment",
+        targetId: commentId,
+      },
+    },
+  });
+
+  if (existing) {
+    await prisma.like.delete({ where: { id: existing.id } });
+  } else {
+    await prisma.like.create({
+      data: {
+        userId: session.user.id,
+        tenantId,
+        targetType: "comment",
+        targetId: commentId,
+      },
+    });
+  }
+
+  revalidatePath(`/courses/chapters/${chapterId}`);
+}
+
+export async function getChapterComments(chapterId: string) {
+  const session = await getSession();
+  if (!session) throw new Error("Unauthorized");
+
+  const allComments = await prisma.comment.findMany({
+    where: { chapterId },
+    include: { user: { include: { profile: true } } },
+    orderBy: { createdAt: "asc" },
+  });
+
+  const commentIds = allComments.map((c) => c.id);
+  const [commentLikeCounts, userCommentLikes] = await Promise.all([
+    prisma.like.groupBy({
+      by: ["targetId"],
+      where: { targetType: "comment", targetId: { in: commentIds } },
+      _count: { _all: true },
+    }),
+    prisma.like.findMany({
+      where: {
+        userId: session.user.id,
+        targetType: "comment",
+        targetId: { in: commentIds },
+      },
+      select: { targetId: true },
+    }),
+  ]);
+
+  const commentLikeCountMap = new Map(
+    commentLikeCounts.map((l) => [l.targetId, l._count._all]),
+  );
+  const userLikedCommentIds = new Set(userCommentLikes.map((l) => l.targetId));
+
+  // Build nested comment tree
+  const commentMap = new Map<string, any>();
+  allComments.forEach((c) => {
+    commentMap.set(c.id, {
+      id: c.id,
+      content: c.content,
+      authorName: c.user.name ?? c.user.email,
+      authorUsername: c.user.profile?.username ?? null,
+      authorAvatarUrl: c.user.profile?.avatarUrl ?? null,
+      createdAt: c.createdAt.toISOString(),
+      likeCount: commentLikeCountMap.get(c.id) ?? 0,
+      liked: userLikedCommentIds.has(c.id),
+      replies: [],
+    });
+  });
+
+  const topLevelComments: any[] = [];
+  allComments.forEach((c) => {
+    const node = commentMap.get(c.id);
+    if (c.parentId && commentMap.has(c.parentId)) {
+      commentMap.get(c.parentId).replies.push(node);
+    } else {
+      topLevelComments.push(node);
+    }
+  });
+  topLevelComments.reverse();
+
+  return topLevelComments;
 }

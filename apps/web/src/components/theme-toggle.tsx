@@ -14,7 +14,7 @@ export function ThemeToggle({ className }: { className?: string }) {
   if (!mounted) {
     return (
       <div
-        className={`h-9 w-9 rounded-lg border border-[var(--border)] bg-[var(--card)] ${className ?? ""}`}
+        className={`h-9 w-9 rounded-lg border border-border bg-card ${className ?? ""}`}
       />
     );
   }
@@ -22,7 +22,7 @@ export function ThemeToggle({ className }: { className?: string }) {
   return (
     <button
       onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-      className={`flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--muted-foreground)] transition hover:bg-[var(--muted)] hover:text-[var(--foreground)] ${className ?? ""}`}
+      className={`flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition hover:bg-muted hover:text-foreground ${className ?? ""}`}
       aria-label="Toggle theme"
     >
       {theme === "dark" ? (

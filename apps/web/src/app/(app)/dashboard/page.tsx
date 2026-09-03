@@ -26,6 +26,7 @@ export default async function DashboardPage() {
     upcomingEvents,
     recentComments,
     favourites,
+    signedInMembers,
   ] = await Promise.all([
     // All enrollments with course + category info
     prisma.enrollment.findMany({
@@ -47,9 +48,14 @@ export default async function DashboardPage() {
       where: { userId, completed: true },
     }),
 
-    // Online members count (tenant-wide)
-    prisma.userProfile.count({
-      where: { status: "online" },
+    // Online members = users with an active (non-expired) session in this tenant
+    prisma.session.count({
+      where: {
+        expiresAt: { gt: new Date() },
+        user: {
+          memberships: { some: { tenantId } },
+        },
+      },
     }),
 
     // Upcoming events the user is registered for
@@ -99,6 +105,32 @@ export default async function DashboardPage() {
       where: { userId, targetType: "course" },
       orderBy: { createdAt: "desc" },
       take: 5,
+    }),
+
+    // Signed-in members: users with active sessions in this tenant
+    prisma.session.findMany({
+      where: {
+        expiresAt: { gt: new Date() },
+        user: {
+          memberships: { some: { tenantId } },
+        },
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            profile: {
+              select: { avatarUrl: true, status: true },
+            },
+          },
+        },
+      },
+      orderBy: { updatedAt: "desc" },
+      // Avoid duplicates from multiple sessions per user
+      distinct: ["userId"],
+      take: 20,
     }),
   ]);
 
@@ -172,6 +204,15 @@ export default async function DashboardPage() {
     })
     .filter((f): f is NonNullable<typeof f> => f !== null);
 
+  // Build signed-in members list
+  const onlineMembersList = signedInMembers.map((s) => ({
+    id: s.user.id,
+    name: s.user.name ?? s.user.email,
+    avatarUrl: s.user.profile?.avatarUrl ?? null,
+    status: s.user.profile?.status ?? "online",
+    lastActive: s.updatedAt.toISOString(),
+  }));
+
   return (
     <>
       <TermsModal userId={userId} needsTerms={needsTerms} />
@@ -186,6 +227,7 @@ export default async function DashboardPage() {
         upcomingEvents={events}
         recentActivity={recentActivity}
         favouriteCourses={favouriteCourses}
+        onlineMembers={onlineMembersList}
       />
     </>
   );

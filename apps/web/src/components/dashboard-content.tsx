@@ -43,6 +43,14 @@ type FavouriteCourse = {
   categoryColor: string;
 };
 
+type OnlineMember = {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+  status: string;
+  lastActive: string;
+};
+
 type MyCourse = {
   id: string;
   title: string;
@@ -58,12 +66,14 @@ export function DashboardContent({
   upcomingEvents = [],
   recentActivity = [],
   favouriteCourses = [],
+  onlineMembers = [],
 }: {
   stats: Stats;
   myCourses: MyCourse[];
   upcomingEvents?: UpcomingEvent[];
   recentActivity?: RecentActivity[];
   favouriteCourses?: FavouriteCourse[];
+  onlineMembers?: OnlineMember[];
 }) {
   const notStarted = myCourses.length - stats.inProgress - stats.completed;
   const donutData = [
@@ -110,7 +120,7 @@ export function DashboardContent({
         />
         <StatCard
           icon={Users}
-          label="Members Online"
+          label="Signed-in Members"
           value={stats.onlineMembers}
           color="#008080"
         />
@@ -271,60 +281,62 @@ export function DashboardContent({
               </Link>
             </div>
           ) : (
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                  <th className="pb-2 font-medium">Course Name</th>
-                  <th className="pb-2 font-medium">Category</th>
-                  <th className="pb-2 font-medium">Payment</th>
-                  <th className="pb-2 font-medium">Progress</th>
-                </tr>
-              </thead>
-              <tbody>
-                {myCourses.map((course) => (
-                  <tr
-                    key={course.id}
-                    className="border-b border-border last:border-0"
-                  >
-                    <td className="py-3 text-sm font-medium">
-                      <Link
-                        href={`/courses/${course.id}`}
-                        className="hover:text-(--tenant-primary)"
-                      >
-                        {course.title}
-                      </Link>
-                    </td>
-                    <td className="py-3 text-sm">
-                      <span
-                        className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
-                        style={{
-                          backgroundColor: `${course.categoryColor}20`,
-                          color: course.categoryColor,
-                        }}
-                      >
-                        {course.category}
-                      </span>
-                    </td>
-                    <td className="py-3 text-sm text-muted-foreground">
-                      {course.paymentStatus}
-                    </td>
-                    <td className="py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 w-24 overflow-hidden rounded-full bg-muted">
-                          <div
-                            className="h-full progress-brand"
-                            style={{ width: `${course.progress}%` }}
-                          />
-                        </div>
-                        <span className="text-xs text-muted-foreground">
-                          {course.progress}%
-                        </span>
-                      </div>
-                    </td>
+            <div className="max-h-80 overflow-y-auto">
+              <table className="w-full">
+                <thead className="sticky top-0 bg-card">
+                  <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                    <th className="pb-2 font-medium">Course Name</th>
+                    <th className="pb-2 font-medium">Category</th>
+                    <th className="pb-2 font-medium">Payment</th>
+                    <th className="pb-2 font-medium">Progress</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {myCourses.map((course) => (
+                    <tr
+                      key={course.id}
+                      className="border-b border-border last:border-0"
+                    >
+                      <td className="py-3 text-sm font-medium">
+                        <Link
+                          href={`/courses/${course.id}`}
+                          className="hover:text-(--tenant-primary)"
+                        >
+                          {course.title}
+                        </Link>
+                      </td>
+                      <td className="py-3 text-sm">
+                        <span
+                          className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+                          style={{
+                            backgroundColor: `${course.categoryColor}20`,
+                            color: course.categoryColor,
+                          }}
+                        >
+                          {course.category}
+                        </span>
+                      </td>
+                      <td className="py-3 text-sm text-muted-foreground">
+                        {course.paymentStatus}
+                      </td>
+                      <td className="py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-24 overflow-hidden rounded-full bg-muted">
+                            <div
+                              className="h-full progress-brand"
+                              style={{ width: `${course.progress}%` }}
+                            />
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {course.progress}%
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 
@@ -337,7 +349,7 @@ export function DashboardContent({
               your activity here.
             </p>
           ) : (
-            <div className="flex flex-col gap-3">
+            <div className="flex max-h-80 flex-col gap-3 overflow-y-auto">
               {recentActivity.map((activity) => (
                 <Link
                   key={activity.id}
@@ -401,8 +413,69 @@ export function DashboardContent({
           </div>
         </div>
       )}
+
+      {/* Signed-in Members */}
+      <div className="mt-6 rounded-xl border border-border bg-card p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="flex items-center gap-2 text-lg font-semibold">
+            <Users className="h-5 w-5 text-(--tenant-primary)" />
+            Signed-in Members
+          </h2>
+          <span className="text-sm text-muted-foreground">
+            {onlineMembers.length} active
+          </span>
+        </div>
+        {onlineMembers.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            No members are currently signed in.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {onlineMembers.map((member) => (
+              <div
+                key={member.id}
+                className="flex items-center gap-3 rounded-lg border border-border p-3"
+              >
+                <div className="relative shrink-0">
+                  {member.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={member.avatarUrl}
+                      alt={member.name}
+                      className="h-10 w-10 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-(--tenant-primary) text-sm font-medium text-white">
+                      {member.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-card bg-green-500" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{member.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Active {timeAgo(member.lastActive)}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
+}
+
+function timeAgo(isoDate: string): string {
+  const date = new Date(isoDate);
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
 }
 
 function StatCard({

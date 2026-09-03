@@ -447,7 +447,7 @@ export function AdminDocumentManager() {
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Select a user group to restrict access, or leave as "All users".
+            Select a user group to restrict access, or leave as &quot;All users&quot;.
           </p>
         </div>
       )}

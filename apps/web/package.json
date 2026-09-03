@@ -33,6 +33,7 @@
   },
   "devDependencies": {
     "@coledia/config": "workspace:*",
+    "@eslint/eslintrc": "^3.3.7",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^20.0.0",
     "@types/react": "^19.0.0",

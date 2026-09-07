@@ -7,47 +7,47 @@
 
 */
 -- DropForeignKey
-ALTER TABLE `course` DROP FOREIGN KEY `Course_userGroupId_fkey`;
+ALTER TABLE `Course` DROP FOREIGN KEY `Course_userGroupId_fkey`;
 
 -- DropForeignKey
-ALTER TABLE `event` DROP FOREIGN KEY `Event_userGroupId_fkey`;
+ALTER TABLE `Event` DROP FOREIGN KEY `Event_userGroupId_fkey`;
 
 -- DropIndex
-DROP INDEX `Course_userGroupId_fkey` ON `course`;
+DROP INDEX `Course_userGroupId_fkey` ON `Course`;
 
 -- DropIndex
-DROP INDEX `Event_userGroupId_fkey` ON `event`;
+DROP INDEX `Event_userGroupId_fkey` ON `Event`;
 
 -- AlterTable
-ALTER TABLE `branding` ADD COLUMN `themeMode` VARCHAR(191) NULL,
+ALTER TABLE `Branding` ADD COLUMN `themeMode` VARCHAR(191) NULL,
     ADD COLUMN `themePreset` VARCHAR(191) NULL DEFAULT 'coledia';
 
 -- AlterTable
-ALTER TABLE `course` DROP COLUMN `userGroupId`,
+ALTER TABLE `Course` DROP COLUMN `userGroupId`,
     ADD COLUMN `certificateTemplateId` VARCHAR(191) NULL;
 
 -- AlterTable
-ALTER TABLE `document` ADD COLUMN `mimeType` VARCHAR(191) NULL,
+ALTER TABLE `Document` ADD COLUMN `mimeType` VARCHAR(191) NULL,
     ADD COLUMN `storagePath` VARCHAR(191) NULL,
     ADD COLUMN `uploadedById` VARCHAR(191) NULL,
     MODIFY `fileSize` BIGINT NULL;
 
 -- AlterTable
-ALTER TABLE `event` DROP COLUMN `userGroupId`;
+ALTER TABLE `Event` DROP COLUMN `userGroupId`;
 
 -- AlterTable
-ALTER TABLE `message` ADD COLUMN `replyToId` VARCHAR(191) NULL;
+ALTER TABLE `Message` ADD COLUMN `replyToId` VARCHAR(191) NULL;
 
 -- AlterTable
-ALTER TABLE `tenant` ADD COLUMN `stripeChargesEnabled` BOOLEAN NOT NULL DEFAULT false,
+ALTER TABLE `Tenant` ADD COLUMN `stripeChargesEnabled` BOOLEAN NOT NULL DEFAULT false,
     ADD COLUMN `stripeConnectedAccountId` VARCHAR(191) NULL;
 
 -- AlterTable
-ALTER TABLE `user` DROP COLUMN `emailVerified`,
+ALTER TABLE `User` DROP COLUMN `emailVerified`,
     ADD COLUMN `emailVerified` BOOLEAN NOT NULL DEFAULT false;
 
 -- AlterTable
-ALTER TABLE `userprofile` ADD COLUMN `language` VARCHAR(191) NOT NULL DEFAULT 'en';
+ALTER TABLE `UserProfile` ADD COLUMN `language` VARCHAR(191) NOT NULL DEFAULT 'en';
 
 -- CreateTable
 CREATE TABLE `CertificateTemplate` (

@@ -1,10 +1,12 @@
 ﻿import { prisma } from "@coledia/db";
 import { getTenantId } from "@/lib/tenant";
 import { getSession } from "@/lib/session";
+import { requireFeature } from "@/lib/plan";
 import { EventsList } from "@/components/events/events-list-view";
 import { getUserLocale } from "@/i18n/get-locale";
 
 export default async function EventsPage() {
+  await requireFeature("liveEvents");
   const tenantId = getTenantId();
   const locale = await getUserLocale();
   const session = await getSession();

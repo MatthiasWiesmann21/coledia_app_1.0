@@ -4,6 +4,9 @@ import { prisma } from "@coledia/db";
 import { getSession } from "./session";
 import { getTenantId } from "./tenant";
 import { revalidatePath } from "next/cache";
+import { notify } from "./notifications";
+import { logAuditAsync } from "./audit";
+import { dispatchWebhookAsync } from "./webhooks";
 
 async function requireAdmin() {
   const session = await getSession();
@@ -178,6 +181,8 @@ export async function createCourse(data: {
   });
 
   revalidatePath("/admin/courses");
+  logAuditAsync({ action: "create", entityType: "course", entityId: course.id, metadata: { title: course.title } });
+  dispatchWebhookAsync({ tenantId, event: "course.created", data: { id: course.id, title: course.title } });
   return { id: course.id };
 }
 
@@ -197,7 +202,15 @@ export async function updateCourse(
     published?: boolean;
   },
 ) {
-  await requireAdmin();
+  const { tenantId } = await requireAdmin();
+
+  const previous =
+    data.published !== undefined
+      ? await prisma.course.findUnique({
+          where: { id },
+          select: { published: true },
+        })
+      : null;
 
   const { userGroupIds, ...rest } = data;
   const updateData: any = { ...rest };
@@ -210,12 +223,43 @@ export async function updateCourse(
   const course = await prisma.course.update({
     where: { id },
     data: updateData,
+    include: { userGroups: { select: { id: true } } },
   });
+
+  // Notify when a course is published or updated (visible to enrolled users)
+  if (data.published === true && previous?.published === false) {
+    const groupIds = course.userGroups.map((g) => g.id);
+    void notify({
+      tenantId,
+      type: "course_update",
+      title: `New course: ${course.title}`,
+      body: course.description ?? undefined,
+      link: `/courses/${course.id}`,
+      ...(groupIds.length > 0 ? { userGroupIds: groupIds } : { allMembers: true }),
+    });
+  } else if (data.published === undefined && course.published) {
+    // Content changed on an already-published course → notify enrolled users
+    const enrollments = await prisma.enrollment.findMany({
+      where: { courseId: course.id },
+      select: { userId: true },
+    });
+    if (enrollments.length > 0) {
+      void notify({
+        tenantId,
+        type: "course_update",
+        title: `Course updated: ${course.title}`,
+        link: `/courses/${course.id}`,
+        userIds: enrollments.map((e) => e.userId),
+      });
+    }
+  }
 
   revalidatePath("/admin/courses");
   revalidatePath(`/admin/courses/${id}`);
   revalidatePath("/courses");
   revalidatePath(`/courses/${id}`);
+  logAuditAsync({ action: "update", entityType: "course", entityId: course.id, metadata: { published: data.published } });
+  dispatchWebhookAsync({ tenantId, event: "course.updated", data: { id: course.id, title: course.title, published: data.published } });
   return { id: course.id };
 }
 
@@ -223,6 +267,8 @@ export async function deleteCourse(id: string) {
   await requireAdmin();
 
   await prisma.course.delete({ where: { id } });
+  logAuditAsync({ action: "delete", entityType: "course", entityId: id });
+  dispatchWebhookAsync({ tenantId: getTenantId(), event: "course.deleted", data: { id } });
 
   revalidatePath("/admin/courses");
   revalidatePath("/courses");
@@ -256,6 +302,7 @@ export async function createChapter(data: {
   });
 
   revalidatePath(`/admin/courses/${data.courseId}`);
+  logAuditAsync({ action: "create", entityType: "chapter", entityId: chapter.id, metadata: { courseId: data.courseId, title: chapter.title } });
   return chapter;
 }
 
@@ -274,14 +321,45 @@ export async function updateChapter(
     order?: number;
   },
 ) {
-  await requireAdmin();
+  const { tenantId } = await requireAdmin();
+
+  const previous =
+    data.published === true
+      ? await prisma.chapter.findUnique({
+          where: { id },
+          select: { published: true },
+        })
+      : null;
 
   const chapter = await prisma.chapter.update({
     where: { id },
     data,
+    include: { course: { select: { title: true, published: true } } },
   });
 
+  // Newly published chapter in a published course → notify enrolled users
+  if (
+    data.published === true &&
+    previous?.published === false &&
+    chapter.course.published
+  ) {
+    const enrollments = await prisma.enrollment.findMany({
+      where: { courseId: chapter.courseId },
+      select: { userId: true },
+    });
+    if (enrollments.length > 0) {
+      void notify({
+        tenantId,
+        type: "course_update",
+        title: `New chapter in ${chapter.course.title}: ${chapter.title}`,
+        link: `/courses/${chapter.courseId}/chapters/${chapter.id}`,
+        userIds: enrollments.map((e) => e.userId),
+      });
+    }
+  }
+
   revalidatePath(`/admin/courses/${chapter.courseId}`);
+  logAuditAsync({ action: "update", entityType: "chapter", entityId: chapter.id, metadata: { published: data.published } });
   return chapter;
 }
 
@@ -289,6 +367,7 @@ export async function deleteChapter(id: string) {
   await requireAdmin();
 
   const chapter = await prisma.chapter.delete({ where: { id } });
+  logAuditAsync({ action: "delete", entityType: "chapter", entityId: id, metadata: { courseId: chapter.courseId } });
 
   revalidatePath(`/admin/courses/${chapter.courseId}`);
 }
@@ -391,6 +470,18 @@ export async function toggleChapterComplete(chapterId: string) {
         completedAt: progressPct >= 100 ? new Date() : null,
       },
     });
+
+    // Course fully completed: issue certificate when the course has no quizzes
+    // (quizzed courses issue certificates on quiz pass instead)
+    if (progressPct >= 100) {
+      const quizCount = await prisma.quiz.count({
+        where: { chapter: { courseId: chapter.courseId } },
+      });
+      if (quizCount === 0) {
+        const { issueCertificateForCourse } = await import("./certificates");
+        await issueCertificateForCourse(session.user.id, chapter.courseId);
+      }
+    }
 
     revalidatePath(`/courses/${chapter.courseId}`);
   }

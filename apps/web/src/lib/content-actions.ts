@@ -4,6 +4,9 @@ import { prisma } from "@coledia/db";
 import { getSession } from "./session";
 import { getTenantId } from "./tenant";
 import { revalidatePath } from "next/cache";
+import { notify } from "./notifications";
+import { logAuditAsync } from "./audit";
+import { dispatchWebhookAsync } from "./webhooks";
 
 async function requireAdmin() {
   const session = await getSession();
@@ -56,6 +59,8 @@ export async function createPost(data: {
   });
 
   revalidatePath("/admin/posts");
+  logAuditAsync({ action: "create", entityType: "post", entityId: post.id, metadata: { title: post.title } });
+  dispatchWebhookAsync({ tenantId, event: "post.created", data: { id: post.id, title: post.title } });
   return { id: post.id };
 }
 
@@ -72,7 +77,17 @@ export async function updatePost(
     scheduledAt?: Date | null;
   },
 ) {
-  await requireAdmin();
+  const { tenantId } = await requireAdmin();
+
+  const wasPublished =
+    data.published === true
+      ? (
+          await prisma.post.findUnique({
+            where: { id },
+            select: { published: true },
+          })
+        )?.published
+      : undefined;
 
   const { userGroupIds, ...rest } = data;
   const updateData: any = { ...rest };
@@ -85,12 +100,28 @@ export async function updatePost(
   const post = await prisma.post.update({
     where: { id },
     data: updateData,
+    include: { userGroups: { select: { id: true } } },
   });
+
+  // Notify audience when a post is published for the first time
+  if (data.published === true && wasPublished === false) {
+    const groupIds = post.userGroups.map((g) => g.id);
+    void notify({
+      tenantId,
+      type: "new_post",
+      title: `New post: ${post.title}`,
+      body: post.description ?? undefined,
+      link: `/news/${post.id}`,
+      ...(groupIds.length > 0 ? { userGroupIds: groupIds } : { allMembers: true }),
+    });
+  }
 
   revalidatePath("/admin/posts");
   revalidatePath(`/admin/posts/${id}`);
   revalidatePath("/news");
   revalidatePath(`/news/${id}`);
+  logAuditAsync({ action: "update", entityType: "post", entityId: post.id, metadata: { published: data.published } });
+  dispatchWebhookAsync({ tenantId, event: "post.updated", data: { id: post.id, title: post.title, published: data.published } });
   return { id: post.id };
 }
 
@@ -98,6 +129,8 @@ export async function deletePost(id: string) {
   await requireAdmin();
 
   await prisma.post.delete({ where: { id } });
+  logAuditAsync({ action: "delete", entityType: "post", entityId: id });
+  dispatchWebhookAsync({ tenantId: getTenantId(), event: "post.deleted", data: { id } });
 
   revalidatePath("/admin/posts");
   revalidatePath("/news");
@@ -304,6 +337,8 @@ export async function createEvent(data: {
   });
 
   revalidatePath("/admin/events");
+  logAuditAsync({ action: "create", entityType: "event", entityId: event.id, metadata: { title: event.title } });
+  dispatchWebhookAsync({ tenantId, event: "event.created", data: { id: event.id, title: event.title } });
   return { id: event.id };
 }
 
@@ -324,7 +359,17 @@ export async function updateEvent(
     recurrenceRule?: string | null;
   },
 ) {
-  await requireAdmin();
+  const { tenantId } = await requireAdmin();
+
+  const wasPublished =
+    data.published === true
+      ? (
+          await prisma.event.findUnique({
+            where: { id },
+            select: { published: true },
+          })
+        )?.published
+      : undefined;
 
   const { userGroupIds, ...rest } = data;
   const updateData: any = { ...rest };
@@ -337,12 +382,28 @@ export async function updateEvent(
   const event = await prisma.event.update({
     where: { id },
     data: updateData,
+    include: { userGroups: { select: { id: true } } },
   });
+
+  // Notify audience when an event is published for the first time
+  if (data.published === true && wasPublished === false) {
+    const groupIds = event.userGroups.map((g) => g.id);
+    void notify({
+      tenantId,
+      type: "new_event",
+      title: `New event: ${event.title}`,
+      body: event.startAt.toLocaleString(),
+      link: `/events/${event.id}`,
+      ...(groupIds.length > 0 ? { userGroupIds: groupIds } : { allMembers: true }),
+    });
+  }
 
   revalidatePath("/admin/events");
   revalidatePath(`/admin/events/${id}`);
   revalidatePath("/events");
   revalidatePath(`/events/${id}`);
+  logAuditAsync({ action: "update", entityType: "event", entityId: event.id, metadata: { published: data.published } });
+  dispatchWebhookAsync({ tenantId, event: "event.updated", data: { id: event.id, title: event.title, published: data.published } });
   return { id: event.id };
 }
 
@@ -350,6 +411,8 @@ export async function deleteEvent(id: string) {
   await requireAdmin();
 
   await prisma.event.delete({ where: { id } });
+  logAuditAsync({ action: "delete", entityType: "event", entityId: id });
+  dispatchWebhookAsync({ tenantId: getTenantId(), event: "event.deleted", data: { id } });
 
   revalidatePath("/admin/events");
   revalidatePath("/events");

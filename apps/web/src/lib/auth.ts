@@ -1,6 +1,8 @@
 import { betterAuth } from "better-auth";
+import { APIError } from "better-auth/api";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "@coledia/db";
+import { getPlanLimits } from "@coledia/shared";
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
@@ -34,6 +36,25 @@ export const auth = betterAuth({
   databaseHooks: {
     user: {
       create: {
+        before: async () => {
+          // Enforce the plan's member limit — block sign-up when the tenant is full
+          const tenantId = process.env.TENANT_ID;
+          if (!tenantId) return;
+
+          const tenant = await prisma.tenant.findUnique({
+            where: { id: tenantId },
+            select: { plan: true },
+          });
+          const { memberLimit } = getPlanLimits(tenant?.plan ?? "starter");
+          if (memberLimit === null) return;
+
+          const count = await prisma.membership.count({ where: { tenantId } });
+          if (count >= memberLimit) {
+            throw new APIError("FORBIDDEN", {
+              message: "member_limit_reached",
+            });
+          }
+        },
         after: async (user) => {
           // Auto-create a membership for the new user in the current tenant
           const tenantId = process.env.TENANT_ID;
@@ -49,6 +70,17 @@ export const auth = betterAuth({
               tenantId,
               role: "member",
             },
+          });
+
+          // Notify tenant admins about the new member
+          const { notify } = await import("./notifications");
+          void notify({
+            tenantId,
+            type: "member_joined",
+            title: `New member: ${user.name ?? user.email}`,
+            link: "/admin/users",
+            adminsOnly: true,
+            excludeUserIds: [user.id],
           });
         },
       },

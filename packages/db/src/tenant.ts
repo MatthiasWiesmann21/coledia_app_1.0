@@ -36,6 +36,8 @@ const DIRECT_TENANT_MODELS = [
   "auditLog",
   "apiKey",
   "webhook",
+  "certificateTemplate",
+  "customPage",
 ] as const;
 
 /**

@@ -1,6 +1,7 @@
 import { prisma } from "@coledia/db";
 import { getTenantId } from "@/lib/tenant";
 import { getSession } from "@/lib/session";
+import { requireFeature } from "@/lib/plan";
 import { notFound, redirect } from "next/navigation";
 import { EventDetail } from "@/components/events/event-detail";
 import { registerForEvent, toggleEventLike } from "@/lib/content-actions";
@@ -10,6 +11,7 @@ export default async function EventDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await requireFeature("liveEvents");
   const { id } = await params;
   const tenantId = getTenantId();
   const session = await getSession();

@@ -20,6 +20,7 @@ import { Button } from "@coledia/ui/button";
 import { Input } from "@coledia/ui/input";
 import { cn } from "@coledia/ui/lib/utils";
 import { useTranslations } from "next-intl";
+import { useConfirm } from "@/components/confirm-provider";
 
 interface FolderItem {
   id: string;
@@ -72,6 +73,7 @@ export function DocumentBrowser({ initialFolders, initialDocuments, isAdmin }: P
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [renameType, setRenameType] = useState<"folder" | "document">("folder");
+  const confirm = useConfirm();
 
   const loadContent = useCallback(async (folderId: string | null) => {
     setLoading(true);
@@ -164,7 +166,12 @@ export function DocumentBrowser({ initialFolders, initialDocuments, isAdmin }: P
   }
 
   async function handleDeleteFolder(id: string) {
-    if (!confirm(t("deleteFolderConfirm"))) return;
+    const ok = await confirm({
+      title: t("deleteFolderConfirm"),
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       const res = await fetch(`/api/folders/${id}`, { method: "DELETE" });
       if (res.ok) {
@@ -176,7 +183,12 @@ export function DocumentBrowser({ initialFolders, initialDocuments, isAdmin }: P
   }
 
   async function handleDeleteDocument(id: string) {
-    if (!confirm(t("deleteFileConfirm"))) return;
+    const ok = await confirm({
+      title: t("deleteFileConfirm"),
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       const res = await fetch(`/api/documents/${id}`, { method: "DELETE" });
       if (res.ok) {

@@ -3,11 +3,12 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Sun, Moon, Globe, LogOut, User, CreditCard, ChevronDown } from "lucide-react";
+import { Sun, Moon, Globe, LogOut, User, CreditCard, ChevronDown, Bell, Award } from "lucide-react";
 import { useTheme } from "next-themes";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@coledia/ui/lib/utils";
 import { GlobalSearch } from "@/components/global-search";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { setUserLanguage } from "@/lib/actions";
 import { locales, localeNames, localeFlags, type Locale } from "@/i18n/config";
 
@@ -32,6 +33,8 @@ export function TopNav({
   userStatus,
   isOwner,
   currentLanguage,
+  userId,
+  tenantId,
 }: {
   userName: string;
   userEmail: string;
@@ -39,6 +42,8 @@ export function TopNav({
   userStatus: string;
   isOwner: boolean;
   currentLanguage: string;
+  userId: string;
+  tenantId: string;
 }) {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
@@ -132,6 +137,9 @@ export function TopNav({
           )}
         </div>
 
+        {/* Notifications */}
+        <NotificationBell userId={userId} tenantId={tenantId} locale={currentLanguage} />
+
         {/* Theme toggle */}
         <button
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
@@ -199,6 +207,24 @@ export function TopNav({
               >
                 <User className="h-4 w-4" />
                 Manage Account
+              </Link>
+
+              <Link
+                href="/certificates"
+                onClick={() => setProfileOpen(false)}
+                className="flex items-center gap-2 px-3 py-2 text-sm transition hover:bg-muted"
+              >
+                <Award className="h-4 w-4" />
+                My Certificates
+              </Link>
+
+              <Link
+                href="/settings/notifications"
+                onClick={() => setProfileOpen(false)}
+                className="flex items-center gap-2 px-3 py-2 text-sm transition hover:bg-muted"
+              >
+                <Bell className="h-4 w-4" />
+                Notifications
               </Link>
 
               {isOwner && (

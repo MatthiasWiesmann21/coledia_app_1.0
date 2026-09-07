@@ -1,5 +1,6 @@
 import { prisma } from "@coledia/db";
 import { requireAdmin } from "@/lib/admin-guard";
+import { requireFeature } from "@/lib/plan";
 import { notFound } from "next/navigation";
 import { UserGroupEditor } from "@/components/admin/usergroup-editor";
 
@@ -10,6 +11,7 @@ export default async function EditUserGroupPage({
 }) {
   const { id } = await params;
   const { tenantId } = await requireAdmin();
+  await requireFeature("userGroups");
 
   const group = await prisma.userGroup.findFirst({
     where: { id, tenantId },

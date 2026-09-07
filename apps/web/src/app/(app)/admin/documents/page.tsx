@@ -1,5 +1,6 @@
 import { requireAdmin } from "@/lib/admin-guard";
 import { AdminDocumentManager } from "@/components/documents/admin-document-manager";
+import { StorageUsage } from "@/components/admin/storage-usage";
 
 export default async function AdminDocumentsPage() {
   await requireAdmin();
@@ -7,6 +8,7 @@ export default async function AdminDocumentsPage() {
   return (
     <div className="p-6">
       <h1 className="mb-6 text-2xl font-bold">Doc-Hub Management</h1>
+      <StorageUsage />
       <AdminDocumentManager />
     </div>
   );

@@ -23,6 +23,7 @@ import { Input } from "@coledia/ui/input";
 import { Label } from "@coledia/ui/label";
 import { cn } from "@coledia/ui/lib/utils";
 import { UserGroupMultiSelect } from "@/components/admin/usergroup-multiselect";
+import { useAlert } from "@/components/confirm-provider";
 
 interface FolderItem {
   id: string;
@@ -91,6 +92,7 @@ export function AdminDocumentManager() {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [renameType, setRenameType] = useState<"folder" | "document">("folder");
+  const alert = useAlert();
 
   // Confirm delete state
   const [confirmDelete, setConfirmDelete] = useState<{
@@ -212,12 +214,12 @@ export function AdminDocumentManager() {
 
         if (!res.ok) {
           const error = await res.json();
-          alert(error.error ?? "Upload failed");
+          await alert({ title: "Upload failed", description: error.error ?? undefined });
         }
       }
       loadContent(currentFolderId);
     } catch {
-      alert("Upload failed");
+      await alert({ title: "Upload failed" });
     } finally {
       setUploading(false);
       if (fileInputRef.current) {

@@ -7,6 +7,7 @@ import { Button } from "@coledia/ui/button";
 import { Input } from "@coledia/ui/input";
 import { Label } from "@coledia/ui/label";
 import { createEvent, deleteEvent } from "@/lib/content-actions";
+import { useConfirm } from "@/components/confirm-provider";
 
 type EventItem = {
   id: string;
@@ -25,6 +26,7 @@ export function EventsList({ events }: { events: EventItem[] }) {
   const [newTitle, setNewTitle] = useState("");
   const [newStartAt, setNewStartAt] = useState("");
   const [creating, setCreating] = useState(false);
+  const confirm = useConfirm();
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -43,7 +45,12 @@ export function EventsList({ events }: { events: EventItem[] }) {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this event?")) return;
+    const ok = await confirm({
+      title: "Delete this event?",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await deleteEvent(id);
     } catch (e) {

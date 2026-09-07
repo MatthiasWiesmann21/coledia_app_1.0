@@ -32,4 +32,7 @@ npm-debug.log*
 docker/data
 
 # Local file storage (uploaded documents, images, avatars, videos)
-uploads
+# Anchored so it only matches data dirs — NOT src/app/api/uploads/ route code
+/uploads
+/apps/web/uploads
+/apps/realtime/uploads

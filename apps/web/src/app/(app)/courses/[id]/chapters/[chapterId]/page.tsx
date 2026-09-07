@@ -12,6 +12,8 @@ import {
   toggleChapterCommentLike,
   getChapterComments,
 } from "@/lib/course-actions";
+import { getQuizForChapter } from "@/lib/quiz-actions";
+import { QuizPlayer } from "@/components/courses/quiz-player";
 
 export default async function ChapterPage({
   params,
@@ -171,6 +173,9 @@ export default async function ChapterPage({
   const progressPct =
     totalChapters > 0 ? (completedCount / totalChapters) * 100 : 0;
 
+  // Quiz for this chapter (Club+ feature; returns null when locked or absent)
+  const quiz = await getQuizForChapter(chapter.id).catch(() => null);
+
   return (
     <div className="p-6">
       <ChapterView
@@ -210,6 +215,7 @@ export default async function ChapterPage({
           getComments: getChapterComments,
         }}
       />
+      {quiz && <QuizPlayer quiz={quiz} />}
     </div>
   );
 }

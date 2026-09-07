@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Trash2, Shield, User, UserCog, Wrench } from "lucide-react";
 import { Button } from "@coledia/ui/button";
 import { updateUserRole, removeUser } from "@/lib/admin-actions";
+import { useConfirm } from "@/components/confirm-provider";
 
 type User = {
   userId: string;
@@ -40,6 +41,7 @@ const ROLE_COLORS: Record<string, string> = {
 export function UsersList({ users }: { users: User[] }) {
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const confirm = useConfirm();
 
   async function handleRoleChange(userId: string, role: string) {
     setLoading(userId);
@@ -53,7 +55,13 @@ export function UsersList({ users }: { users: User[] }) {
   }
 
   async function handleRemove(userId: string) {
-    if (!confirm("Remove this user from the tenant?")) return;
+    const ok = await confirm({
+      title: "Remove this user?",
+      description: "This user will lose access to the tenant.",
+      confirmLabel: "Remove",
+      destructive: true,
+    });
+    if (!ok) return;
     setLoading(userId);
     setError(null);
     try {

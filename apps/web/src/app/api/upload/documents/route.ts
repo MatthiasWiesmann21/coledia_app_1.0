@@ -7,6 +7,8 @@ import {
   validateFile,
   validateFileSize,
 } from "@/lib/file-security";
+import { notify } from "@/lib/notifications";
+import { assertStorageQuota } from "@/lib/storage-quota";
 
 const MAX_DOC_SIZE = 100 * 1024 * 1024; // 100MB
 
@@ -49,6 +51,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: validation.error }, { status: 400 });
   }
 
+  // Enforce tenant storage quota (Starter 1GB / Club 10GB / Org unlimited)
+  const quotaError = await assertStorageQuota(tenantId, file.size);
+  if (quotaError) {
+    return NextResponse.json({ error: quotaError }, { status: 413 });
+  }
+
   const sanitizedName = sanitizeFilename(file.name);
 
   // Save to disk
@@ -70,6 +78,25 @@ export async function POST(request: NextRequest) {
       published: false,
     },
   });
+
+  // Notify members with access to the target folder (or all members if ungrouped)
+  void (async () => {
+    const folder = folderId
+      ? await prisma.folder.findUnique({
+          where: { id: folderId },
+          include: { userGroups: { select: { id: true } } },
+        })
+      : null;
+    const groupIds = folder?.userGroups.map((g) => g.id) ?? [];
+    await notify({
+      tenantId,
+      type: "document_update",
+      title: `New document: ${document.name}`,
+      link: "/documents",
+      excludeUserIds: [session.user.id],
+      ...(groupIds.length > 0 ? { userGroupIds: groupIds } : { allMembers: true }),
+    });
+  })();
 
   return NextResponse.json(
     {

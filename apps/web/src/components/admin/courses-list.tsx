@@ -7,6 +7,7 @@ import { Button } from "@coledia/ui/button";
 import { Input } from "@coledia/ui/input";
 import { Label } from "@coledia/ui/label";
 import { createCourse, deleteCourse } from "@/lib/course-actions";
+import { useConfirm } from "@/components/confirm-provider";
 
 type Course = {
   id: string;
@@ -26,6 +27,7 @@ export function CoursesList({ courses }: { courses: Course[] }) {
   const [showCreate, setShowCreate] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [creating, setCreating] = useState(false);
+  const confirm = useConfirm();
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -43,7 +45,13 @@ export function CoursesList({ courses }: { courses: Course[] }) {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this course and all its chapters?")) return;
+    const ok = await confirm({
+      title: "Delete this course?",
+      description: "This course and all its chapters will be permanently removed.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await deleteCourse(id);
     } catch (e) {

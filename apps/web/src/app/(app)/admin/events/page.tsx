@@ -1,9 +1,11 @@
 ﻿import { prisma } from "@coledia/db";
 import { requireAdmin } from "@/lib/admin-guard";
+import { requireFeature } from "@/lib/plan";
 import { EventsList } from "@/components/admin/events-list";
 
 export default async function AdminEventsPage() {
   const { tenantId } = await requireAdmin();
+  await requireFeature("liveEvents");
 
   const events = await prisma.event.findMany({
     where: { tenantId },

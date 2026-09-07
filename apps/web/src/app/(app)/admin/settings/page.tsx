@@ -1,11 +1,13 @@
 ﻿import { prisma } from "@coledia/db";
 import { requireAdmin } from "@/lib/admin-guard";
 import { SettingsPanel } from "@/components/admin/settings-panel";
+import { WebhookManager } from "@/components/admin/webhook-manager";
+import { hasFeature } from "@/lib/plan";
 
 export default async function AdminSettingsPage() {
   const { tenantId, membership } = await requireAdmin();
 
-  const [tenant, apiKeys] = await Promise.all([
+  const [tenant, apiKeys, webhooks, apiAccess] = await Promise.all([
     prisma.tenant.findUnique({
       where: { id: tenantId },
       include: { branding: true },
@@ -14,6 +16,11 @@ export default async function AdminSettingsPage() {
       where: { tenantId },
       orderBy: { createdAt: "desc" },
     }),
+    prisma.webhook.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: "desc" },
+    }),
+    hasFeature("apiAccess"),
   ]);
 
   if (!tenant) {
@@ -55,6 +62,21 @@ export default async function AdminSettingsPage() {
         }))}
         isOwner={isOwner}
       />
+      {isOwner && (
+        <div className="mt-6">
+          <WebhookManager
+            webhooks={webhooks.map((w) => ({
+              id: w.id,
+              url: w.url,
+              events: (w.events as string[]) ?? [],
+              secret: w.secret,
+              active: w.active,
+              createdAt: w.createdAt.toISOString(),
+            }))}
+            apiAccess={apiAccess}
+          />
+        </div>
+      )}
     </div>
   );
 }

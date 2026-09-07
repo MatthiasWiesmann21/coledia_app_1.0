@@ -13,6 +13,7 @@ import {
   createApiKey,
   deleteApiKey,
 } from "@/lib/admin-actions";
+import { useConfirm } from "@/components/confirm-provider";
 
 type BrandingData = {
   logoLightUrl: string | null;
@@ -81,6 +82,7 @@ export function SettingsPanel({
   const [newKey, setNewKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [keyMsg, setKeyMsg] = useState<string | null>(null);
+  const confirm = useConfirm();
 
   async function handleSaveTenant() {
     setSavingTenant(true);
@@ -135,7 +137,13 @@ export function SettingsPanel({
   }
 
   async function handleDeleteKey(id: string) {
-    if (!confirm("Delete this API key?")) return;
+    const ok = await confirm({
+      title: "Delete this API key?",
+      description: "Any integrations using this key will stop working immediately.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await deleteApiKey(id);
     } catch {

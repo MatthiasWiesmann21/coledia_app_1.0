@@ -19,20 +19,28 @@ import {
   Settings,
   Tag,
   ChevronLeft,
+  Lock,
+  Award,
+  ScrollText,
+  FileCode,
 } from "lucide-react";
 import { cn } from "@coledia/ui/lib/utils";
+import { minPlanForFeature, PLAN_DETAILS, type FeatureKey } from "@coledia/shared";
+
+export type PlanFeatures = Record<FeatureKey, boolean>;
 
 type NavItem = {
   labelKey: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
+  feature?: FeatureKey;
 };
 
 const USER_NAV: NavItem[] = [
   { labelKey: "nav.courses", href: "/courses", icon: BookOpen },
   { labelKey: "nav.dashboard", href: "/dashboard", icon: LayoutDashboard },
   { labelKey: "nav.news", href: "/news", icon: Newspaper },
-  { labelKey: "nav.liveEvents", href: "/events", icon: CalendarDays },
+  { labelKey: "nav.liveEvents", href: "/events", icon: CalendarDays, feature: "liveEvents" },
   { labelKey: "nav.chat", href: "/chat", icon: MessageSquare },
   { labelKey: "nav.documents", href: "/documents", icon: FileText },
 ];
@@ -41,13 +49,16 @@ const ADMIN_NAV: NavItem[] = [
   { labelKey: "admin.overview", href: "/admin", icon: LayoutDashboard },
   { labelKey: "admin.courses", href: "/admin/courses", icon: BookOpen },
   { labelKey: "admin.posts", href: "/admin/posts", icon: Newspaper },
-  { labelKey: "admin.liveEvents", href: "/admin/events", icon: CalendarDays },
+  { labelKey: "admin.liveEvents", href: "/admin/events", icon: CalendarDays, feature: "liveEvents" },
   { labelKey: "admin.chat", href: "/admin/chat", icon: MessageSquare },
   { labelKey: "admin.documents", href: "/admin/documents", icon: FileText },
   { labelKey: "admin.categories", href: "/admin/categories", icon: Tag },
   { labelKey: "admin.users", href: "/admin/users", icon: Users },
-  { labelKey: "admin.usergroups", href: "/admin/usergroups", icon: FolderTree },
+  { labelKey: "admin.usergroups", href: "/admin/usergroups", icon: FolderTree, feature: "userGroups" },
+  { labelKey: "admin.certificates", href: "/admin/certificates", icon: Award, feature: "quizzesCertificates" },
   { labelKey: "admin.analytics", href: "/admin/analytics", icon: BarChart3 },
+  { labelKey: "admin.auditLogs", href: "/admin/audit-logs", icon: ScrollText, feature: "auditLogs" },
+  { labelKey: "admin.customPages", href: "/admin/pages", icon: FileCode, feature: "customPages" },
   { labelKey: "admin.settings", href: "/admin/settings", icon: Settings },
 ];
 
@@ -56,11 +67,13 @@ export function Sidebar({
   tenantName,
   tenantLogoUrl,
   logoClickUrl,
+  planFeatures,
 }: {
   isAdmin: boolean;
   tenantName: string;
   tenantLogoUrl?: string | null;
   logoClickUrl?: string | null;
+  planFeatures?: PlanFeatures;
 }) {
   const pathname = usePathname();
   const t = useTranslations();
@@ -115,6 +128,8 @@ export function Sidebar({
       <nav className="flex-1 overflow-y-auto px-3 py-4">
         <ul className="flex flex-col gap-1">
           {nav.map((item) => {
+            const locked =
+              item.feature != null && planFeatures != null && !planFeatures[item.feature];
             const active =
               pathname === item.href ||
               (item.href !== "/dashboard" &&
@@ -123,16 +138,28 @@ export function Sidebar({
             return (
               <li key={item.href}>
                 <Link
-                  href={item.href}
+                  href={locked ? `/upgrade?feature=${item.feature}` : item.href}
                   className={cn(
                     "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition",
-                    active
-                      ? "bg-(--tenant-primary)/15 text-(--tenant-primary)"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                    locked
+                      ? "text-muted-foreground/60 hover:bg-muted"
+                      : active
+                        ? "bg-(--tenant-primary)/15 text-(--tenant-primary)"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                 >
                   <item.icon className="h-4 w-4 shrink-0" />
-                  {t(item.labelKey)}
+                  <span className={locked ? "line-through decoration-muted-foreground/40" : ""}>
+                    {t(item.labelKey)}
+                  </span>
+                  {locked && (
+                    <span className="ml-auto flex items-center gap-1">
+                      <span className="rounded-full border border-border px-1.5 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">
+                        {PLAN_DETAILS[minPlanForFeature(item.feature!)].name}
+                      </span>
+                      <Lock className="h-3.5 w-3.5 shrink-0" />
+                    </span>
+                  )}
                 </Link>
               </li>
             );

@@ -1,7 +1,12 @@
 import { prisma } from "@coledia/db";
 import { requireAdmin } from "@/lib/admin-guard";
+import { hasFeature } from "@/lib/plan";
 import { notFound } from "next/navigation";
+import Link from "next/link";
+import { Lock } from "lucide-react";
 import { ChapterEditor } from "@/components/admin/chapter-editor";
+import { QuizBuilder } from "@/components/admin/quiz-builder";
+import type { QuizQuestion } from "@/lib/quiz-actions";
 
 export default async function EditChapterPage({
   params,
@@ -29,6 +34,11 @@ export default async function EditChapterPage({
 
   if (!chapter) notFound();
 
+  const quizEnabled = await hasFeature("quizzesCertificates");
+  const quiz = quizEnabled
+    ? await prisma.quiz.findFirst({ where: { chapterId: chapter.id } })
+    : null;
+
   const translationsMap: Record<string, Record<string, string>> = {};
   for (const tr of translations) {
     if (!translationsMap[tr.language]) translationsMap[tr.language] = {};
@@ -38,7 +48,7 @@ export default async function EditChapterPage({
   return (
     <div className="p-6">
       <h1 className="mb-2 text-2xl font-bold">Edit Chapter</h1>
-      <p className="mb-6 text-sm text-[var(--muted-foreground)]">
+      <p className="mb-6 text-sm text-muted-foreground">
         Course: {course.title}
       </p>
       <ChapterEditor
@@ -57,6 +67,40 @@ export default async function EditChapterPage({
         }}
         translations={translationsMap}
       />
+
+      {/* Quiz (Club+ feature) */}
+      <section className="mt-4 max-w-2xl rounded-xl border border-border bg-card p-6">
+        <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
+          Quiz
+          {!quizEnabled && <Lock className="h-4 w-4 text-muted-foreground" />}
+        </h2>
+        {quizEnabled ? (
+          <QuizBuilder
+            chapterId={chapter.id}
+            courseId={course.id}
+            initialQuiz={
+              quiz
+                ? {
+                    id: quiz.id,
+                    questions: quiz.questions as unknown as QuizQuestion[],
+                    passingScore: quiz.passingScore,
+                    attemptLimit: quiz.attemptLimit,
+                  }
+                : null
+            }
+          />
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Quizzes and certificates require the Club plan or higher.{" "}
+            <Link
+              href="/upgrade?feature=quizzesCertificates"
+              className="text-(--tenant-primary) hover:underline"
+            >
+              Upgrade →
+            </Link>
+          </p>
+        )}
+      </section>
     </div>
   );
 }

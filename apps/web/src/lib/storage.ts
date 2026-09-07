@@ -33,7 +33,15 @@ export function resolveStoragePath(storagePath: string): string {
 export async function saveFile(
   buffer: Buffer,
   tenantId: string,
-  category: "documents" | "images" | "avatars" | "videos",
+  category:
+    | "documents"
+    | "images"
+    | "avatars"
+    | "videos"
+    | "certificates"
+    | "course-thumbnails"
+    | "post-images"
+    | "event-thumbnails",
   filename: string,
 ): Promise<string> {
   const dir = path.join(STORAGE_PATH, tenantId, category);

@@ -23,6 +23,9 @@ model Tenant {
   stripeCustomerId     String?
   stripeSubscriptionId String?
   currentPeriodEnd     DateTime?
+  // Stripe Connect (course sales by the tenant owner)
+  stripeConnectedAccountId String?
+  stripeChargesEnabled     Boolean @default(false)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -42,6 +45,8 @@ model Tenant {
   webhooks       Webhook[]
   subscriptions  Subscription[]
   payments       Payment[]
+  certificateTemplates CertificateTemplate[]
+  customPages    CustomPage[]
 
   @@index([status])
 }
@@ -167,6 +172,7 @@ model UserGroup {
   channels    Channel[]
   folders     Folder[]
   documents Document[]
+  customPages CustomPage[]
 
   @@index([tenantId])
 }
@@ -222,10 +228,12 @@ model Course {
   published        Boolean  @default(false)
   dripConfig       Json?    // {enabled, intervalDays, intervalType}
   prerequisiteCourseIds Json? // array of course IDs
+  certificateTemplateId String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   category         Category? @relation(fields: [categoryId], references: [id])
+  certificateTemplate CertificateTemplate? @relation(fields: [certificateTemplateId], references: [id], onDelete: SetNull)
   userGroups       UserGroup[]
   chapters         Chapter[]
   enrollments      Enrollment[]
@@ -322,6 +330,27 @@ model Certificate {
   course         Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@unique([userId, courseId])
+}
+
+model CertificateTemplate {
+  id                 String   @id @default(cuid())
+  tenantId           String
+  name               String
+  title              String   @default("Certificate of Completion")
+  subtitle           String?
+  bodyText           String?  @db.Text // placeholders: {{name}}, {{course}}, {{date}}
+  primaryColor       String   @default("#0c2340")
+  backgroundImageUrl String?
+  logoUrl            String?
+  signatureName      String?
+  signatureImageUrl  String?
+  isDefault          Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  courses            Course[]
+
+  @@index([tenantId])
 }
 
 // ─── News / Community feed ───────────────────────────────────────
@@ -765,6 +794,25 @@ model Webhook {
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
+}
+
+// ─── Custom pages (Organization tier) ────────────────────────────
+
+model CustomPage {
+  id          String   @id @default(cuid())
+  tenantId    String
+  title       String
+  slug        String
+  contentHtml String   @db.Text
+  contentCss  String?  @db.Text
+  published   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userGroups  UserGroup[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId, published])
 }
 
 // ─── Translations (i18n content) ─────────────────────────────────

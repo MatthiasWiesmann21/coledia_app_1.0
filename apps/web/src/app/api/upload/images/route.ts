@@ -4,6 +4,7 @@ import { getSession } from "@/lib/session";
 import { getTenantId } from "@/lib/tenant";
 import { saveFile, storagePathToUrl, sanitizeFilename } from "@/lib/storage";
 import { validateImageFile } from "@/lib/file-security";
+import { assertStorageQuota } from "@/lib/storage-quota";
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -12,7 +13,8 @@ type ImageCategory =
   | "logo"
   | "course-thumbnails"
   | "post-images"
-  | "event-thumbnails";
+  | "event-thumbnails"
+  | "certificates";
 
 const ALLOWED_CATEGORIES: ImageCategory[] = [
   "avatars",
@@ -20,6 +22,7 @@ const ALLOWED_CATEGORIES: ImageCategory[] = [
   "course-thumbnails",
   "post-images",
   "event-thumbnails",
+  "certificates",
 ];
 
 /**
@@ -71,6 +74,12 @@ export async function POST(request: NextRequest) {
   const validation = await validateImageFile(file, buffer, MAX_IMAGE_SIZE);
   if (!validation.valid) {
     return NextResponse.json({ error: validation.error }, { status: 400 });
+  }
+
+  // Enforce tenant storage quota (avatars count toward tenant usage too)
+  const quotaError = await assertStorageQuota(tenantId, file.size);
+  if (quotaError) {
+    return NextResponse.json({ error: quotaError }, { status: 413 });
   }
 
   const sanitizedName = sanitizeFilename(file.name);

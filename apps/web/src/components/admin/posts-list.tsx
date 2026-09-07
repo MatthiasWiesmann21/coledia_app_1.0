@@ -7,6 +7,7 @@ import { Button } from "@coledia/ui/button";
 import { Input } from "@coledia/ui/input";
 import { Label } from "@coledia/ui/label";
 import { createPost, deletePost } from "@/lib/content-actions";
+import { useConfirm } from "@/components/confirm-provider";
 
 type Post = {
   id: string;
@@ -24,6 +25,7 @@ export function PostsList({ posts }: { posts: Post[] }) {
   const [showCreate, setShowCreate] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [creating, setCreating] = useState(false);
+  const confirm = useConfirm();
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -41,7 +43,12 @@ export function PostsList({ posts }: { posts: Post[] }) {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this post?")) return;
+    const ok = await confirm({
+      title: "Delete this post?",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await deletePost(id);
     } catch (e) {

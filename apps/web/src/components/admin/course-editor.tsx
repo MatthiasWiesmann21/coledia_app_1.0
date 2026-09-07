@@ -24,6 +24,7 @@ import { LanguageToggle } from "@/components/admin/language-toggle";
 import { UploadButton } from "@/components/upload-button";
 import { UserGroupMultiSelect } from "@/components/admin/usergroup-multiselect";
 import { defaultLocale, type Locale } from "@/i18n/config";
+import { useConfirm } from "@/components/confirm-provider";
 
 type Chapter = {
   id: string;
@@ -98,6 +99,7 @@ export function CourseEditor({
 
   // Cache of non-EN language values being edited
   const [translationEdits, setTranslationEdits] = useState<Record<string, Record<string, string>>>({});
+  const confirm = useConfirm();
 
   function handleLanguageChange(lang: Locale) {
     // Save current field values to the cache before switching
@@ -240,7 +242,12 @@ export function CourseEditor({
   }
 
   async function handleDeleteChapter(id: string) {
-    if (!confirm("Delete this chapter?")) return;
+    const ok = await confirm({
+      title: "Delete this chapter?",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await deleteChapter(id);
       setChapters(chapters.filter((c) => c.id !== id));

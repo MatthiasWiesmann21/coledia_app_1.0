@@ -1,38 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@coledia/db";
-import { getTenantId } from "@/lib/tenant";
-
-// Verify API key from header
-async function verifyApiKey(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return null;
-  }
-
-  const rawKey = authHeader.substring(7);
-  const keyHash = Buffer.from(rawKey).toString("base64");
-
-  const apiKey = await prisma.apiKey.findUnique({
-    where: { keyHash },
-    include: { tenant: true },
-  });
-
-  if (!apiKey) return null;
-
-  // Update last used
-  await prisma.apiKey.update({
-    where: { id: apiKey.id },
-    data: { lastUsedAt: new Date() },
-  });
-
-  return apiKey;
-}
+import { tenantHasFeature } from "@/lib/plan";
+import { verifyApiKey } from "@/lib/api-keys";
 
 // GET /api/v1/courses — list published courses
 export async function GET(req: NextRequest) {
-  const apiKey = await verifyApiKey(req);
+  const authHeader = req.headers.get("authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return NextResponse.json({ error: "Missing API key" }, { status: 401 });
+  }
+  const apiKey = await verifyApiKey(authHeader.substring(7));
   if (!apiKey) {
     return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
+  }
+  if (!(await tenantHasFeature(apiKey.tenantId, "apiAccess"))) {
+    return NextResponse.json({ error: "plan_required", requiredPlan: "organization" }, { status: 403 });
   }
 
   const tenantId = apiKey.tenantId;

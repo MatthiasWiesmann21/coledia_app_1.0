@@ -36,6 +36,7 @@ export function CourseDetail({
   completedChapterIds,
   isLoggedIn,
   enrollAction,
+  purchaseAction,
 }: {
   course: CourseData;
   enrolled: boolean;
@@ -43,8 +44,11 @@ export function CourseDetail({
   completedChapterIds: string[];
   isLoggedIn: boolean;
   enrollAction: (courseId: string) => Promise<any>;
+  purchaseAction?: (courseId: string) => Promise<{ url: string }>;
 }) {
   const [enrolling, setEnrolling] = useState(false);
+  const [purchasing, setPurchasing] = useState(false);
+  const [purchaseError, setPurchaseError] = useState<string | null>(null);
 
   async function handleEnroll() {
     if (!isLoggedIn) {
@@ -59,6 +63,23 @@ export function CourseDetail({
       console.error(e);
     }
     setEnrolling(false);
+  }
+
+  async function handlePurchase() {
+    if (!isLoggedIn) {
+      window.location.href = "/sign-in";
+      return;
+    }
+    if (!purchaseAction) return;
+    setPurchasing(true);
+    setPurchaseError(null);
+    try {
+      const res = await purchaseAction(course.id);
+      window.location.href = res.url;
+    } catch (e: any) {
+      setPurchaseError(e.message ?? "Failed to start checkout");
+      setPurchasing(false);
+    }
   }
 
   const canAccess = enrolled || course.price === null || course.price === 0;
@@ -172,6 +193,24 @@ export function CourseDetail({
                     {progressPct > 0 ? "Continue Learning" : "Start Course"}
                   </Link>
                 )}
+              </div>
+            ) : course.price && course.price > 0 && purchaseAction ? (
+              <div className="mt-3 space-y-2">
+                {purchaseError && (
+                  <p className="text-xs text-destructive">{purchaseError}</p>
+                )}
+                <Button
+                  onClick={handlePurchase}
+                  disabled={purchasing}
+                  className="w-full"
+                >
+                  {purchasing
+                    ? "Redirecting..."
+                    : `Buy for CHF ${course.price}`}
+                </Button>
+                <p className="text-center text-xs text-muted-foreground">
+                  Secure checkout via Stripe
+                </p>
               </div>
             ) : (
               <Button

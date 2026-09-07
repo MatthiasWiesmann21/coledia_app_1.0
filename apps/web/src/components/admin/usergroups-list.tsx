@@ -10,6 +10,7 @@ import {
   createUserGroup,
   deleteUserGroup,
 } from "@/lib/course-actions";
+import { useConfirm } from "@/components/confirm-provider";
 
 type Group = {
   id: string;
@@ -21,6 +22,7 @@ export function UserGroupsList({ groups }: { groups: Group[] }) {
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
+  const confirm = useConfirm();
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -37,7 +39,12 @@ export function UserGroupsList({ groups }: { groups: Group[] }) {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this usergroup?")) return;
+    const ok = await confirm({
+      title: "Delete this usergroup?",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await deleteUserGroup(id);
     } catch (e) {

@@ -4,6 +4,7 @@ import { getSession } from "@/lib/session";
 import { notFound } from "next/navigation";
 import { CourseDetail } from "@/components/courses/course-detail";
 import { enrollInCourse } from "@/lib/course-actions";
+import { startCoursePurchase } from "@/lib/stripe-actions";
 import { getUserLocale } from "@/i18n/get-locale";
 
 export default async function CourseDetailPage({
@@ -130,6 +131,7 @@ export default async function CourseDetailPage({
         completedChapterIds={completedChapters}
         isLoggedIn={!!session}
         enrollAction={enrollInCourse}
+        purchaseAction={startCoursePurchase}
       />
     </div>
   );

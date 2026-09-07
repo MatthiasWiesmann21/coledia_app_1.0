@@ -13,8 +13,58 @@ const prisma = new PrismaClient();
 
 const PORT = parseInt(process.env.REALTIME_PORT ?? "3001", 10);
 const BETTER_AUTH_URL = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
+const INTERNAL_SECRET = process.env.REALTIME_INTERNAL_SECRET;
 
-const httpServer = createServer();
+/**
+ * HTTP handler — only used for the internal /emit endpoint that lets the web
+ * app push events (e.g. notifications) to connected sockets.
+ */
+const httpServer = createServer((req, res) => {
+  if (req.method === "POST" && req.url === "/emit") {
+    if (!INTERNAL_SECRET || req.headers["x-internal-secret"] !== INTERNAL_SECRET) {
+      res.writeHead(401, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "unauthorized" }));
+      return;
+    }
+
+    let body = "";
+    req.on("data", (chunk) => (body += chunk));
+    req.on("end", () => {
+      try {
+        const { tenantId, userIds, event, payload } = JSON.parse(body) as {
+          tenantId?: string;
+          userIds?: string[];
+          event?: string;
+          payload?: unknown;
+        };
+
+        if (!event) {
+          res.writeHead(400, { "content-type": "application/json" });
+          res.end(JSON.stringify({ error: "missing event" }));
+          return;
+        }
+
+        if (userIds?.length) {
+          for (const userId of userIds) {
+            io.to(`user:${userId}`).emit(event, payload);
+          }
+        } else if (tenantId) {
+          io.to(`tenant:${tenantId}`).emit(event, payload);
+        }
+
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify({ ok: true }));
+      } catch {
+        res.writeHead(400, { "content-type": "application/json" });
+        res.end(JSON.stringify({ error: "invalid body" }));
+      }
+    });
+    return;
+  }
+
+  res.writeHead(404, { "content-type": "application/json" });
+  res.end(JSON.stringify({ error: "not found" }));
+});
 const io = new Server(httpServer, {
   cors: {
     origin: BETTER_AUTH_URL,
@@ -326,6 +376,38 @@ io.on("connection", (socket) => {
             : null,
           reactions: [],
         });
+
+        // In-app notification for the recipient (default on, suppressible via prefs)
+        try {
+          const recipientId = data.otherUserId;
+          const pref = await prisma.notificationPreference.findUnique({
+            where: {
+              userId_type_channel: {
+                userId: recipientId,
+                type: "direct_message",
+                channel: "in_app",
+              },
+            },
+          });
+          if (pref?.enabled !== false) {
+            await prisma.notification.create({
+              data: {
+                userId: recipientId,
+                tenantId,
+                type: "direct_message",
+                title: `${message.user.name ?? message.user.email} messaged you`,
+                body:
+                  message.content.length > 120
+                    ? message.content.slice(0, 120) + "…"
+                    : message.content,
+                link: "/chat",
+              },
+            });
+            io.to(`user:${recipientId}`).emit("notification:new");
+          }
+        } catch (err) {
+          console.error("[realtime] dm notification error:", err);
+        }
       } catch (err) {
         console.error("[realtime] dm:message error:", err);
       }

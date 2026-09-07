@@ -4,7 +4,9 @@ import { prisma } from "@coledia/db";
 import { getTenantId } from "@/lib/tenant";
 import { Sidebar } from "@/components/sidebar";
 import { TopNav } from "@/components/top-nav";
+import { getPlanFeatureMap } from "@/lib/plan";
 import { ThemeProvider } from "@/components/theme-provider";
+import { ConfirmProvider } from "@/components/confirm-provider";
 import { TenantThemeProvider, type TenantBranding } from "@coledia/ui";
 import { defaultLocale, isLocale, type Locale } from "@/i18n/config";
 import { getMessages } from "@/i18n/get-messages";
@@ -67,30 +69,36 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   const isAdmin =
     membership?.role === "owner" || membership?.role === "admin" || membership?.role === "operator";
   const isOwner = membership?.role === "owner";
+  const planFeatures = await getPlanFeatureMap();
 
   return (
     <ThemeProvider defaultTheme={themeMode}>
       <TenantThemeProvider branding={branding}>
         <NextIntlClientProvider locale={locale} messages={messages}>
-          <div className="flex h-screen overflow-hidden bg-background">
-            <Sidebar
-              isAdmin={isAdmin}
-              tenantName={tenant.name}
-              tenantLogoUrl={tenant.branding?.logoLightUrl ?? tenant.branding?.logoDarkUrl}
-              logoClickUrl={tenant.branding?.logoClickUrl ?? null}
-            />
-            <div className="flex flex-1 flex-col overflow-hidden">
-              <TopNav
-                userName={session.user.name ?? "User"}
-                userEmail={session.user.email}
-                userAvatarUrl={profile?.avatarUrl ?? null}
-                userStatus={profile?.status ?? "online"}
-                isOwner={isOwner}
-                currentLanguage={locale}
+          <ConfirmProvider>
+            <div className="flex h-screen overflow-hidden bg-background">
+              <Sidebar
+                isAdmin={isAdmin}
+                tenantName={tenant.name}
+                tenantLogoUrl={tenant.branding?.logoLightUrl ?? tenant.branding?.logoDarkUrl}
+                logoClickUrl={tenant.branding?.logoClickUrl ?? null}
+                planFeatures={planFeatures}
               />
-              <main className="flex-1 overflow-y-auto">{children}</main>
+              <div className="flex flex-1 flex-col overflow-hidden">
+                <TopNav
+                  userName={session.user.name ?? "User"}
+                  userEmail={session.user.email}
+                  userAvatarUrl={profile?.avatarUrl ?? null}
+                  userStatus={profile?.status ?? "online"}
+                  isOwner={isOwner}
+                  currentLanguage={locale}
+                  userId={session.user.id}
+                  tenantId={tenantId}
+                />
+                <main className="flex-1 overflow-y-auto">{children}</main>
+              </div>
             </div>
-          </div>
+          </ConfirmProvider>
         </NextIntlClientProvider>
       </TenantThemeProvider>
     </ThemeProvider>

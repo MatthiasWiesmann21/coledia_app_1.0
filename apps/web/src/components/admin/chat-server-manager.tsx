@@ -21,6 +21,7 @@ import {
   deleteChannel,
 } from "@/lib/chat-actions";
 import { UserGroupMultiSelect } from "@/components/admin/usergroup-multiselect";
+import { useConfirm } from "@/components/confirm-provider";
 
 type ChannelData = {
   id: string;
@@ -74,6 +75,7 @@ export function ChatServerManager({
   const [editChannelName, setEditChannelName] = useState("");
   const [editChannelGroupIds, setEditChannelGroupIds] = useState<string[]>([]);
   const [savingChannel, setSavingChannel] = useState(false);
+  const confirm = useConfirm();
 
   function toggleExpand(id: string) {
     setExpandedIds((prev) => {
@@ -114,7 +116,13 @@ export function ChatServerManager({
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this chat server and all its channels?")) return;
+    const ok = await confirm({
+      title: "Delete chat server?",
+      description: "This server and all its channels will be permanently removed.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await deleteChatServer(id);
       setServers(servers.filter((s) => s.id !== id));
@@ -194,7 +202,13 @@ export function ChatServerManager({
   }
 
   async function handleDeleteChannel(serverId: string, channelId: string) {
-    if (!confirm("Delete this channel and all its messages?")) return;
+    const ok = await confirm({
+      title: "Delete channel?",
+      description: "This channel and all its messages will be permanently removed.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await deleteChannel(channelId);
       setServers(

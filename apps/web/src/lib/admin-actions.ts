@@ -5,6 +5,8 @@ import { getSession } from "./session";
 import { getTenantId } from "./tenant";
 import { revalidatePath } from "next/cache";
 import { validPresetIds } from "@coledia/ui";
+import { logAuditAsync } from "./audit";
+import { generateApiKey, hashApiKey } from "./api-keys";
 
 async function requireAdmin() {
   const session = await getSession();
@@ -45,6 +47,7 @@ export async function updateUserRole(userId: string, role: string) {
     },
     data: { role },
   });
+  logAuditAsync({ action: "role_change", entityType: "user", entityId: userId, metadata: { role } });
 
   revalidatePath("/admin/users");
 }
@@ -72,6 +75,7 @@ export async function removeUser(userId: string) {
       userId_tenantId: { userId, tenantId: getTenantId() },
     },
   });
+  logAuditAsync({ action: "delete", entityType: "user", entityId: userId });
 
   revalidatePath("/admin/users");
 }
@@ -94,6 +98,7 @@ export async function updateTenantSettings(data: {
     where: { id: tenantId },
     data,
   });
+  logAuditAsync({ action: "settings_change", entityType: "settings", entityId: tenantId, metadata: data });
 
   revalidatePath("/admin/settings");
 }
@@ -169,11 +174,15 @@ export async function updateBranding(data: {
 export async function createApiKey(name: string) {
   const { tenantId } = await requireAdmin();
 
-  // Generate a random API key — returned once, stored as hash
-  const rawKey = `col_${Math.random().toString(36).substring(2, 18)}${Math.random().toString(36).substring(2, 18)}`;
+  // Only org-tier tenants can create API keys
+  const { hasFeature } = await import("./plan");
+  if (!(await hasFeature("apiAccess"))) {
+    throw new Error("API keys require the Organization plan");
+  }
 
-  // Simple hash for storage (in production, use bcrypt or similar)
-  const keyHash = Buffer.from(rawKey).toString("base64");
+  // Generate a random API key — returned once, stored as SHA-256 hash
+  const rawKey = generateApiKey();
+  const keyHash = hashApiKey(rawKey);
 
   await prisma.apiKey.create({
     data: {
@@ -183,6 +192,7 @@ export async function createApiKey(name: string) {
       scopes: JSON.stringify(["read"]),
     },
   });
+  logAuditAsync({ action: "api_key_create", entityType: "api_key", metadata: { name } });
 
   revalidatePath("/admin/settings");
   return { key: rawKey }; // Return raw key once for display
@@ -192,6 +202,7 @@ export async function deleteApiKey(id: string) {
   await requireAdmin();
 
   await prisma.apiKey.delete({ where: { id } });
+  logAuditAsync({ action: "api_key_revoke", entityType: "api_key", entityId: id });
 
   revalidatePath("/admin/settings");
 }

@@ -11,6 +11,7 @@ import {
   updateCategory,
   deleteCategory,
 } from "@/lib/course-actions";
+import { useConfirm } from "@/components/confirm-provider";
 
 type Category = {
   id: string;
@@ -28,6 +29,7 @@ export function CategoriesList({ categories }: { categories: Category[] }) {
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
+  const confirm = useConfirm();
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -44,7 +46,12 @@ export function CategoriesList({ categories }: { categories: Category[] }) {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this category?")) return;
+    const ok = await confirm({
+      title: "Delete this category?",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await deleteCategory(id);
     } catch (e) {

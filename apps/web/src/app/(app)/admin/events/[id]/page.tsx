@@ -1,5 +1,6 @@
 import { prisma } from "@coledia/db";
 import { requireAdmin } from "@/lib/admin-guard";
+import { requireFeature } from "@/lib/plan";
 import { notFound } from "next/navigation";
 import { EventEditor } from "@/components/admin/event-editor";
 
@@ -10,6 +11,7 @@ export default async function EditEventPage({
 }) {
   const { id } = await params;
   const { tenantId } = await requireAdmin();
+  await requireFeature("liveEvents");
 
   const [event, categories, userGroups, translations] = await Promise.all([
     prisma.event.findFirst({

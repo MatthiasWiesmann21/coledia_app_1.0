@@ -64,5 +64,13 @@ pnpm db:seed          # Seed dev tenant + admin user
 - **Documents module**: Full Doc-Hub with local file storage. Admins manage folders/files at `/admin/documents`, users browse at `/documents`. Files stored in `uploads/{tenantId}/` on disk. Visibility per folder via `visible`/`published`/`userGroupId`. Image uploads (avatars, logos, thumbnails) via `/api/upload/images`. Document uploads via `/api/upload/documents`. Files served from `/api/uploads/[...path]`.
 - **Pricing**: Starter (free, ≤50 members) / Club (29 CHF, ≤250) / Organization (69 CHF, unlimited + API)
 
+## Controlcenter database ownership
+
+- This repository is the sole migration authority for the shared database, including the website's `OwnerAccount` and `Container` tables. Review and apply additive migrations here; never run `db push` or independent migrations from the website's partial client schema.
+- The website creates `Tenant`, default `Branding`, and `Membership(role=owner)` records transactionally. Owner tiers control container counts (free=1, club=3, organization=unlimited); they do not overwrite `Tenant.plan` or the app's Stripe subscription fields.
+- The website uses the same Better-Auth identity tables and secret, but a distinct host-only cookie prefix and its own `BETTER_AUTH_URL`. Shared credentials do not imply cross-domain SSO. Never set `TENANT_ID` on the website.
+- Container deletion retains tenant rows and reserves domains. Live provisioning must preserve uploaded files outside disposable containers for the six-month retention period; permanent purge is not implemented in Phase 1.
+- After changing shared scalar columns, update the website client schema, regenerate both Prisma clients, and run the website's schema-compatibility test with both repositories checked out (or `COLEDIA_APP_SCHEMA` set).
+
 ## Plan
 The detailed rebuild plan is at `C:\Users\Matth\.devin\plans\plan-5ed63b6055023764.md`.

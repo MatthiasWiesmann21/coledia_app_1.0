@@ -29,6 +29,7 @@ model Tenant {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
+  container      Container?
   branding       Branding?
   memberships    Membership[]
   userGroups     UserGroup[]
@@ -49,6 +50,41 @@ model Tenant {
   customPages    CustomPage[]
 
   @@index([status])
+}
+
+model OwnerAccount {
+  id                   String      @id @default(cuid())
+  userId               String      @unique
+  tier                 String      @default("free")
+  stripeCustomerId     String?     @unique
+  stripeSubscriptionId String?     @unique
+  currentPeriodEnd     DateTime?
+  status               String      @default("active")
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  user                 User        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  containers           Container[]
+}
+
+model Container {
+  id                   String       @id @default(cuid())
+  ownerId              String
+  tenantId             String       @unique
+  name                 String
+  subdomain            String       @unique
+  customDomain         String?      @unique
+  dokployApplicationId String?      @unique
+  status               String       @default("provisioning")
+  plan                 String       @default("starter")
+  provisionError       String?      @db.Text
+  deletedAt            DateTime?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  owner                OwnerAccount @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  tenant               Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([ownerId, status])
+  @@index([deletedAt])
 }
 
 model Branding {
@@ -104,6 +140,7 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  ownerAccount  OwnerAccount?
   profile       UserProfile?
   memberships   Membership[]
   enrollments   Enrollment[]

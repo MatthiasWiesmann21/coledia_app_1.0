@@ -3,51 +3,51 @@
 // Isolation enforced via tenantScoped() Prisma extension (see src/tenant.ts).
 
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "mysql"
-  url      = env("DATABASE_URL")
 }
 
 // ─── Tenant & branding ───────────────────────────────────────────
 
 model Tenant {
-  id             String   @id @default(cuid())
-  subdomain      String   @unique
-  customDomain   String?  @unique
-  name           String
-  status         String   @default("active") // active | suspended | cancelled | trialing
-  plan           String   @default("starter") // starter | club | organization
-  stripeCustomerId     String?
-  stripeSubscriptionId String?
-  currentPeriodEnd     DateTime?
+  id                       String    @id @default(cuid())
+  subdomain                String    @unique
+  customDomain             String?   @unique
+  name                     String
+  status                   String    @default("active") // active | suspended | cancelled | trialing
+  plan                     String    @default("starter") // starter | club | organization
+  stripeCustomerId         String?
+  stripeSubscriptionId     String?
+  currentPeriodEnd         DateTime?
   // Stripe Connect (course sales by the tenant owner)
   stripeConnectedAccountId String?
-  stripeChargesEnabled     Boolean @default(false)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  stripeChargesEnabled     Boolean   @default(false)
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
 
-  container      Container?
-  branding       Branding?
-  memberships    Membership[]
-  userGroups     UserGroup[]
-  categories     Category[]
-  courses        Course[]
-  posts          Post[]
-  events         Event[]
-  documents      Document[]
-  folders        Folder[]
-  chatServers    ChatServer[]
-  notifications  Notification[]
-  auditLogs      AuditLog[]
-  apiKeys        ApiKey[]
-  webhooks       Webhook[]
-  subscriptions  Subscription[]
-  payments       Payment[]
+  container            Container?
+  branding             Branding?
+  memberships          Membership[]
+  userGroups           UserGroup[]
+  categories           Category[]
+  courses              Course[]
+  posts                Post[]
+  events               Event[]
+  documents            Document[]
+  folders              Folder[]
+  chatServers          ChatServer[]
+  notifications        Notification[]
+  auditLogs            AuditLog[]
+  apiKeys              ApiKey[]
+  webhooks             Webhook[]
+  subscriptions        Subscription[]
+  payments             Payment[]
   certificateTemplates CertificateTemplate[]
-  customPages    CustomPage[]
+  customPages          CustomPage[]
 
   @@index([status])
 }
@@ -88,37 +88,37 @@ model Container {
 }
 
 model Branding {
-  id           String   @id @default(cuid())
-  tenantId     String   @unique
-  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  tenantId String @unique
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   // Container settings
-  logoLightUrl  String?
-  logoDarkUrl   String?
-  logoClickUrl  String?
-  faviconUrl    String?
+  logoLightUrl String?
+  logoDarkUrl  String?
+  logoClickUrl String?
+  faviconUrl   String?
 
   // Design — theme / button
-  primaryColorLight  String?
-  primaryColorDark   String?
+  primaryColorLight String?
+  primaryColorDark  String?
 
   // Design — navigation
-  navTextColorLight  String?
-  navTextColorDark   String?
-  navBgColorLight    String?
-  navBgColorDark     String?
+  navTextColorLight String?
+  navTextColorDark  String?
+  navBgColorLight   String?
+  navBgColorDark    String?
 
   // Design — theme preset + mode (owner-controlled)
-  themePreset  String? @default("coledia") // coledia | ocean | forest | midnight | sunset | rose
-  themeMode    String? // light | dark | system (null = dark fallback)
+  themePreset String? @default("coledia") // coledia | ocean | forest | midnight | sunset | rose
+  themeMode   String? // light | dark | system (null = dark fallback)
 
   // Design — auth page logos
-  authLogoSignUpLight   String?
-  authLogoSignUpDark    String?
-  authLogoSignInLight   String?
-  authLogoSignInDark    String?
-  authLogoForgotLight   String?
-  authLogoForgotDark    String?
+  authLogoSignUpLight String?
+  authLogoSignUpDark  String?
+  authLogoSignInLight String?
+  authLogoSignInDark  String?
+  authLogoForgotLight String?
+  authLogoForgotDark  String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -128,65 +128,65 @@ model Branding {
 // User model is managed by Better-Auth. We extend with a UserProfile.
 
 model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
-  emailVerified Boolean @default(false)
-  name          String?
-  image         String?
+  id               String   @id @default(cuid())
+  email            String   @unique
+  emailVerified    Boolean  @default(false)
+  name             String?
+  image            String?
   // Better-Auth fields
-  passwordHash  String?
-  twoFactorEnabled Boolean @default(false)
-  twoFactorSecret String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  passwordHash     String?
+  twoFactorEnabled Boolean  @default(false)
+  twoFactorSecret  String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  ownerAccount  OwnerAccount?
-  profile       UserProfile?
-  memberships   Membership[]
-  enrollments   Enrollment[]
-  chapterProgress ChapterProgress[]
-  comments      Comment[]
-  eventRegistrations EventRegistration[]
-  certificates  Certificate[]
-  likes         Like[]
-  favourites    Favourite[]
-  messages      Message[]
-  messageReactions MessageReaction[]
-  directConversations1 DirectConversation[] @relation("directUser1")
-  directConversations2 DirectConversation[] @relation("directUser2")
-  notifications Notification[]
+  ownerAccount            OwnerAccount?
+  profile                 UserProfile?
+  memberships             Membership[]
+  enrollments             Enrollment[]
+  chapterProgress         ChapterProgress[]
+  comments                Comment[]
+  eventRegistrations      EventRegistration[]
+  certificates            Certificate[]
+  likes                   Like[]
+  favourites              Favourite[]
+  messages                Message[]
+  messageReactions        MessageReaction[]
+  directConversations1    DirectConversation[]     @relation("directUser1")
+  directConversations2    DirectConversation[]     @relation("directUser2")
+  notifications           Notification[]
   notificationPreferences NotificationPreference[]
-  coursePurchases CoursePurchase[]
-  chatServerMembers ChatServerMember[]
-  channelMembers   ChannelMember[]
-  userGroupMembers UserGroupMember[]
-  auditLogs    AuditLog[]
-  sessions     Session[]
-  accounts     Account[]
+  coursePurchases         CoursePurchase[]
+  chatServerMembers       ChatServerMember[]
+  channelMembers          ChannelMember[]
+  userGroupMembers        UserGroupMember[]
+  auditLogs               AuditLog[]
+  sessions                Session[]
+  accounts                Account[]
 }
 
 model UserProfile {
-  id              String   @id @default(cuid())
-  userId          String   @unique
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   username        String?
-  bio             String?  @db.Text
+  bio             String?   @db.Text
   avatarUrl       String?
-  status          String   @default("online") // online | not_available | do_not_disturb | invisible
-  language        String   @default("en") // en | de | fr | es
+  status          String    @default("online") // online | not_available | do_not_disturb | invisible
+  language        String    @default("en") // en | de | fr | es
   acceptedTermsAt DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }
 
 model Membership {
-  id        String   @id @default(cuid())
-  userId    String
-  tenantId  String
-  role      String   @default("member") // owner | admin | operator | member
-  joinedAt  DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id       String   @id @default(cuid())
+  userId   String
+  tenantId String
+  role     String   @default("member") // owner | admin | operator | member
+  joinedAt DateTime @default(now())
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([userId, tenantId])
   @@index([tenantId])
@@ -195,32 +195,32 @@ model Membership {
 // ─── User groups (access control) ────────────────────────────────
 
 model UserGroup {
-  id        String   @id @default(cuid())
-  tenantId  String
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  members   UserGroupMember[]
-  courses   Course[]
-  events    Event[]
-  posts     Post[]
+  id          String            @id @default(cuid())
+  tenantId    String
+  name        String
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  members     UserGroupMember[]
+  courses     Course[]
+  events      Event[]
+  posts       Post[]
   chatServers ChatServer[]
   channels    Channel[]
   folders     Folder[]
-  documents Document[]
+  documents   Document[]
   customPages CustomPage[]
 
   @@index([tenantId])
 }
 
 model UserGroupMember {
-  id           String    @id @default(cuid())
-  userGroupId  String
-  userId       String
-  userGroup    UserGroup @relation(fields: [userGroupId], references: [id], onDelete: Cascade)
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  addedAt      DateTime  @default(now())
+  id          String    @id @default(cuid())
+  userGroupId String
+  userId      String
+  userGroup   UserGroup @relation(fields: [userGroupId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  addedAt     DateTime  @default(now())
 
   @@unique([userGroupId, userId])
 }
@@ -251,52 +251,52 @@ model Category {
 // ─── Courses ─────────────────────────────────────────────────────
 
 model Course {
-  id               String   @id @default(cuid())
-  tenantId         String
-  title            String
-  description      String?  @db.Text
-  thumbnailUrl     String?
-  categoryId       String?
-  duration         String?
-  level            String?  // beginner | intermediate | advanced
-  specialStatus    String?  // featured | trending | exclusive
-  price            Decimal? @db.Decimal(10, 2)
-  attachments      Json?    // array of {name, url, type}
-  published        Boolean  @default(false)
-  dripConfig       Json?    // {enabled, intervalDays, intervalType}
+  id                    String               @id @default(cuid())
+  tenantId              String
+  title                 String
+  description           String?              @db.Text
+  thumbnailUrl          String?
+  categoryId            String?
+  duration              String?
+  level                 String? // beginner | intermediate | advanced
+  specialStatus         String? // featured | trending | exclusive
+  price                 Decimal?             @db.Decimal(10, 2)
+  attachments           Json? // array of {name, url, type}
+  published             Boolean              @default(false)
+  dripConfig            Json? // {enabled, intervalDays, intervalType}
   prerequisiteCourseIds Json? // array of course IDs
   certificateTemplateId String?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  category         Category? @relation(fields: [categoryId], references: [id])
-  certificateTemplate CertificateTemplate? @relation(fields: [certificateTemplateId], references: [id], onDelete: SetNull)
-  userGroups       UserGroup[]
-  chapters         Chapter[]
-  enrollments      Enrollment[]
-  certificates     Certificate[]
-  coursePurchases  CoursePurchase[]
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  tenant                Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category              Category?            @relation(fields: [categoryId], references: [id])
+  certificateTemplate   CertificateTemplate? @relation(fields: [certificateTemplateId], references: [id], onDelete: SetNull)
+  userGroups            UserGroup[]
+  chapters              Chapter[]
+  enrollments           Enrollment[]
+  certificates          Certificate[]
+  coursePurchases       CoursePurchase[]
 
   @@index([tenantId])
   @@index([tenantId, published])
 }
 
 model Chapter {
-  id          String   @id @default(cuid())
+  id          String            @id @default(cuid())
   courseId    String
   title       String
-  description String?  @db.Text
+  description String?           @db.Text
   duration    String?
   level       String?
   author      String?
   videoUrl    String?
-  videoType   String?  // youtube | vimeo | upload | external
-  accessFree  Boolean  @default(false)
-  published   Boolean  @default(false)
-  order       Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  videoType   String? // youtube | vimeo | upload | external
+  accessFree  Boolean           @default(false)
+  published   Boolean           @default(false)
+  order       Int               @default(0)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  course      Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
   progress    ChapterProgress[]
   comments    Comment[]
   quizzes     Quiz[]
@@ -332,26 +332,26 @@ model ChapterProgress {
 }
 
 model Quiz {
-  id            String   @id @default(cuid())
-  chapterId     String
-  questions     Json     // array of {id, type, question, options[], correctAnswer, points}
-  passingScore  Int      @default(70)
-  attemptLimit  Int?
-  chapter       Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
-  attempts      QuizAttempt[]
+  id           String        @id @default(cuid())
+  chapterId    String
+  questions    Json // array of {id, type, question, options[], correctAnswer, points}
+  passingScore Int           @default(70)
+  attemptLimit Int?
+  chapter      Chapter       @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  attempts     QuizAttempt[]
 
   @@index([chapterId])
 }
 
 model QuizAttempt {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   userId      String
   quizId      String
   score       Int
   passed      Boolean
   answers     Json
-  attemptedAt DateTime  @default(now())
-  quiz        Quiz      @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  attemptedAt DateTime @default(now())
+  quiz        Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
 
   @@index([quizId])
   @@index([userId])
@@ -393,19 +393,19 @@ model CertificateTemplate {
 // ─── News / Community feed ───────────────────────────────────────
 
 model Post {
-  id          String    @id @default(cuid())
+  id          String      @id @default(cuid())
   tenantId    String
   title       String
-  description String?   @db.Text
+  description String?     @db.Text
   categoryId  String?
   imageUrl    String?
   gifUrl      String?
-  published   Boolean   @default(false)
+  published   Boolean     @default(false)
   scheduledAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  category    Category? @relation(fields: [categoryId], references: [id])
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category    Category?   @relation(fields: [categoryId], references: [id])
   userGroups  UserGroup[]
   comments    Comment[]
 
@@ -414,20 +414,20 @@ model Post {
 }
 
 model Comment {
-  id          String   @id @default(cuid())
-  tenantId    String
-  postId      String?
-  chapterId   String?
-  userId      String
-  content     String   @db.Text
-  parentId    String?  // nested replies
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  post        Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
-  chapter     Chapter? @relation(fields: [chapterId], references: [id], onDelete: Cascade)
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  parent      Comment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  replies     Comment[] @relation("CommentReplies")
+  id        String    @id @default(cuid())
+  tenantId  String
+  postId    String?
+  chapterId String?
+  userId    String
+  content   String    @db.Text
+  parentId  String? // nested replies
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  post      Post?     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  chapter   Chapter?  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies   Comment[] @relation("CommentReplies")
 
   @@index([tenantId])
   @@index([postId])
@@ -438,26 +438,26 @@ model Comment {
 // ─── Likes & Favourites (polymorphic) ────────────────────────────
 
 model Like {
-  id          String   @id @default(cuid())
-  userId      String
-  tenantId    String
-  targetType  String   // chapter | post | event | comment
-  targetId    String
-  createdAt   DateTime @default(now())
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  userId     String
+  tenantId   String
+  targetType String // chapter | post | event | comment
+  targetId   String
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, targetType, targetId])
   @@index([tenantId, targetType])
 }
 
 model Favourite {
-  id          String   @id @default(cuid())
-  userId      String
-  tenantId    String
-  targetType  String   // chapter | course | post | event
-  targetId    String
-  createdAt   DateTime @default(now())
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  userId     String
+  tenantId   String
+  targetType String // chapter | course | post | event
+  targetId   String
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, targetType, targetId])
   @@index([tenantId, targetType])
@@ -466,23 +466,23 @@ model Favourite {
 // ─── Live events ─────────────────────────────────────────────────
 
 model Event {
-  id                String    @id @default(cuid())
+  id                String              @id @default(cuid())
   tenantId          String
   title             String
-  description       String?   @db.Text
+  description       String?             @db.Text
   thumbnailUrl      String?
   categoryId        String?
   startAt           DateTime
   endAt             DateTime?
   videoUrl          String?
-  videoType         String?   // youtube | vimeo | upload | external
-  streamChatEnabled Boolean   @default(true)
-  published         Boolean   @default(false)
-  recurrenceRule    String?   // RRULE string for recurring events
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  category          Category? @relation(fields: [categoryId], references: [id])
+  videoType         String? // youtube | vimeo | upload | external
+  streamChatEnabled Boolean             @default(true)
+  published         Boolean             @default(false)
+  recurrenceRule    String? // RRULE string for recurring events
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  tenant            Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category          Category?           @relation(fields: [categoryId], references: [id])
   userGroups        UserGroup[]
   registrations     EventRegistration[]
 
@@ -506,17 +506,17 @@ model EventRegistration {
 // ─── Documents ───────────────────────────────────────────────────
 
 model Folder {
-  id         String   @id @default(cuid())
+  id         String      @id @default(cuid())
   tenantId   String
   name       String
   parentId   String?
-  visible    Boolean  @default(true)
-  published  Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  parent     Folder?  @relation("FolderTree", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  children   Folder[] @relation("FolderTree")
+  visible    Boolean     @default(true)
+  published  Boolean     @default(false)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent     Folder?     @relation("FolderTree", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children   Folder[]    @relation("FolderTree")
   documents  Document[]
   userGroups UserGroup[]
 
@@ -525,37 +525,37 @@ model Folder {
 }
 
 model Document {
-  id         String   @id @default(cuid())
-  tenantId   String
-  name       String
-  folderId   String?
-  fileUrl    String?
-  storagePath String?
-  fileSize   BigInt?
-  fileType   String?
-  mimeType   String?
+  id           String            @id @default(cuid())
+  tenantId     String
+  name         String
+  folderId     String?
+  fileUrl      String?
+  storagePath  String?
+  fileSize     BigInt?
+  fileType     String?
+  mimeType     String?
   uploadedById String?
-  visible    Boolean  @default(true)
-  published  Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  folder     Folder?  @relation(fields: [folderId], references: [id], onDelete: SetNull)
-  userGroups UserGroup[]
-  versions   DocumentVersion[]
+  visible      Boolean           @default(true)
+  published    Boolean           @default(false)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  folder       Folder?           @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  userGroups   UserGroup[]
+  versions     DocumentVersion[]
 
   @@index([tenantId])
   @@index([folderId])
 }
 
 model DocumentVersion {
-  id          String   @id @default(cuid())
-  documentId  String
-  version     Int
-  fileUrl     String
-  uploadedBy  String?
-  uploadedAt  DateTime @default(now())
-  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  documentId String
+  version    Int
+  fileUrl    String
+  uploadedBy String?
+  uploadedAt DateTime @default(now())
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   @@index([documentId])
 }
@@ -563,13 +563,13 @@ model DocumentVersion {
 // ─── Chat (text channels + DMs only) ─────────────────────────────
 
 model ChatServer {
-  id          String   @id @default(cuid())
+  id          String             @id @default(cuid())
   tenantId    String
   name        String
   createdById String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   userGroups  UserGroup[]
   channels    Channel[]
   members     ChatServerMember[]
@@ -578,14 +578,14 @@ model ChatServer {
 }
 
 model Channel {
-  id           String   @id @default(cuid())
+  id           String          @id @default(cuid())
   chatServerId String
   name         String
-  type         String   @default("text") // text only for now
+  type         String          @default("text") // text only for now
   permissions  Json?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  chatServer   ChatServer @relation(fields: [chatServerId], references: [id], onDelete: Cascade)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  chatServer   ChatServer      @relation(fields: [chatServerId], references: [id], onDelete: Cascade)
   userGroups   UserGroup[]
   members      ChannelMember[]
   messages     Message[]
@@ -606,31 +606,31 @@ model ChatServerMember {
 }
 
 model ChannelMember {
-  id        String   @id @default(cuid())
+  id        String  @id @default(cuid())
   userId    String
   channelId String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel   Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
 
   @@unique([userId, channelId])
 }
 
 model Message {
-  id           String   @id @default(cuid())
-  channelId    String?
+  id                   String              @id @default(cuid())
+  channelId            String?
   directConversationId String?
-  userId       String
-  content      String   @db.Text
-  replyToId    String?
-  attachments  Json?    // array of {name, url, type}
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  channel      Channel? @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  directConversation DirectConversation? @relation(fields: [directConversationId], references: [id], onDelete: Cascade)
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  replyTo      Message? @relation("MessageReply", fields: [replyToId], references: [id], onDelete: SetNull)
-  replies      Message[] @relation("MessageReply")
-  reactions    MessageReaction[]
+  userId               String
+  content              String              @db.Text
+  replyToId            String?
+  attachments          Json? // array of {name, url, type}
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  channel              Channel?            @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  directConversation   DirectConversation? @relation(fields: [directConversationId], references: [id], onDelete: Cascade)
+  user                 User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replyTo              Message?            @relation("MessageReply", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies              Message[]           @relation("MessageReply")
+  reactions            MessageReaction[]
 
   @@index([channelId, createdAt])
   @@index([directConversationId, createdAt])
@@ -651,14 +651,14 @@ model MessageReaction {
 }
 
 model DirectConversation {
-  id       String   @id @default(cuid())
-  tenantId String
-  user1Id  String
-  user2Id  String
-  createdAt DateTime @default(now())
-  user1   User     @relation("directUser1", fields: [user1Id], references: [id], onDelete: Cascade)
-  user2   User     @relation("directUser2", fields: [user2Id], references: [id], onDelete: Cascade)
-  messages Message[]
+  id        String    @id @default(cuid())
+  tenantId  String
+  user1Id   String
+  user2Id   String
+  createdAt DateTime  @default(now())
+  user1     User      @relation("directUser1", fields: [user1Id], references: [id], onDelete: Cascade)
+  user2     User      @relation("directUser2", fields: [user2Id], references: [id], onDelete: Cascade)
+  messages  Message[]
 
   @@unique([user1Id, user2Id])
 }
@@ -669,7 +669,7 @@ model Notification {
   id        String   @id @default(cuid())
   userId    String
   tenantId  String
-  type      String   // new_post | event_reminder | chat_mention | direct_message | course_update | member_joined
+  type      String // new_post | event_reminder | chat_mention | direct_message | course_update | member_joined
   title     String
   body      String?  @db.Text
   link      String?
@@ -683,12 +683,12 @@ model Notification {
 }
 
 model NotificationPreference {
-  id        String   @id @default(cuid())
-  userId    String
-  type      String   // notification type
-  channel   String   // in_app | email | push
-  enabled   Boolean  @default(true)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id      String  @id @default(cuid())
+  userId  String
+  type    String // notification type
+  channel String // in_app | email | push
+  enabled Boolean @default(true)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, type, channel])
 }
@@ -743,45 +743,45 @@ model Verification {
 // ─── Billing ─────────────────────────────────────────────────────
 
 model Subscription {
-  id                    String    @id @default(cuid())
-  tenantId              String
-  stripeSubscriptionId  String?   @unique
-  plan                  String    @default("starter")
-  status                String    @default("active") // active | canceled | past_due | trialing
-  currentPeriodEnd      DateTime?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-  tenant                Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id                   String    @id @default(cuid())
+  tenantId             String
+  stripeSubscriptionId String?   @unique
+  plan                 String    @default("starter")
+  status               String    @default("active") // active | canceled | past_due | trialing
+  currentPeriodEnd     DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  tenant               Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
 }
 
 model Payment {
-  id                    String    @id @default(cuid())
+  id                    String           @id @default(cuid())
   tenantId              String
-  stripePaymentIntentId String?   @unique
-  amount                Decimal   @db.Decimal(10, 2)
-  currency              String    @default("chf")
-  status                String    @default("pending") // pending | succeeded | failed | refunded
-  createdAt             DateTime  @default(now())
-  tenant                Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  stripePaymentIntentId String?          @unique
+  amount                Decimal          @db.Decimal(10, 2)
+  currency              String           @default("chf")
+  status                String           @default("pending") // pending | succeeded | failed | refunded
+  createdAt             DateTime         @default(now())
+  tenant                Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   coursePurchases       CoursePurchase[]
 
   @@index([tenantId])
 }
 
 model CoursePurchase {
-  id                    String    @id @default(cuid())
+  id                    String   @id @default(cuid())
   userId                String
   courseId              String
   paymentId             String?
   stripePaymentIntentId String?
-  amount                Decimal   @db.Decimal(10, 2)
-  status                String    @default("pending") // pending | succeeded | failed | refunded
-  createdAt             DateTime  @default(now())
-  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  course                Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  payment               Payment?  @relation(fields: [paymentId], references: [id])
+  amount                Decimal  @db.Decimal(10, 2)
+  status                String   @default("pending") // pending | succeeded | failed | refunded
+  createdAt             DateTime @default(now())
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course                Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  payment               Payment? @relation(fields: [paymentId], references: [id])
 
   @@unique([userId, courseId])
   @@index([courseId])
@@ -793,8 +793,8 @@ model AuditLog {
   id         String   @id @default(cuid())
   tenantId   String
   userId     String?
-  action     String   // create | update | delete | invite | etc.
-  entityType String   // course | post | event | member | settings | etc.
+  action     String // create | update | delete | invite | etc.
+  entityType String // course | post | event | member | settings | etc.
   entityId   String?
   metadata   Json?
   createdAt  DateTime @default(now())
@@ -823,7 +823,7 @@ model Webhook {
   id        String   @id @default(cuid())
   tenantId  String
   url       String
-  events    Json     // array of event types
+  events    Json // array of event types
   secret    String
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -836,16 +836,16 @@ model Webhook {
 // ─── Custom pages (Organization tier) ────────────────────────────
 
 model CustomPage {
-  id          String   @id @default(cuid())
+  id          String      @id @default(cuid())
   tenantId    String
   title       String
   slug        String
-  contentHtml String   @db.Text
-  contentCss  String?  @db.Text
-  published   Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contentHtml String      @db.Text
+  contentCss  String?     @db.Text
+  published   Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   userGroups  UserGroup[]
 
   @@unique([tenantId, slug])
@@ -857,10 +857,10 @@ model CustomPage {
 model Translation {
   id         String   @id @default(cuid())
   tenantId   String
-  entityType String   // course | post | event | category | chapter
+  entityType String // course | post | event | category | chapter
   entityId   String
-  field      String   // title | description | etc.
-  language   String   // en | de | fr | es
+  field      String // title | description | etc.
+  language   String // en | de | fr | es
   value      String   @db.Text
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt

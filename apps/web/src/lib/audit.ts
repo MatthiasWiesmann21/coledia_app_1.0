@@ -1,5 +1,4 @@
-import { prisma } from "@coledia/db";
-import { Prisma } from "@prisma/client";
+import { prisma, Prisma } from "@coledia/db";
 import { getTenantId } from "./tenant";
 import { getSession } from "./session";
 

@@ -8,7 +8,7 @@ It's the successor to Clubyte, rebuilt with a modern TypeScript stack.
 - **Monorepo**: Turborepo + pnpm workspaces
 - **Frontend**: Next.js 16 (App Router, Turbopack), React 19, Tailwind v4
 - **Backend**: Next.js Server Components + Server Actions + Route Handlers, Better-Auth
-- **Database**: MySQL via Prisma ORM (single shared DB, `tenantId` on all tenant-scoped tables)
+- **Database**: MySQL via Prisma ORM v7 (single shared DB, `tenantId` on all tenant-scoped tables)
 - **Realtime**: Socket.io (text channels + DMs only)
 - **Payments**: Stripe (subscriptions + one-time course sales)
 - **Deploy**: Dokploy — each client gets its own container, all share the same MySQL DB
@@ -63,6 +63,15 @@ pnpm db:seed          # Seed dev tenant + admin user
 - **Audio/video chat**: Out of scope. Chat is text channels + DMs only.
 - **Documents module**: Full Doc-Hub with local file storage. Admins manage folders/files at `/admin/documents`, users browse at `/documents`. Files stored in `uploads/{tenantId}/` on disk. Visibility per folder via `visible`/`published`/`userGroupId`. Image uploads (avatars, logos, thumbnails) via `/api/upload/images`. Document uploads via `/api/upload/documents`. Files served from `/api/uploads/[...path]`.
 - **Pricing**: Starter (free, ≤50 members) / Club (29 CHF, ≤250) / Organization (69 CHF, unlimited + API)
+
+## Prisma ORM v7
+
+- **Version**: `prisma` + `@prisma/client` + `@prisma/adapter-mariadb` all at `^7`. Pinned at root and in `@coledia/db` so `npx prisma` from anywhere resolves to v7 (not a fetched v8 RC).
+- **Config**: `packages/db/prisma.config.ts` holds `datasource.url` (loaded via `dotenv`). The schema's `datasource` block only has `provider = "mysql"` — no `url`.
+- **Generator**: `prisma-client` (not `prisma-client-js`), output to `packages/db/src/generated/prisma`. Generated client is gitignored; `pnpm db:generate` (or turbo `build`/`typecheck`) regenerates it.
+- **Client**: `@coledia/db` centralizes `PrismaClient` instantiation with a `@prisma/adapter-mariadb` driver adapter. All apps import `{ prisma, Prisma, PrismaClient }` from `@coledia/db` — never directly from `@prisma/client`.
+- **Workflow changes in v7**: `migrate dev` / `db push` no longer auto-run `generate` or `seed` — run them explicitly. Env vars are not auto-loaded by the CLI; `prisma.config.ts` loads `dotenv` for local dev.
+- **Website repo**: The website (separate repo) shares schema columns + a compat test. After upgrading this repo to v7, the website's Prisma 6 client must still parse the shared schema. Update the website client schema and run the compat test after any shared-column change.
 
 ## Controlcenter database ownership
 

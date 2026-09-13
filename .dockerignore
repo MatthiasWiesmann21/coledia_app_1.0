@@ -1,0 +1,35 @@
+node_modules
+.pnpm-store
+
+# Build outputs
+.next
+.turbo
+dist
+
+# Environment (injected at runtime by Dokploy)
+.env
+.env.*
+!.env.example
+
+# Prisma generated client (regenerated during build)
+packages/db/src/generated
+
+# Local uploads (mount a volume in production)
+uploads
+apps/web/uploads
+apps/realtime/uploads
+
+# Git / IDE / OS
+.git
+.idea
+.vscode
+*.swp
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Docker
+docker/data

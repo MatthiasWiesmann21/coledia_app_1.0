@@ -23,6 +23,8 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
+let productionClient: PrismaClient | undefined;
+
 function createPrismaClient(): PrismaClient {
   const url = process.env.DATABASE_URL;
   if (!url) {
@@ -40,11 +42,27 @@ function createPrismaClient(): PrismaClient {
   });
 }
 
-export const prisma = globalForPrisma.prisma ?? createPrismaClient();
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
+// Lazily construct the client on first use — NOT at module load.
+// Next.js evaluates the root layout while collecting page data during
+// `next build`, where DATABASE_URL (a runtime secret) is not set; a
+// load-time throw there fails the whole build. The error still fires
+// loudly on the first real query when the variable is genuinely missing.
+function getPrismaClient(): PrismaClient {
+  if (process.env.NODE_ENV !== "production") {
+    globalForPrisma.prisma ??= createPrismaClient();
+    return globalForPrisma.prisma;
+  }
+  productionClient ??= createPrismaClient();
+  return productionClient;
 }
+
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    const client = getPrismaClient();
+    const value = Reflect.get(client, prop);
+    return typeof value === "function" ? value.bind(client) : value;
+  },
+});
 
 export type { PrismaClient } from "./generated/prisma/client";
 export * from "./generated/prisma/client";

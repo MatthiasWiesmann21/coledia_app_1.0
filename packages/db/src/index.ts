@@ -11,8 +11,8 @@ import { PrismaClient } from "./generated/prisma/client";
  *
  * v7 requires a driver adapter for all databases. We use
  * `@prisma/adapter-mariadb`, which handles both MySQL and MariaDB and
- * accepts the standard `mysql://` connection string (it rewrites it to
- * `mariadb://` internally).
+ * uses the MariaDB driver's `mariadb://` protocol. We normalize Prisma's
+ * standard `mysql://` connection string before constructing the adapter.
  *
  * The generated client lives at `src/generated/prisma` (see schema.prisma +
  * prisma.config.ts). All model types and the `Prisma` namespace are
@@ -31,7 +31,9 @@ function createPrismaClient(): PrismaClient {
         "Required by the Prisma MariaDB driver adapter.",
     );
   }
-  const adapter = new PrismaMariaDb(url);
+  const adapterUrl = new URL(url.replace(/^mysql:/, "mariadb:"));
+  adapterUrl.searchParams.set("connectionLimit", process.env.DATABASE_CONNECTION_LIMIT ?? "2");
+  const adapter = new PrismaMariaDb(adapterUrl.toString());
   return new PrismaClient({
     adapter,
     log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],

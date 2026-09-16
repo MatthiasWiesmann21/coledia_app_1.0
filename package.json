@@ -18,11 +18,10 @@
     "clean": "turbo run clean && rimraf node_modules"
   },
   "devDependencies": {
-    "prisma": "^7.0.0",
     "turbo": "^2.5.0",
     "rimraf": "^6.0.1"
   },
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=20.0.0"
   }
 }

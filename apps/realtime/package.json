@@ -13,6 +13,7 @@
   "dependencies": {
     "@coledia/db": "workspace:*",
     "@coledia/shared": "workspace:*",
+    "@prisma/client": "^6.19.3",
     "socket.io": "^4.8.0"
   },
   "devDependencies": {

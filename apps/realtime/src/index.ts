@@ -1,6 +1,6 @@
 import { createServer } from "http";
 import { Server } from "socket.io";
-import { prisma } from "@coledia/db";
+import { PrismaClient } from "@prisma/client";
 
 /**
  * Coledia Realtime Service — Socket.io
@@ -8,6 +8,8 @@ import { prisma } from "@coledia/db";
  * Handles: chat messages, typing, presence, stream chat, live indicators.
  * Authenticated via session token. Rooms scoped by tenantId + resource id.
  */
+
+const prisma = new PrismaClient();
 
 const PORT = parseInt(process.env.REALTIME_PORT ?? "3001", 10);
 const BETTER_AUTH_URL = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";

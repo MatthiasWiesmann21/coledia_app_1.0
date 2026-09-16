@@ -21,15 +21,13 @@
     "clean": "rimraf dist .turbo"
   },
   "dependencies": {
-    "@prisma/adapter-mariadb": "^7.0.0",
-    "@prisma/client": "^7.0.0",
-    "@coledia/shared": "workspace:*",
-    "dotenv": "^16.4.0"
+    "@prisma/client": "^6.7.0",
+    "@coledia/shared": "workspace:*"
   },
   "devDependencies": {
     "@coledia/config": "workspace:*",
     "@types/node": "^20.0.0",
-    "prisma": "^7.0.0",
+    "prisma": "^6.7.0",
     "rimraf": "^6.0.1",
     "tsx": "^4.0.0",
     "typescript": "^5.7.0"

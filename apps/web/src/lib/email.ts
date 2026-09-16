@@ -1,11 +1,10 @@
 /**
- * Email sending — provider stub.
+ * Email sending via SMTP (configured through env vars, e.g. Resend SMTP).
  *
- * No email provider is wired yet. This module defines the interface and a
- * no-op implementation that logs in development. To enable real sending,
- * pick a provider (SMTP via nodemailer, Resend, ...) and implement sendEmail()
- * below, then set EMAIL_PROVIDER / EMAIL_FROM in the environment.
+ * When SMTP_HOST is not set, sendEmail() is a no-op that logs the message in
+ * development so notification flows can still be exercised end-to-end.
  */
+import nodemailer, { type Transporter } from "nodemailer";
 
 export interface EmailMessage {
   to: string;
@@ -14,16 +13,44 @@ export interface EmailMessage {
   text?: string;
 }
 
+let transporter: Transporter | null = null;
+
+function getTransporter(): Transporter | null {
+  if (!process.env.SMTP_HOST) return null;
+  if (!transporter) {
+    const port = Number(process.env.SMTP_PORT ?? 587);
+    transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port,
+      secure: port === 465,
+      auth: process.env.SMTP_USER
+        ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD }
+        : undefined,
+    });
+  }
+  return transporter;
+}
+
 /**
- * Send a single email. Currently a stub: resolves successfully and logs the
- * message in development so notification flows can be exercised end-to-end.
+ * Send a single email. Without SMTP config, resolves successfully and logs the
+ * message in development.
  */
 export async function sendEmail(message: EmailMessage): Promise<void> {
-  if (process.env.NODE_ENV !== "production") {
-    // eslint-disable-next-line no-console
-    console.log(
-      `[email:stub] to=${message.to} subject="${message.subject}" (provider not configured)`,
-    );
+  const smtp = getTransporter();
+  if (!smtp) {
+    if (process.env.NODE_ENV !== "production") {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[email:stub] to=${message.to} subject="${message.subject}" (SMTP_HOST not set)`,
+      );
+    }
+    return;
   }
-  // TODO: integrate provider (e.g. nodemailer/resend) when EMAIL_PROVIDER is set.
+  await smtp.sendMail({
+    from: process.env.SMTP_FROM ?? process.env.SMTP_USER,
+    to: message.to,
+    subject: message.subject,
+    html: message.html,
+    text: message.text,
+  });
 }

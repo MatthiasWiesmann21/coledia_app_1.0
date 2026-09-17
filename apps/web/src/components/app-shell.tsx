@@ -41,6 +41,18 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     redirect("/sign-in");
   }
 
+  if (tenant.status === "suspended" || tenant.status === "cancelled") {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-2 p-6 text-center">
+        <h1 className="text-xl font-semibold">This community is currently unavailable</h1>
+        <p className="max-w-md text-sm text-muted-foreground">
+          The subscription for this Coledia container was suspended or cancelled.
+          Please contact the container owner or Coledia support.
+        </p>
+      </div>
+    );
+  }
+
   const locale: Locale =
     profile?.language && isLocale(profile.language) ? profile.language : defaultLocale;
   const messages = await getMessages(locale);

@@ -20,6 +20,9 @@ model Tenant {
   name           String
   status         String   @default("active") // active | suspended | cancelled | trialing
   plan           String   @default("starter") // starter | club | organization
+  // Reference to the Controlcenter container that provisioned this tenant
+  // (idempotency key for the internal tenant API)
+  externalRef    String?  @unique
   stripeCustomerId     String?
   stripeSubscriptionId String?
   currentPeriodEnd     DateTime?

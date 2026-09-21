@@ -76,5 +76,12 @@ User/Membership) with an explicit UUID id chosen by the Controlcenter
 branding and can suspend/reactivate tenants (`status: suspended|cancelled`
 is enforced by the guard in `AppShell`).
 
+POST also accepts `ownerUsername` + `ownerPasswordHash` (a better-auth scrypt
+hash produced by the Controlcenter — plaintext never crosses systems) to seed
+a custom owner: the User is created `emailVerified: false` plus a credential
+Account and UserProfile.username. The owner verifies on the app itself —
+the Controlcenter calls `/api/auth/send-verification-email` on the new
+container once it is deployed.
+
 ## Plan
 The detailed rebuild plan is at `C:\Users\Matth\.devin\plans\plan-5ed63b6055023764.md`.

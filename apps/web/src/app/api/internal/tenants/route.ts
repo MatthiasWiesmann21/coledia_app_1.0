@@ -32,6 +32,12 @@ const createTenantPayload = z.object({
   themeMode: z.enum(["light", "dark", "system"]).nullish(),
   ownerEmail: z.string().email(),
   ownerName: z.string().max(100).nullish(),
+  // Optional custom-owner fields from the Controlcenter onboarding wizard.
+  // ownerPasswordHash is a better-auth scrypt hash (never plaintext) — the
+  // Controlcenter hashes with the same algorithm so the account works on
+  // this app's auth instance.
+  ownerUsername: z.string().min(3).max(32).regex(/^[a-zA-Z0-9_.-]+$/).nullish(),
+  ownerPasswordHash: z.string().min(10).nullish(),
 });
 
 export async function POST(req: NextRequest) {
@@ -97,18 +103,50 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Owner account: create if the email isn't registered yet; the owner sets
-    // their password via the app's normal forgot-password flow (welcome email
-    // is sent by the Controlcenter/app — credentials never cross systems).
+    // Owner account: created UNVERIFIED — the owner verifies their email on
+    // the app itself (the Controlcenter triggers /api/auth/send-verification-
+    // email on the new container once it's live). If a better-auth password
+    // hash was supplied, the credential account is created with it so the
+    // owner can sign in right after verifying; otherwise they set a password
+    // via the app's forgot-password flow.
     const owner = await tx.user.upsert({
       where: { email: data.ownerEmail.toLowerCase() },
       update: {},
       create: {
         email: data.ownerEmail.toLowerCase(),
-        emailVerified: true,
+        emailVerified: false,
         name: data.ownerName ?? null,
       },
     });
+
+    if (data.ownerUsername) {
+      await tx.userProfile.upsert({
+        where: { userId: owner.id },
+        update: { username: data.ownerUsername },
+        create: { userId: owner.id, username: data.ownerUsername },
+      });
+    }
+
+    if (data.ownerPasswordHash) {
+      const credentialAccount = await tx.account.findFirst({
+        where: { userId: owner.id, providerId: "credential" },
+      });
+      if (credentialAccount) {
+        await tx.account.update({
+          where: { id: credentialAccount.id },
+          data: { password: data.ownerPasswordHash },
+        });
+      } else {
+        await tx.account.create({
+          data: {
+            accountId: owner.id,
+            providerId: "credential",
+            userId: owner.id,
+            password: data.ownerPasswordHash,
+          },
+        });
+      }
+    }
 
     await tx.membership.upsert({
       where: {

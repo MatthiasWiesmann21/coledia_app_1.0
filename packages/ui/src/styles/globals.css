@@ -1,6 +1,10 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Scan this package's components for class candidates — the CSS entry lives in
+ * apps/web so automatic detection misses them. */
+@source "../components";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -12,6 +16,19 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
   --color-ring: var(--ring);
+
+  /* Aliases for shadcn-style tokens — primary follows the tenant color */
+  --color-primary: var(--tenant-primary);
+  --color-primary-foreground: #ffffff;
+  --color-secondary: var(--muted);
+  --color-secondary-foreground: var(--foreground);
+  --color-destructive: #dc2626;
+  --color-destructive-foreground: #ffffff;
+  --color-input: var(--border);
+  --color-accent: var(--muted);
+  --color-accent-foreground: var(--foreground);
+  --color-popover: var(--card);
+  --color-popover-foreground: var(--card-foreground);
 
   /* Coledia Brand */
   --color-navy: #0c2340;

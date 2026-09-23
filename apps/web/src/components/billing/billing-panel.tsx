@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { ExternalLink } from "lucide-react";
+import { Button } from "@coledia/ui/button";
 import { startConnectOnboarding } from "@/lib/stripe-actions";
 
 type ConnectStatus = {
@@ -108,29 +109,30 @@ export function BillingPanel({
             return (
               <div
                 key={key}
-                className={`rounded-lg border p-4 ${isCurrent ? "border-primary bg-primary/5" : "border-border bg-card"}`}
+                className={`flex flex-col rounded-lg border p-4 ${isCurrent ? "border-(--tenant-primary) bg-(--tenant-primary)/5" : "border-border bg-card"}`}
               >
                 <h3 className="text-sm font-semibold">{info.name}</h3>
                 <p className="mb-3 text-lg font-bold">{info.price}</p>
-                <ul className="mb-4 space-y-1 text-xs text-muted-foreground">
+                <ul className="mb-4 flex-1 space-y-1 text-xs text-muted-foreground">
                   {info.features.map((f) => (
                     <li key={f}>• {f}</li>
                   ))}
                 </ul>
                 {isCurrent ? (
-                  <span className="block rounded-md bg-primary/10 py-1.5 text-center text-xs font-medium text-primary">
+                  <span className="block rounded-md bg-(--tenant-primary)/10 py-1.5 text-center text-xs font-medium text-(--tenant-primary)">
                     Current plan
                   </span>
                 ) : (
-                  <a
-                    href={controlCenterUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-1.5 rounded-md bg-primary py-1.5 text-center text-xs font-medium text-primary-foreground hover:opacity-90"
-                  >
-                    {isUpgrade ? "Upgrade" : "Switch"}
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
+                  <Button asChild size="sm" className="w-full">
+                    <a
+                      href={controlCenterUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {isUpgrade ? "Upgrade" : "Switch"}
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </Button>
                 )}
               </div>
             );

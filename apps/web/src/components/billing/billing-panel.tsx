@@ -152,13 +152,10 @@ export function BillingPanel({
                 Requires Club plan or higher
               </span>
               <a
-                href={controlCenterUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+                href="/upgrade?feature=sellCourses"
                 className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
               >
-                Upgrade on Controlcenter
-                <ExternalLink className="h-3 w-3" />
+                Upgrade plan
               </a>
             </div>
           ) : connectStatus?.connected ? (

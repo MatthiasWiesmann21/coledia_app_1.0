@@ -322,15 +322,12 @@ export function CourseEditor({
             <Select
               id="category"
               value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-            >
-              <option value="">No category</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </Select>
+              onValueChange={setCategoryId}
+              options={[
+                { value: "", label: "No category" },
+                ...categories.map((c) => ({ value: c.id, label: c.name })),
+              ]}
+            />
           </div>
 
           <div className="flex flex-col gap-2">
@@ -360,13 +357,14 @@ export function CourseEditor({
             <Select
               id="level"
               value={level}
-              onChange={(e) => setLevel(e.target.value)}
-            >
-              <option value="">No level</option>
-              <option value="beginner">Beginner</option>
-              <option value="intermediate">Intermediate</option>
-              <option value="advanced">Advanced</option>
-            </Select>
+              onValueChange={setLevel}
+              options={[
+                { value: "", label: "No level" },
+                { value: "beginner", label: "Beginner" },
+                { value: "intermediate", label: "Intermediate" },
+                { value: "advanced", label: "Advanced" },
+              ]}
+            />
           </div>
 
           <div className="flex flex-col gap-2">
@@ -374,13 +372,14 @@ export function CourseEditor({
             <Select
               id="specialStatus"
               value={specialStatus}
-              onChange={(e) => setSpecialStatus(e.target.value)}
-            >
-              <option value="">None</option>
-              <option value="featured">Featured</option>
-              <option value="trending">Trending</option>
-              <option value="exclusive">Exclusive</option>
-            </Select>
+              onValueChange={setSpecialStatus}
+              options={[
+                { value: "", label: "None" },
+                { value: "featured", label: "Featured" },
+                { value: "trending", label: "Trending" },
+                { value: "exclusive", label: "Exclusive" },
+              ]}
+            />
           </div>
 
           <div className="flex flex-col gap-2">

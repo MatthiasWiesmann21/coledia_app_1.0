@@ -173,15 +173,12 @@ export function PostEditor({
             <Select
               id="category"
               value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-            >
-              <option value="">No category</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </Select>
+              onValueChange={setCategoryId}
+              options={[
+                { value: "", label: "No category" },
+                ...categories.map((c) => ({ value: c.id, label: c.name })),
+              ]}
+            />
           </div>
 
           <div className="flex flex-col gap-2">

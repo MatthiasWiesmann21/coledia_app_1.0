@@ -2,6 +2,7 @@
 import { requireAdmin } from "@/lib/admin-guard";
 import { getCurrentPlanLimits } from "@/lib/plan";
 import { UsersList } from "@/components/admin/users-list";
+import { Button } from "@coledia/ui/button";
 import { Users } from "lucide-react";
 import Link from "next/link";
 
@@ -39,12 +40,11 @@ export default async function AdminUsersPage() {
           </span>
         </span>
         {limitReached && (
-          <Link
-            href="/upgrade?feature=memberLimit"
-            className="text-xs font-medium text-[var(--tenant-primary)] hover:underline"
-          >
-            Member limit reached — upgrade plan
-          </Link>
+          <Button size="sm" asChild className="ml-auto">
+            <Link href="/upgrade?feature=memberLimit">
+              Member limit reached — upgrade plan
+            </Link>
+          </Button>
         )}
       </div>
       <UsersList

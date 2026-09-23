@@ -70,26 +70,24 @@ export function AuditLogViewer({
         />
         <Select
           value={filters.action ?? ""}
-          onChange={(e) => update("action", e.target.value)}
+          onValueChange={(v) => update("action", v)}
           wrapperClassName="w-auto"
           className="h-9 w-auto"
-        >
-          <option value="">All actions</option>
-          {actions.map((a) => (
-            <option key={a} value={a}>{a}</option>
-          ))}
-        </Select>
+          options={[
+            { value: "", label: "All actions" },
+            ...actions.map((a) => ({ value: a, label: a })),
+          ]}
+        />
         <Select
           value={filters.entityType ?? ""}
-          onChange={(e) => update("entityType", e.target.value)}
+          onValueChange={(v) => update("entityType", v)}
           wrapperClassName="w-auto"
           className="h-9 w-auto"
-        >
-          <option value="">All types</option>
-          {entityTypes.map((t) => (
-            <option key={t} value={t}>{t}</option>
-          ))}
-        </Select>
+          options={[
+            { value: "", label: "All types" },
+            ...entityTypes.map((t) => ({ value: t, label: t })),
+          ]}
+        />
         <span className="ml-auto text-xs text-muted-foreground">
           {total} entr{total === 1 ? "y" : "ies"}
         </span>

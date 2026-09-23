@@ -181,13 +181,14 @@ export function ChapterEditor({
               <Select
                 id="level"
                 value={level}
-                onChange={(e) => setLevel(e.target.value)}
-              >
-                <option value="">No level</option>
-                <option value="beginner">Beginner</option>
-                <option value="intermediate">Intermediate</option>
-                <option value="advanced">Advanced</option>
-              </Select>
+                onValueChange={setLevel}
+                options={[
+                  { value: "", label: "No level" },
+                  { value: "beginner", label: "Beginner" },
+                  { value: "intermediate", label: "Intermediate" },
+                  { value: "advanced", label: "Advanced" },
+                ]}
+              />
             </div>
           </div>
 
@@ -221,13 +222,14 @@ export function ChapterEditor({
             <Select
               id="videoType"
               value={videoType}
-              onChange={(e) => setVideoType(e.target.value)}
-            >
-              <option value="youtube">YouTube</option>
-              <option value="vimeo">Vimeo</option>
-              <option value="upload">Upload (URL)</option>
-              <option value="external">External Link</option>
-            </Select>
+              onValueChange={setVideoType}
+              options={[
+                { value: "youtube", label: "YouTube" },
+                { value: "vimeo", label: "Vimeo" },
+                { value: "upload", label: "Upload (URL)" },
+                { value: "external", label: "External Link" },
+              ]}
+            />
           </div>
 
           <div className="flex flex-col gap-2">

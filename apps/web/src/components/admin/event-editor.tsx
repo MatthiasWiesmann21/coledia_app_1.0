@@ -191,15 +191,12 @@ export function EventEditor({
               <Select
                 id="category"
                 value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
-              >
-                <option value="">No category</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </Select>
+                onValueChange={setCategoryId}
+                options={[
+                  { value: "", label: "No category" },
+                  ...categories.map((c) => ({ value: c.id, label: c.name })),
+                ]}
+              />
             </div>
 
             <div className="flex flex-col gap-2">
@@ -251,12 +248,13 @@ export function EventEditor({
             <Select
               id="videoType"
               value={videoType}
-              onChange={(e) => setVideoType(e.target.value)}
-            >
-              <option value="youtube">YouTube</option>
-              <option value="vimeo">Vimeo</option>
-              <option value="external">External Link</option>
-            </Select>
+              onValueChange={setVideoType}
+              options={[
+                { value: "youtube", label: "YouTube" },
+                { value: "vimeo", label: "Vimeo" },
+                { value: "external", label: "External Link" },
+              ]}
+            />
           </div>
 
           <div className="flex flex-col gap-2">

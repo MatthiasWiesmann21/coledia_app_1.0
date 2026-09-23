@@ -106,16 +106,13 @@ export function UserGroupEditor({
               <Select
                 id="addMember"
                 value={selectedUserId}
-                onChange={(e) => setSelectedUserId(e.target.value)}
-              >
-                <option value="">Select a member...</option>
-                {nonMembers.map((m) => (
-                  <option key={m.userId} value={m.userId}>
-                    {m.name}
-                    {m.username ? ` (@${m.username})` : ""}
-                  </option>
-                ))}
-              </Select>
+                onValueChange={setSelectedUserId}
+                placeholder="Select a member..."
+                options={nonMembers.map((m) => ({
+                  value: m.userId,
+                  label: `${m.name}${m.username ? ` (@${m.username})` : ""}`,
+                }))}
+              />
             </div>
             <Button disabled={saving || !selectedUserId} onClick={handleAdd}>
               <UserPlus className="mr-1 h-4 w-4" />

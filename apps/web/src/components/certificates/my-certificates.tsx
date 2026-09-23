@@ -64,27 +64,25 @@ export function MyCertificates({
         </div>
         <Select
           value={category}
-          onChange={(e) => setCategory(e.target.value)}
+          onValueChange={setCategory}
           wrapperClassName="w-auto"
           className="w-auto"
-        >
-          <option value="all">{t("allCategories")}</option>
-          {categories.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </Select>
+          options={[
+            { value: "all", label: t("allCategories") },
+            ...categories.map((c) => ({ value: c, label: c })),
+          ]}
+        />
         <Select
           value={sort}
-          onChange={(e) => setSort(e.target.value as SortKey)}
+          onValueChange={(v) => setSort(v as SortKey)}
           wrapperClassName="w-auto"
           className="w-auto"
-        >
-          <option value="newest">{t("sortNewest")}</option>
-          <option value="oldest">{t("sortOldest")}</option>
-          <option value="title">{t("sortTitle")}</option>
-        </Select>
+          options={[
+            { value: "newest", label: t("sortNewest") },
+            { value: "oldest", label: t("sortOldest") },
+            { value: "title", label: t("sortTitle") },
+          ]}
+        />
       </div>
 
       {visible.length === 0 ? (

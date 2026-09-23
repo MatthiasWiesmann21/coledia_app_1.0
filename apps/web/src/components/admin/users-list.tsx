@@ -171,17 +171,18 @@ export function UsersList({
                           <Select
                             size="sm"
                             value={u.role}
-                            onChange={(e) => handleRoleChange(u.userId, e.target.value)}
+                            onValueChange={(v) => handleRoleChange(u.userId, v)}
                             disabled={loading === u.userId}
                             aria-label={`Change role for ${u.name}`}
-                          >
-                            <option value="member">member</option>
-                            <option value="operator">operator</option>
-                            <option value="admin">admin</option>
-                            {viewerRole === "owner" && (
-                              <option value="owner">owner</option>
-                            )}
-                          </Select>
+                            options={[
+                              { value: "member", label: "member" },
+                              { value: "operator", label: "operator" },
+                              { value: "admin", label: "admin" },
+                              ...(viewerRole === "owner"
+                                ? [{ value: "owner", label: "owner" }]
+                                : []),
+                            ]}
+                          />
                         )}
                       </div>
                     </td>

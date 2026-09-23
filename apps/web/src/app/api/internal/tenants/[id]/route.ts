@@ -25,6 +25,38 @@ const updateTenantPayload = z.object({
   themeMode: z.enum(["light", "dark", "system"]).nullish(),
 });
 
+/**
+ * Read-back for the Controlcenter health check: returns the tenant plus its
+ * branding so the Controlcenter can verify that seeded settings (theme,
+ * plan, subdomain, …) actually landed.
+ */
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const authError = requireInternalSecret(req);
+  if (authError) return authError;
+
+  const { id } = await params;
+  const tenant = await prisma.tenant.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      name: true,
+      subdomain: true,
+      plan: true,
+      status: true,
+      branding: {
+        select: { themePreset: true, themeMode: true },
+      },
+    },
+  });
+  if (!tenant) {
+    return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
+  }
+  return NextResponse.json({ ok: true, tenant });
+}
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },

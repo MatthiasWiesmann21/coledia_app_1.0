@@ -327,9 +327,10 @@
       "auditLogs": "Audit-Logs",
       "sellCourses": "Kurse verkaufen",
       "apiAccess": "API-Zugang & Webhooks",
-      "customPages": "Eigene Seiten"
+      "customPages": "Eigene Seiten",
+      "memberLimit": "Mitgliederlimit"
     },
-    "goToBilling": "Pakete ansehen & upgraden",
+    "goToBilling": "Paket im Controlcenter verwalten",
     "backToDashboard": "Zurück zum Dashboard"
   }
 }

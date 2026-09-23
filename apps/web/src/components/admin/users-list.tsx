@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Trash2, Shield, User, UserCog, Wrench } from "lucide-react";
 import { Button } from "@coledia/ui/button";
+import { Select } from "@coledia/ui/select";
 import { updateUserRole, removeUser } from "@/lib/admin-actions";
 import { useConfirm } from "@/components/confirm-provider";
 
@@ -38,7 +39,15 @@ const ROLE_COLORS: Record<string, string> = {
   member: "text-[var(--muted-foreground)] bg-[var(--muted)]",
 };
 
-export function UsersList({ users }: { users: User[] }) {
+export function UsersList({
+  users,
+  viewerRole,
+  viewerUserId,
+}: {
+  users: User[];
+  viewerRole: string;
+  viewerUserId: string;
+}) {
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const confirm = useConfirm();
@@ -158,18 +167,21 @@ export function UsersList({ users }: { users: User[] }) {
                           <RoleIcon className="h-3 w-3" />
                           {u.role}
                         </span>
-                        {u.role !== "owner" && (
-                          <select
+                        {u.role !== "owner" && u.userId !== viewerUserId && (
+                          <Select
+                            size="sm"
                             value={u.role}
                             onChange={(e) => handleRoleChange(u.userId, e.target.value)}
                             disabled={loading === u.userId}
-                            className="rounded border border-[var(--border)] bg-[var(--background)] px-1.5 py-0.5 text-xs"
+                            aria-label={`Change role for ${u.name}`}
                           >
                             <option value="member">member</option>
                             <option value="operator">operator</option>
                             <option value="admin">admin</option>
-                            <option value="owner">owner</option>
-                          </select>
+                            {viewerRole === "owner" && (
+                              <option value="owner">owner</option>
+                            )}
+                          </Select>
                         )}
                       </div>
                     </td>

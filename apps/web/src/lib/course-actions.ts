@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { notify } from "./notifications";
 import { logAuditAsync } from "./audit";
 import { dispatchWebhookAsync } from "./webhooks";
+import { tenantHasFeature } from "./plan";
 
 async function requireAdmin() {
   const session = await getSession();
@@ -162,6 +163,13 @@ export async function createCourse(data: {
 }) {
   const { tenantId } = await requireAdmin();
 
+  if (
+    (data.price ?? 0) > 0 &&
+    !(await tenantHasFeature(tenantId, "sellCourses"))
+  ) {
+    throw new Error("Selling courses requires the Club plan or higher");
+  }
+
   const course = await prisma.course.create({
     data: {
       tenantId,
@@ -203,6 +211,15 @@ export async function updateCourse(
   },
 ) {
   const { tenantId } = await requireAdmin();
+
+  if (
+    data.price !== undefined &&
+    data.price !== null &&
+    data.price > 0 &&
+    !(await tenantHasFeature(tenantId, "sellCourses"))
+  ) {
+    throw new Error("Selling courses requires the Club plan or higher");
+  }
 
   const previous =
     data.published !== undefined

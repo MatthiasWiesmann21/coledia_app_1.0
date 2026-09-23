@@ -1,11 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import {
-  startPlanCheckout,
-  startConnectOnboarding,
-  openBillingPortal,
-} from "@/lib/stripe-actions";
+import { ExternalLink } from "lucide-react";
+import { startConnectOnboarding } from "@/lib/stripe-actions";
 
 type ConnectStatus = {
   connected: boolean;
@@ -35,49 +32,27 @@ export function BillingPanel({
   plan,
   status,
   currentPeriodEnd,
-  hasSubscription,
   isOwner,
   connectStatus,
+  canSellCourses,
+  controlCenterUrl,
 }: {
   plan: string;
   status: string;
   currentPeriodEnd: string | null;
-  hasSubscription: boolean;
   isOwner: boolean;
   connectStatus: ConnectStatus;
+  canSellCourses: boolean;
+  controlCenterUrl: string;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-
-  function handleUpgrade(newPlan: string) {
-    setError(null);
-    startTransition(async () => {
-      try {
-        const res = await startPlanCheckout(newPlan);
-        window.location.href = res.url;
-      } catch (e: any) {
-        setError(e.message);
-      }
-    });
-  }
 
   function handleConnect() {
     setError(null);
     startTransition(async () => {
       try {
         const res = await startConnectOnboarding();
-        window.location.href = res.url;
-      } catch (e: any) {
-        setError(e.message);
-      }
-    });
-  }
-
-  function handlePortal() {
-    setError(null);
-    startTransition(async () => {
-      try {
-        const res = await openBillingPortal();
         window.location.href = res.url;
       } catch (e: any) {
         setError(e.message);
@@ -110,14 +85,16 @@ export function BillingPanel({
             Renews on {new Date(currentPeriodEnd).toLocaleDateString()}
           </p>
         )}
-        {isOwner && hasSubscription && (
-          <button
-            onClick={handlePortal}
-            disabled={pending}
-            className="mt-3 rounded-md border border-input px-3 py-1.5 text-sm disabled:opacity-40"
+        {isOwner && (
+          <a
+            href={controlCenterUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-sm hover:bg-muted"
           >
-            Manage subscription
-          </button>
+            Manage plan & billing
+            <ExternalLink className="h-3.5 w-3.5" />
+          </a>
         )}
       </div>
 
@@ -145,13 +122,15 @@ export function BillingPanel({
                     Current plan
                   </span>
                 ) : (
-                  <button
-                    onClick={() => handleUpgrade(key)}
-                    disabled={pending}
-                    className="block w-full rounded-md bg-primary py-1.5 text-center text-xs font-medium text-primary-foreground disabled:opacity-40"
+                  <a
+                    href={controlCenterUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-1.5 rounded-md bg-primary py-1.5 text-center text-xs font-medium text-primary-foreground hover:opacity-90"
                   >
                     {isUpgrade ? "Upgrade" : "Switch"}
-                  </button>
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
                 )}
               </div>
             );
@@ -167,7 +146,22 @@ export function BillingPanel({
             Connect your Stripe account to sell paid courses. Payments go directly to your account,
             minus a platform fee.
           </p>
-          {connectStatus?.connected ? (
+          {!canSellCourses ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                Requires Club plan or higher
+              </span>
+              <a
+                href={controlCenterUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
+              >
+                Upgrade on Controlcenter
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
+          ) : connectStatus?.connected ? (
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm">
                 <span className={`rounded px-2 py-0.5 text-xs ${connectStatus.chargesEnabled ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" : "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300"}`}>

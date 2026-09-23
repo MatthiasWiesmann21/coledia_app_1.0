@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "@coledia/ui/button";
 import { Input } from "@coledia/ui/input";
 import { Label } from "@coledia/ui/label";
+import { Select } from "@coledia/ui/select";
 import { updatePost } from "@/lib/content-actions";
 import { saveTranslation } from "@/lib/translation-actions";
 import { LanguageToggle } from "@/components/admin/language-toggle";
@@ -169,11 +170,10 @@ export function PostEditor({
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="category">{t("editPost") === "Edit Post" ? "Category" : tc("title")}</Label>
-            <select
+            <Select
               id="category"
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
-              className="flex h-10 w-full rounded-lg border border-border bg-background px-3 text-sm"
             >
               <option value="">No category</option>
               {categories.map((c) => (
@@ -181,7 +181,7 @@ export function PostEditor({
                   {c.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           <div className="flex flex-col gap-2">

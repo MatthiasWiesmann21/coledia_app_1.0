@@ -90,10 +90,10 @@ export function EventsList({ events }: { events: EventItem[] }) {
               required
             />
           </div>
-          <Button type="submit" disabled={creating} size="sm">
+          <Button type="submit" disabled={creating}>
             {creating ? "Creating..." : "Create"}
           </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => setShowCreate(false)}>
+          <Button type="button" variant="outline" onClick={() => setShowCreate(false)}>
             Cancel
           </Button>
         </form>
@@ -172,13 +172,15 @@ export function EventsList({ events }: { events: EventItem[] }) {
                       {e.registrationCount}
                     </span>
                   </div>
-                  <div className="mt-3 flex gap-1">
-                    <Link
-                      href={`/admin/events/${e.id}`}
-                      className="flex-1 rounded-lg bg-[var(--tenant-primary)]/15 px-3 py-1.5 text-center text-sm font-medium text-[var(--tenant-primary)] transition hover:bg-[var(--tenant-primary)]/25"
-                    >
-                      Edit
-                    </Link>
+                  <div className="mt-3 flex justify-end gap-1">
+                    <Button variant="ghost" size="icon" asChild>
+                      <Link
+                        href={`/admin/events/${e.id}`}
+                        aria-label={`Edit ${e.title}`}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Link>
+                    </Button>
                     <Button
                       variant="ghost"
                       size="icon"

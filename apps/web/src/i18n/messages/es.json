@@ -327,9 +327,10 @@
       "auditLogs": "Registros de auditoría",
       "sellCourses": "Vender cursos de pago",
       "apiAccess": "Acceso API y webhooks",
-      "customPages": "Páginas personalizadas"
+      "customPages": "Páginas personalizadas",
+      "memberLimit": "Límite de miembros"
     },
-    "goToBilling": "Ver planes y mejorar",
+    "goToBilling": "Gestionar el plan en el Controlcenter",
     "backToDashboard": "Volver al panel"
   }
 }

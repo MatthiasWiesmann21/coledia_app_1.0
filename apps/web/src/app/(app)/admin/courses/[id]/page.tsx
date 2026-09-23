@@ -1,5 +1,6 @@
 import { prisma } from "@coledia/db";
 import { requireAdmin } from "@/lib/admin-guard";
+import { hasFeature } from "@/lib/plan";
 import { notFound } from "next/navigation";
 import { CourseEditor } from "@/components/admin/course-editor";
 
@@ -10,6 +11,7 @@ export default async function EditCoursePage({
 }) {
   const { id } = await params;
   const { tenantId } = await requireAdmin();
+  const canSellCourses = await hasFeature("sellCourses");
 
   const [course, categories, userGroups, translations] = await Promise.all([
     prisma.course.findFirst({
@@ -80,6 +82,7 @@ export default async function EditCoursePage({
           id: g.id,
           name: g.name,
         }))}
+        canSellCourses={canSellCourses}
       />
     </div>
   );

@@ -13,6 +13,7 @@
     "./card": "./src/components/card.tsx",
     "./badge": "./src/components/badge.tsx",
     "./input": "./src/components/input.tsx",
+    "./select": "./src/components/select.tsx",
     "./label": "./src/components/label.tsx",
     "./avatar": "./src/components/avatar.tsx",
     "./separator": "./src/components/separator.tsx",

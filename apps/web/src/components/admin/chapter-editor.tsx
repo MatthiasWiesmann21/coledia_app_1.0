@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "@coledia/ui/button";
 import { Input } from "@coledia/ui/input";
 import { Label } from "@coledia/ui/label";
+import { Select } from "@coledia/ui/select";
 import { updateChapter } from "@/lib/course-actions";
 import { saveTranslation } from "@/lib/translation-actions";
 import { LanguageToggle } from "@/components/admin/language-toggle";
@@ -177,17 +178,16 @@ export function ChapterEditor({
 
             <div className="flex flex-col gap-2">
               <Label htmlFor="level">Level (optional)</Label>
-              <select
+              <Select
                 id="level"
                 value={level}
                 onChange={(e) => setLevel(e.target.value)}
-                className="flex h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-sm"
               >
                 <option value="">No level</option>
                 <option value="beginner">Beginner</option>
                 <option value="intermediate">Intermediate</option>
                 <option value="advanced">Advanced</option>
-              </select>
+              </Select>
             </div>
           </div>
 
@@ -218,17 +218,16 @@ export function ChapterEditor({
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <Label htmlFor="videoType">Video Source</Label>
-            <select
+            <Select
               id="videoType"
               value={videoType}
               onChange={(e) => setVideoType(e.target.value)}
-              className="flex h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-sm"
             >
               <option value="youtube">YouTube</option>
               <option value="vimeo">Vimeo</option>
               <option value="upload">Upload (URL)</option>
               <option value="external">External Link</option>
-            </select>
+            </Select>
           </div>
 
           <div className="flex flex-col gap-2">

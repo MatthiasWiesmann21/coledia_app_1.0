@@ -14,6 +14,7 @@ import {
 import { Button } from "@coledia/ui/button";
 import { Input } from "@coledia/ui/input";
 import { Label } from "@coledia/ui/label";
+import { Select } from "@coledia/ui/select";
 import {
   updateCourse,
   createChapter,
@@ -66,11 +67,13 @@ export function CourseEditor({
   categories,
   userGroups,
   translations: initialTranslations,
+  canSellCourses,
 }: {
   course: CourseData;
   categories: Category[];
   userGroups: UserGroup[];
   translations: Translations;
+  canSellCourses: boolean;
 }) {
   const t = useTranslations("courses");
   const tc = useTranslations("common");
@@ -316,11 +319,10 @@ export function CourseEditor({
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="category">Category</Label>
-            <select
+            <Select
               id="category"
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
-              className="flex h-10 w-full rounded-lg border border-border bg-background px-3 text-sm"
             >
               <option value="">No category</option>
               {categories.map((c) => (
@@ -328,7 +330,7 @@ export function CourseEditor({
                   {c.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           <div className="flex flex-col gap-2">
@@ -355,32 +357,30 @@ export function CourseEditor({
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="level">Level (optional)</Label>
-            <select
+            <Select
               id="level"
               value={level}
               onChange={(e) => setLevel(e.target.value)}
-              className="flex h-10 w-full rounded-lg border border-border bg-background px-3 text-sm"
             >
               <option value="">No level</option>
               <option value="beginner">Beginner</option>
               <option value="intermediate">Intermediate</option>
               <option value="advanced">Advanced</option>
-            </select>
+            </Select>
           </div>
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="specialStatus">Special Status (optional)</Label>
-            <select
+            <Select
               id="specialStatus"
               value={specialStatus}
               onChange={(e) => setSpecialStatus(e.target.value)}
-              className="flex h-10 w-full rounded-lg border border-border bg-background px-3 text-sm"
             >
               <option value="">None</option>
               <option value="featured">Featured</option>
               <option value="trending">Trending</option>
               <option value="exclusive">Exclusive</option>
-            </select>
+            </Select>
           </div>
 
           <div className="flex flex-col gap-2">
@@ -393,7 +393,20 @@ export function CourseEditor({
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               placeholder="0.00"
+              disabled={!canSellCourses}
             />
+            {!canSellCourses && (
+              <p className="text-xs text-muted-foreground">
+                Selling courses requires the{" "}
+                <a
+                  href="/upgrade?feature=sellCourses"
+                  className="text-(--tenant-primary) hover:underline"
+                >
+                  Club plan or higher
+                </a>
+                .
+              </p>
+            )}
           </div>
         </div>
 

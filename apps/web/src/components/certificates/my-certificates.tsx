@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Input } from "@coledia/ui/input";
+import { Select } from "@coledia/ui/select";
 import { Award, Download, Search } from "lucide-react";
 
 export type CertificateItem = {
@@ -61,10 +62,11 @@ export function MyCertificates({
             className="w-64 pl-9"
           />
         </div>
-        <select
+        <Select
           value={category}
           onChange={(e) => setCategory(e.target.value)}
-          className="h-10 rounded-lg border border-border bg-background px-3 text-sm"
+          wrapperClassName="w-auto"
+          className="w-auto"
         >
           <option value="all">{t("allCategories")}</option>
           {categories.map((c) => (
@@ -72,16 +74,17 @@ export function MyCertificates({
               {c}
             </option>
           ))}
-        </select>
-        <select
+        </Select>
+        <Select
           value={sort}
           onChange={(e) => setSort(e.target.value as SortKey)}
-          className="h-10 rounded-lg border border-border bg-background px-3 text-sm"
+          wrapperClassName="w-auto"
+          className="w-auto"
         >
           <option value="newest">{t("sortNewest")}</option>
           <option value="oldest">{t("sortOldest")}</option>
           <option value="title">{t("sortTitle")}</option>
-        </select>
+        </Select>
       </div>
 
       {visible.length === 0 ? (

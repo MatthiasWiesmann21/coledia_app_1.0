@@ -327,9 +327,10 @@
       "auditLogs": "Journaux d'audit",
       "sellCourses": "Vendre des cours payants",
       "apiAccess": "Accès API & webhooks",
-      "customPages": "Pages personnalisées"
+      "customPages": "Pages personnalisées",
+      "memberLimit": "Limite de membres"
     },
-    "goToBilling": "Voir les plans & upgrader",
+    "goToBilling": "Gérer le plan dans le Controlcenter",
     "backToDashboard": "Retour au tableau de bord"
   }
 }

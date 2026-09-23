@@ -329,9 +329,10 @@
       "auditLogs": "Audit logs",
       "sellCourses": "Sell paid courses",
       "apiAccess": "API access & webhooks",
-      "customPages": "Custom pages"
+      "customPages": "Custom pages",
+      "memberLimit": "Member limit"
     },
-    "goToBilling": "View plans & upgrade",
+    "goToBilling": "Manage plan on Controlcenter",
     "backToDashboard": "Back to dashboard"
   },
   "documents": {

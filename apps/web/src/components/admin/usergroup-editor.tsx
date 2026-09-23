@@ -6,6 +6,7 @@ import { UserPlus, Trash2 } from "lucide-react";
 import { Button } from "@coledia/ui/button";
 import { Input } from "@coledia/ui/input";
 import { Label } from "@coledia/ui/label";
+import { Select } from "@coledia/ui/select";
 import {
   updateUserGroup,
   addUserToGroup,
@@ -102,11 +103,10 @@ export function UserGroupEditor({
           <div className="mb-4 flex items-end gap-3">
             <div className="flex flex-1 flex-col gap-2">
               <Label htmlFor="addMember">Add Member</Label>
-              <select
+              <Select
                 id="addMember"
                 value={selectedUserId}
                 onChange={(e) => setSelectedUserId(e.target.value)}
-                className="flex h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 text-sm"
               >
                 <option value="">Select a member...</option>
                 {nonMembers.map((m) => (
@@ -115,9 +115,9 @@ export function UserGroupEditor({
                     {m.username ? ` (@${m.username})` : ""}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
-            <Button size="sm" disabled={saving || !selectedUserId} onClick={handleAdd}>
+            <Button disabled={saving || !selectedUserId} onClick={handleAdd}>
               <UserPlus className="mr-1 h-4 w-4" />
               Add
             </Button>

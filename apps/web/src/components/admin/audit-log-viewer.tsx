@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
+import { Select } from "@coledia/ui/select";
 
 type LogRow = {
   id: string;
@@ -67,26 +68,28 @@ export function AuditLogViewer({
           onChange={(e) => update("q", e.target.value)}
           className="h-9 w-48 rounded-md border border-input bg-background px-3 text-sm"
         />
-        <select
+        <Select
           value={filters.action ?? ""}
           onChange={(e) => update("action", e.target.value)}
-          className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+          wrapperClassName="w-auto"
+          className="h-9 w-auto"
         >
           <option value="">All actions</option>
           {actions.map((a) => (
             <option key={a} value={a}>{a}</option>
           ))}
-        </select>
-        <select
+        </Select>
+        <Select
           value={filters.entityType ?? ""}
           onChange={(e) => update("entityType", e.target.value)}
-          className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+          wrapperClassName="w-auto"
+          className="h-9 w-auto"
         >
           <option value="">All types</option>
           {entityTypes.map((t) => (
             <option key={t} value={t}>{t}</option>
           ))}
-        </select>
+        </Select>
         <span className="ml-auto text-xs text-muted-foreground">
           {total} entr{total === 1 ? "y" : "ies"}
         </span>

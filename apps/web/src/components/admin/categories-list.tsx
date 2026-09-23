@@ -85,13 +85,12 @@ export function CategoriesList({ categories }: { categories: Category[] }) {
               required
             />
           </div>
-          <Button type="submit" disabled={creating} size="sm">
+          <Button type="submit" disabled={creating}>
             {creating ? "Creating..." : "Create"}
           </Button>
           <Button
             type="button"
             variant="outline"
-            size="sm"
             onClick={() => setShowCreate(false)}
           >
             Cancel
@@ -162,12 +161,14 @@ export function CategoriesList({ categories }: { categories: Category[] }) {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-1">
-                      <Link
-                        href={`/admin/categories/${cat.id}`}
-                        className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Link>
+                      <Button variant="ghost" size="icon" asChild>
+                        <Link
+                          href={`/admin/categories/${cat.id}`}
+                          aria-label={`Edit ${cat.name}`}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Link>
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"

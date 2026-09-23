@@ -12,6 +12,10 @@ import {
 } from "@coledia/shared";
 import { getTenantId } from "./tenant";
 
+/** External Controlcenter URL — plan upgrades and billing history live there. */
+export const CONTROL_CENTER_URL =
+  process.env.CONTROL_CENTER_URL ?? "https://controlcenter.coledia.com";
+
 /**
  * Tenant plan helpers — gate features by subscription tier.
  *

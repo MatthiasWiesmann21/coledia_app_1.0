@@ -639,6 +639,7 @@ model DirectConversation {
   messages Message[]
 
   @@unique([tenantId, user1Id, user2Id])
+  @@index([user1Id])
 }
 
 // ─── Notifications ───────────────────────────────────────────────

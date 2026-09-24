@@ -4,6 +4,7 @@ import { prisma } from "@coledia/db";
 import { getTenantId } from "@/lib/tenant";
 import { Sidebar } from "@/components/sidebar";
 import { TopNav } from "@/components/top-nav";
+import { SignOutButton } from "@/components/sign-out-button";
 import { getPlanFeatureMap } from "@/lib/plan";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ConfirmProvider } from "@/components/confirm-provider";
@@ -49,6 +50,23 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           The subscription for this Coledia container was suspended or cancelled.
           Please contact the container owner or Coledia support.
         </p>
+      </div>
+    );
+  }
+
+  // A session alone is not enough — the user must be a member of *this*
+  // tenant. Memberships are normally auto-created on sign-in; a missing one
+  // means the member limit is reached or the join failed. Never render
+  // tenant content without it.
+  if (!membership) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 p-6 text-center">
+        <h1 className="text-xl font-semibold">You are not a member of this community</h1>
+        <p className="max-w-md text-sm text-muted-foreground">
+          This community may have reached its member limit. Please contact the
+          community owner or sign out and use a different account.
+        </p>
+        <SignOutButton className="rounded-lg border border-border px-4 py-2 text-sm transition hover:bg-muted" />
       </div>
     );
   }
@@ -106,6 +124,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
                   currentLanguage={locale}
                   userId={session.user.id}
                   tenantId={tenantId}
+                  planFeatures={planFeatures}
                 />
                 <main className="flex-1 overflow-y-auto">{children}</main>
               </div>

@@ -38,7 +38,11 @@ function getTransporter(): Transporter | null {
 export async function sendEmail(message: EmailMessage): Promise<void> {
   const smtp = getTransporter();
   if (!smtp) {
-    if (process.env.NODE_ENV !== "production") {
+    if (process.env.NODE_ENV === "production") {
+      console.error(
+        `[email] SMTP_HOST not configured — email to ${message.to} ("${message.subject}") was not sent`,
+      );
+    } else {
       // eslint-disable-next-line no-console
       console.log(
         `[email:stub] to=${message.to} subject="${message.subject}" (SMTP_HOST not set)`,
@@ -46,11 +50,19 @@ export async function sendEmail(message: EmailMessage): Promise<void> {
     }
     return;
   }
-  await smtp.sendMail({
-    from: process.env.SMTP_FROM ?? process.env.SMTP_USER,
-    to: message.to,
-    subject: message.subject,
-    html: message.html,
-    text: message.text,
-  });
+  try {
+    await smtp.sendMail({
+      from: process.env.SMTP_FROM ?? process.env.SMTP_USER,
+      to: message.to,
+      subject: message.subject,
+      html: message.html,
+      text: message.text,
+    });
+  } catch (err) {
+    console.error(
+      `[email] Failed to send "${message.subject}" to ${message.to}:`,
+      err,
+    );
+    throw err;
+  }
 }

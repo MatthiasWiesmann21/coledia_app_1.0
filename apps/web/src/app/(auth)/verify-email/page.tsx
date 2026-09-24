@@ -43,7 +43,8 @@ function VerifyEmailForm() {
       return;
     }
 
-    router.push("/sign-in");
+    // autoSignInAfterVerification is enabled — the user is signed in now.
+    router.push("/dashboard");
     router.refresh();
   }
 
@@ -59,7 +60,7 @@ function VerifyEmailForm() {
     setResending(true);
     await authClient.sendVerificationEmail({
       email,
-      callbackURL: `${window.location.origin}/verify-email`,
+      callbackURL: `${window.location.origin}/dashboard`,
     });
     setResending(false);
     setResent(true);

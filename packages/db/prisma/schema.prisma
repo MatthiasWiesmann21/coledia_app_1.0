@@ -626,7 +626,7 @@ model DirectConversation {
   user2   User     @relation("directUser2", fields: [user2Id], references: [id], onDelete: Cascade)
   messages Message[]
 
-  @@unique([user1Id, user2Id])
+  @@unique([tenantId, user1Id, user2Id])
 }
 
 // ─── Notifications ───────────────────────────────────────────────

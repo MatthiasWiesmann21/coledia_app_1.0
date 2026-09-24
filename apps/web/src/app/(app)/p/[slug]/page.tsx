@@ -1,9 +1,8 @@
 import { prisma } from "@coledia/db";
 import { getTenantId } from "@/lib/tenant";
-import { hasFeature } from "@/lib/plan";
+import { requireFeatureOrBack } from "@/lib/plan";
 import { getSession } from "@/lib/session";
 import { notFound, redirect } from "next/navigation";
-import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -18,10 +17,8 @@ export default async function CustomPageView({
   const { slug } = await params;
   const tenantId = getTenantId();
 
-  // Gate: Organization tier only
-  if (!(await hasFeature("customPages"))) {
-    redirect("/upgrade?feature=customPages");
-  }
+  // Gate: Organization tier only — send visitors back where they came from
+  await requireFeatureOrBack("customPages", `/p/${slug}`);
 
   const page = await prisma.customPage.findUnique({
     where: { tenantId_slug: { tenantId, slug } },

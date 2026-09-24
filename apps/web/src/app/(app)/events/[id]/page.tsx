@@ -1,8 +1,8 @@
 import { prisma } from "@coledia/db";
 import { getTenantId } from "@/lib/tenant";
 import { getSession } from "@/lib/session";
-import { requireFeature } from "@/lib/plan";
-import { notFound, redirect } from "next/navigation";
+import { requireFeatureOrBack } from "@/lib/plan";
+import { notFound } from "next/navigation";
 import { EventDetail } from "@/components/events/event-detail";
 import { registerForEvent, toggleEventLike } from "@/lib/content-actions";
 
@@ -11,8 +11,8 @@ export default async function EventDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireFeature("liveEvents");
   const { id } = await params;
+  await requireFeatureOrBack("liveEvents", `/events/${id}`);
   const tenantId = getTenantId();
   const session = await getSession();
 
@@ -20,7 +20,7 @@ export default async function EventDetailPage({
   const userGroupIds = session
     ? (
         await prisma.userGroupMember.findMany({
-          where: { userId: session.user.id },
+          where: { userId: session.user.id, userGroup: { tenantId } },
           select: { userGroupId: true },
         })
       ).map((m) => m.userGroupId)

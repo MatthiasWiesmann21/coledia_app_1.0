@@ -27,21 +27,43 @@ export default function SignUpPage() {
       name,
       email,
       password,
+      // The verification link redirects here after the email is confirmed.
+      callbackURL: "/complete-profile",
     });
 
-    setLoading(false);
-
     if (result.error) {
+      // The same email may already have an account from another container
+      // (identity is global, membership is per-tenant). If the password
+      // matches, sign them in — the session hook grants a membership here.
+      if (result.error.code === "USER_ALREADY_EXISTS") {
+        const signIn = await authClient.signIn.email({ email, password });
+        setLoading(false);
+        if (signIn.error) {
+          if (signIn.error.code === "EMAIL_NOT_VERIFIED") {
+            router.push("/verify-email");
+            router.refresh();
+            return;
+          }
+          setError("This email already has an account — check your password or sign in instead.");
+          return;
+        }
+        router.push("/dashboard");
+        router.refresh();
+        return;
+      }
+      setLoading(false);
       setError(result.error.message ?? "Sign up failed");
       return;
     }
 
-    // In dev (no email verification required), go straight to profile completion.
-    // In production with verification enabled, redirect to verify-email.
-    if (process.env.NODE_ENV === "production") {
-      router.push("/verify-email");
-    } else {
+    setLoading(false);
+
+    // When email verification is required no session token is returned —
+    // send the user to the verify page. Otherwise they're signed in already.
+    if (result.data?.token) {
       router.push("/complete-profile");
+    } else {
+      router.push("/verify-email");
     }
     router.refresh();
   }

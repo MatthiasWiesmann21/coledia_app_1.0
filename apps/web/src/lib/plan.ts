@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { prisma } from "@coledia/db";
 import {
   PLANS,
@@ -49,6 +50,40 @@ export async function requireFeature(feature: FeatureKey): Promise<Plan> {
     redirect(`/upgrade?feature=${feature}`);
   }
   return plan;
+}
+
+/**
+ * Require a feature on a user-facing page — sends the visitor back to the
+ * page they came from (via the Referer header) instead of the upgrade screen.
+ * Falls back to /dashboard for direct hits, external referers, or refreshes.
+ * Admin pages should keep using requireFeature so admins see the upsell.
+ */
+export async function requireFeatureOrBack(
+  feature: FeatureKey,
+  selfPath: string,
+): Promise<Plan> {
+  const plan = await getTenantPlan();
+  if (planHasFeature(plan, feature)) return plan;
+
+  const h = await headers();
+  const referer = h.get("referer");
+  const host = h.get("host");
+  let target = "/dashboard";
+
+  if (referer && host) {
+    try {
+      const url = new URL(referer);
+      // Only trust same-origin referers, and never bounce back onto the same
+      // gated page (e.g. on refresh) — that would loop forever.
+      if (url.host === host && url.pathname !== selfPath) {
+        target = url.pathname + url.search;
+      }
+    } catch {
+      // Malformed referer — keep the dashboard fallback.
+    }
+  }
+
+  redirect(target);
 }
 
 /** Numeric limits for the current tenant's plan (null = unlimited). */

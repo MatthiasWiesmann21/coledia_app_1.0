@@ -19,7 +19,7 @@ export default async function DocumentsPage() {
   // Get user's group IDs for role-based visibility filtering
   const userGroupIds = (
     await prisma.userGroupMember.findMany({
-      where: { userId: session.user.id },
+      where: { userId: session.user.id, userGroup: { tenantId } },
       select: { userGroupId: true },
     })
   ).map((m) => m.userGroupId);

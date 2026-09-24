@@ -79,7 +79,16 @@ export function Sidebar({
   const t = useTranslations();
   const [adminView, setAdminView] = useState(pathname.startsWith("/admin"));
 
-  const nav = adminView ? ADMIN_NAV : USER_NAV;
+  // In the user view, unsupported plan features are hidden entirely.
+  // In the admin view they stay visible (locked) so admins see the upsell.
+  const nav = adminView
+    ? ADMIN_NAV
+    : USER_NAV.filter(
+        (item) =>
+          item.feature == null ||
+          planFeatures == null ||
+          planFeatures[item.feature],
+      );
 
   return (
     <aside className="flex h-screen w-58 flex-col border-r border-border bg-card">

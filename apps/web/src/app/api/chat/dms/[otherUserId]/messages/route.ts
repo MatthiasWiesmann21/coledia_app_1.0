@@ -23,11 +23,11 @@ export async function GET(
 
   const conversation = await prisma.directConversation.findUnique({
     where: {
-      user1Id_user2Id: { user1Id, user2Id },
+      tenantId_user1Id_user2Id: { tenantId, user1Id, user2Id },
     },
   });
 
-  if (!conversation || conversation.tenantId !== tenantId) {
+  if (!conversation) {
     return NextResponse.json({ messages: [] });
   }
 

@@ -287,6 +287,16 @@ io.on("connection", (socket) => {
   // ─── Direct messages ───────────────────────────────────────
 
   socket.on("dm:join", async (otherUserId: string) => {
+    // Only allow DMs between members of this tenant
+    const otherMembership = await prisma.membership.findUnique({
+      where: { userId_tenantId: { userId: otherUserId, tenantId } },
+      select: { id: true },
+    });
+    if (!otherMembership) {
+      socket.emit("error", { message: "User is not a member of this community" });
+      return;
+    }
+
     // Find or create direct conversation
     // Ensure consistent ordering: user1Id < user2Id
     const [user1Id, user2Id] =
@@ -294,7 +304,7 @@ io.on("connection", (socket) => {
 
     const conversation = await prisma.directConversation.upsert({
       where: {
-        user1Id_user2Id: { user1Id, user2Id },
+        tenantId_user1Id_user2Id: { tenantId, user1Id, user2Id },
       },
       update: {},
       create: { tenantId, user1Id, user2Id },
@@ -313,9 +323,15 @@ io.on("connection", (socket) => {
             ? [userId, data.otherUserId]
             : [data.otherUserId, userId];
 
+        const otherMembership = await prisma.membership.findUnique({
+          where: { userId_tenantId: { userId: data.otherUserId, tenantId } },
+          select: { id: true },
+        });
+        if (!otherMembership) return;
+
         const conversation = await prisma.directConversation.upsert({
           where: {
-            user1Id_user2Id: { user1Id, user2Id },
+            tenantId_user1Id_user2Id: { tenantId, user1Id, user2Id },
           },
           update: {},
           create: { tenantId, user1Id, user2Id },
@@ -504,10 +520,12 @@ io.on("connection", (socket) => {
             : [data.otherUserId, userId];
 
         const conversation = await prisma.directConversation.findUnique({
-          where: { user1Id_user2Id: { user1Id, user2Id } },
+          where: {
+            tenantId_user1Id_user2Id: { tenantId, user1Id, user2Id },
+          },
         });
 
-        if (!conversation || conversation.tenantId !== tenantId) return;
+        if (!conversation) return;
 
         // Verify message belongs to this conversation
         const msg = await prisma.message.findUnique({

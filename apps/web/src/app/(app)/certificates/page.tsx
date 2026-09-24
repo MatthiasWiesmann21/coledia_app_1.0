@@ -3,27 +3,15 @@ import { getTranslations } from "next-intl/server";
 import { requireSession } from "@/lib/session";
 import { getTenantId } from "@/lib/tenant";
 import { getUserLocale } from "@/i18n/get-locale";
-import { hasFeature } from "@/lib/plan";
+import { requireFeatureOrBack } from "@/lib/plan";
 import { MyCertificates } from "@/components/certificates/my-certificates";
-import { Lock } from "lucide-react";
-import Link from "next/link";
 
 export default async function MyCertificatesPage() {
   const session = await requireSession();
   const t = await getTranslations("certificates");
   const locale = await getUserLocale();
 
-  if (!(await hasFeature("quizzesCertificates"))) {
-    return (
-      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 p-6 text-center">
-        <Lock className="h-10 w-10 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">{t("lockedHint")}</p>
-        <Link href="/upgrade?feature=quizzesCertificates" className="text-sm text-(--tenant-primary) hover:underline">
-          {t("lockedCta")}
-        </Link>
-      </div>
-    );
-  }
+  await requireFeatureOrBack("quizzesCertificates", "/certificates");
 
   const certificates = await prisma.certificate.findMany({
     where: { userId: session.user.id, course: { tenantId: getTenantId() } },

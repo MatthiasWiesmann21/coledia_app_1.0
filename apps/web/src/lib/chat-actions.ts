@@ -180,12 +180,21 @@ export async function getOrCreateDM(otherUserId: string) {
   const tenantId = getTenantId();
   const userId = session.user.id;
 
+  // Only allow DMs between members of this tenant
+  const otherMembership = await prisma.membership.findUnique({
+    where: {
+      userId_tenantId: { userId: otherUserId, tenantId },
+    },
+    select: { id: true },
+  });
+  if (!otherMembership) throw new Error("User is not a member of this community");
+
   const [user1Id, user2Id] =
     userId < otherUserId ? [userId, otherUserId] : [otherUserId, userId];
 
   const conversation = await prisma.directConversation.upsert({
     where: {
-      user1Id_user2Id: { user1Id, user2Id },
+      tenantId_user1Id_user2Id: { tenantId, user1Id, user2Id },
     },
     update: {},
     create: { tenantId, user1Id, user2Id },

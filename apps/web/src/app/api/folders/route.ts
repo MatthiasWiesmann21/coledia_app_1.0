@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
   // Get user's group IDs for role-based filtering
   const userGroupIds = (
     await prisma.userGroupMember.findMany({
-      where: { userId: session.user.id },
+      where: { userId: session.user.id, userGroup: { tenantId } },
       select: { userGroupId: true },
     })
   ).map((m) => m.userGroupId);

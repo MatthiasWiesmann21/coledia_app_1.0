@@ -1,12 +1,12 @@
 ﻿import { prisma } from "@coledia/db";
 import { getTenantId } from "@/lib/tenant";
 import { getSession } from "@/lib/session";
-import { requireFeature } from "@/lib/plan";
+import { requireFeatureOrBack } from "@/lib/plan";
 import { EventsList } from "@/components/events/events-list-view";
 import { getUserLocale } from "@/i18n/get-locale";
 
 export default async function EventsPage() {
-  await requireFeature("liveEvents");
+  await requireFeatureOrBack("liveEvents", "/events");
   const tenantId = getTenantId();
   const locale = await getUserLocale();
   const session = await getSession();
@@ -15,7 +15,7 @@ export default async function EventsPage() {
   const userGroupIds = session
     ? (
         await prisma.userGroupMember.findMany({
-          where: { userId: session.user.id },
+          where: { userId: session.user.id, userGroup: { tenantId } },
           select: { userGroupId: true },
         })
       ).map((m) => m.userGroupId)

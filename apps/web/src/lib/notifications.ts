@@ -35,7 +35,10 @@ async function resolveRecipients(input: NotifyInput): Promise<string[]> {
 
   if (input.userGroupIds?.length) {
     const members = await prisma.userGroupMember.findMany({
-      where: { userGroupId: { in: input.userGroupIds } },
+      where: {
+        userGroupId: { in: input.userGroupIds },
+        userGroup: { tenantId: input.tenantId },
+      },
       select: { userId: true },
     });
     for (const m of members) ids.add(m.userId);

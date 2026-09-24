@@ -11,6 +11,7 @@ import { GlobalSearch } from "@/components/global-search";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { setUserLanguage } from "@/lib/actions";
 import { locales, localeNames, localeFlags, type Locale } from "@/i18n/config";
+import type { PlanFeatures } from "@/components/sidebar";
 
 const STATUS_COLORS: Record<string, string> = {
   online: "#31a354",
@@ -35,6 +36,7 @@ export function TopNav({
   currentLanguage,
   userId,
   tenantId,
+  planFeatures,
 }: {
   userName: string;
   userEmail: string;
@@ -44,6 +46,7 @@ export function TopNav({
   currentLanguage: string;
   userId: string;
   tenantId: string;
+  planFeatures?: PlanFeatures;
 }) {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
@@ -209,14 +212,16 @@ export function TopNav({
                 Manage Account
               </Link>
 
-              <Link
-                href="/certificates"
-                onClick={() => setProfileOpen(false)}
-                className="flex items-center gap-2 px-3 py-2 text-sm transition hover:bg-muted"
-              >
-                <Award className="h-4 w-4" />
-                My Certificates
-              </Link>
+              {(!planFeatures || planFeatures.quizzesCertificates) && (
+                <Link
+                  href="/certificates"
+                  onClick={() => setProfileOpen(false)}
+                  className="flex items-center gap-2 px-3 py-2 text-sm transition hover:bg-muted"
+                >
+                  <Award className="h-4 w-4" />
+                  My Certificates
+                </Link>
+              )}
 
               <Link
                 href="/settings/notifications"

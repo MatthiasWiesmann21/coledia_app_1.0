@@ -1,35 +1,39 @@
 "use server";
 
 import { prisma } from "@coledia/db";
-import { getSession } from "./session";
-import { getTenantId } from "./tenant";
 import { revalidatePath } from "next/cache";
 import { notify } from "./notifications";
 import { logAuditAsync } from "./audit";
 import { dispatchWebhookAsync } from "./webhooks";
 import { tenantHasFeature } from "./plan";
+import {
+  requireAdminAction,
+  requireMember,
+  requireAccessibleChapter,
+  assertTenantUserGroups,
+  assertTenantCategory,
+  getMyUserGroupIds,
+  isFreeCourse,
+  validateCommentContent,
+} from "./guards";
+import { buildCommentTree } from "./comments";
+import { maybeIssueCertificate } from "./certificates";
 
-async function requireAdmin() {
-  const session = await getSession();
-  if (!session) throw new Error("Unauthorized");
+/** Load a course of the current tenant or throw. */
+async function requireTenantCourse(id: string, tenantId: string) {
+  const course = await prisma.course.findFirst({ where: { id, tenantId }, select: { id: true } });
+  if (!course) throw new Error("Course not found");
+  return course;
+}
 
-  const membership = await prisma.membership.findUnique({
-    where: {
-      userId_tenantId: {
-        userId: session.user.id,
-        tenantId: getTenantId(),
-      },
-    },
+/** Load a chapter whose course belongs to the current tenant or throw. */
+async function requireTenantChapter(id: string, tenantId: string) {
+  const chapter = await prisma.chapter.findFirst({
+    where: { id, course: { tenantId } },
+    select: { id: true, courseId: true, published: true },
   });
-
-  if (
-    !membership ||
-    !["owner", "admin", "operator"].includes(membership.role)
-  ) {
-    throw new Error("Forbidden");
-  }
-
-  return { session, tenantId: getTenantId() };
+  if (!chapter) throw new Error("Chapter not found");
+  return chapter;
 }
 
 // ─── Categories ─────────────────────────────────────────────────
@@ -43,7 +47,7 @@ export async function createCategory(data: {
   textColorLight?: string;
   textColorDark?: string;
 }) {
-  const { tenantId } = await requireAdmin();
+  const { tenantId } = await requireAdminAction();
 
   const category = await prisma.category.create({
     data: {
@@ -70,10 +74,10 @@ export async function updateCategory(
     published?: boolean;
   },
 ) {
-  await requireAdmin();
+  const { tenantId } = await requireAdminAction();
 
   const category = await prisma.category.update({
-    where: { id },
+    where: { id, tenantId },
     data,
   });
 
@@ -83,9 +87,10 @@ export async function updateCategory(
 }
 
 export async function deleteCategory(id: string) {
-  await requireAdmin();
+  const { tenantId } = await requireAdminAction();
 
-  await prisma.category.delete({ where: { id } });
+  const { count } = await prisma.category.deleteMany({ where: { id, tenantId } });
+  if (count === 0) throw new Error("Category not found");
 
   revalidatePath("/admin/categories");
 }
@@ -93,7 +98,7 @@ export async function deleteCategory(id: string) {
 // ─── UserGroups ─────────────────────────────────────────────────
 
 export async function createUserGroup(name: string) {
-  const { tenantId } = await requireAdmin();
+  const { tenantId } = await requireAdminAction();
 
   const group = await prisma.userGroup.create({
     data: { name, tenantId },
@@ -104,10 +109,10 @@ export async function createUserGroup(name: string) {
 }
 
 export async function updateUserGroup(id: string, name: string) {
-  await requireAdmin();
+  const { tenantId } = await requireAdminAction();
 
   const group = await prisma.userGroup.update({
-    where: { id },
+    where: { id, tenantId },
     data: { name },
   });
 
@@ -116,15 +121,23 @@ export async function updateUserGroup(id: string, name: string) {
 }
 
 export async function deleteUserGroup(id: string) {
-  await requireAdmin();
+  const { tenantId } = await requireAdminAction();
 
-  await prisma.userGroup.delete({ where: { id } });
+  const { count } = await prisma.userGroup.deleteMany({ where: { id, tenantId } });
+  if (count === 0) throw new Error("User group not found");
 
   revalidatePath("/admin/usergroups");
 }
 
 export async function addUserToGroup(userGroupId: string, userId: string) {
-  await requireAdmin();
+  const { tenantId } = await requireAdminAction();
+
+  await assertTenantUserGroups(tenantId, [userGroupId]);
+  const member = await prisma.membership.findUnique({
+    where: { userId_tenantId: { userId, tenantId } },
+    select: { id: true },
+  });
+  if (!member) throw new Error("User is not a member of this community");
 
   await prisma.userGroupMember.create({
     data: { userGroupId, userId },
@@ -137,12 +150,10 @@ export async function removeUserFromGroup(
   userGroupId: string,
   userId: string,
 ) {
-  await requireAdmin();
+  const { tenantId } = await requireAdminAction();
 
-  await prisma.userGroupMember.delete({
-    where: {
-      userGroupId_userId: { userGroupId, userId },
-    },
+  await prisma.userGroupMember.deleteMany({
+    where: { userGroupId, userId, userGroup: { tenantId } },
   });
 
   revalidatePath(`/admin/usergroups/${userGroupId}`);
@@ -161,7 +172,7 @@ export async function createCourse(data: {
   specialStatus?: string;
   price?: number;
 }) {
-  const { tenantId } = await requireAdmin();
+  const { tenantId } = await requireAdminAction();
 
   if (
     (data.price ?? 0) > 0 &&
@@ -169,6 +180,9 @@ export async function createCourse(data: {
   ) {
     throw new Error("Selling courses requires the Club plan or higher");
   }
+  if (data.price !== undefined && data.price < 0) throw new Error("Invalid price");
+  await assertTenantCategory(tenantId, data.categoryId);
+  await assertTenantUserGroups(tenantId, data.userGroupIds);
 
   const course = await prisma.course.create({
     data: {
@@ -210,7 +224,7 @@ export async function updateCourse(
     published?: boolean;
   },
 ) {
-  const { tenantId } = await requireAdmin();
+  const { tenantId } = await requireAdminAction();
 
   if (
     data.price !== undefined &&
@@ -220,31 +234,32 @@ export async function updateCourse(
   ) {
     throw new Error("Selling courses requires the Club plan or higher");
   }
-
-  const previous =
-    data.published !== undefined
-      ? await prisma.course.findUnique({
-          where: { id },
-          select: { published: true },
-        })
-      : null;
-
-  const { userGroupIds, ...rest } = data;
-  const updateData: any = { ...rest };
-  if (userGroupIds !== undefined) {
-    updateData.userGroups = {
-      set: userGroupIds.map((gid) => ({ id: gid })),
-    };
+  if (data.price !== undefined && data.price !== null && data.price < 0) {
+    throw new Error("Invalid price");
   }
 
+  const previous = await prisma.course.findFirst({
+    where: { id, tenantId },
+    select: { published: true },
+  });
+  if (!previous) throw new Error("Course not found");
+  await assertTenantCategory(tenantId, data.categoryId);
+  await assertTenantUserGroups(tenantId, data.userGroupIds);
+
+  const { userGroupIds, ...rest } = data;
   const course = await prisma.course.update({
-    where: { id },
-    data: updateData,
+    where: { id, tenantId },
+    data: {
+      ...rest,
+      ...(userGroupIds !== undefined
+        ? { userGroups: { set: userGroupIds.map((gid) => ({ id: gid })) } }
+        : {}),
+    },
     include: { userGroups: { select: { id: true } } },
   });
 
   // Notify when a course is published or updated (visible to enrolled users)
-  if (data.published === true && previous?.published === false) {
+  if (data.published === true && !previous.published) {
     const groupIds = course.userGroups.map((g) => g.id);
     void notify({
       tenantId,
@@ -281,11 +296,12 @@ export async function updateCourse(
 }
 
 export async function deleteCourse(id: string) {
-  await requireAdmin();
+  const { tenantId } = await requireAdminAction();
 
-  await prisma.course.delete({ where: { id } });
+  const { count } = await prisma.course.deleteMany({ where: { id, tenantId } });
+  if (count === 0) throw new Error("Course not found");
   logAuditAsync({ action: "delete", entityType: "course", entityId: id });
-  dispatchWebhookAsync({ tenantId: getTenantId(), event: "course.deleted", data: { id } });
+  dispatchWebhookAsync({ tenantId, event: "course.deleted", data: { id } });
 
   revalidatePath("/admin/courses");
   revalidatePath("/courses");
@@ -304,7 +320,8 @@ export async function createChapter(data: {
   videoType?: string;
   accessFree?: boolean;
 }) {
-  await requireAdmin();
+  const { tenantId } = await requireAdminAction();
+  await requireTenantCourse(data.courseId, tenantId);
 
   const count = await prisma.chapter.count({
     where: { courseId: data.courseId },
@@ -338,15 +355,8 @@ export async function updateChapter(
     order?: number;
   },
 ) {
-  const { tenantId } = await requireAdmin();
-
-  const previous =
-    data.published === true
-      ? await prisma.chapter.findUnique({
-          where: { id },
-          select: { published: true },
-        })
-      : null;
+  const { tenantId } = await requireAdminAction();
+  const previous = await requireTenantChapter(id, tenantId);
 
   const chapter = await prisma.chapter.update({
     where: { id },
@@ -357,7 +367,7 @@ export async function updateChapter(
   // Newly published chapter in a published course → notify enrolled users
   if (
     data.published === true &&
-    previous?.published === false &&
+    !previous.published &&
     chapter.course.published
   ) {
     const enrollments = await prisma.enrollment.findMany({
@@ -381,9 +391,10 @@ export async function updateChapter(
 }
 
 export async function deleteChapter(id: string) {
-  await requireAdmin();
+  const { tenantId } = await requireAdminAction();
+  const chapter = await requireTenantChapter(id, tenantId);
 
-  const chapter = await prisma.chapter.delete({ where: { id } });
+  await prisma.chapter.delete({ where: { id } });
   logAuditAsync({ action: "delete", entityType: "chapter", entityId: id, metadata: { courseId: chapter.courseId } });
 
   revalidatePath(`/admin/courses/${chapter.courseId}`);
@@ -391,23 +402,34 @@ export async function deleteChapter(id: string) {
 
 // ─── Enrollment ─────────────────────────────────────────────────
 
+/**
+ * Enroll in a FREE course. Paid courses can only be unlocked through the
+ * Stripe checkout (the webhook creates the enrollment after payment).
+ */
 export async function enrollInCourse(courseId: string) {
-  const session = await getSession();
-  if (!session) throw new Error("Unauthorized");
+  const { userId, tenantId, isAdmin } = await requireMember();
 
-  const existing = await prisma.enrollment.findUnique({
-    where: {
-      userId_courseId: {
-        userId: session.user.id,
-        courseId,
-      },
-    },
+  const course = await prisma.course.findFirst({
+    where: { id: courseId, tenantId, ...(isAdmin ? {} : { published: true }) },
+    select: { id: true, price: true, userGroups: { select: { id: true } } },
   });
+  if (!course) throw new Error("Course not found");
 
-  if (existing) return existing;
+  if (!isAdmin && course.userGroups.length > 0) {
+    const mine = await getMyUserGroupIds(userId, tenantId);
+    if (!course.userGroups.some((g) => mine.includes(g.id))) {
+      throw new Error("Course not found");
+    }
+  }
 
-  const enrollment = await prisma.enrollment.create({
-    data: { userId: session.user.id, courseId },
+  if (!isFreeCourse(course.price) && !isAdmin) {
+    throw new Error("This course must be purchased");
+  }
+
+  const enrollment = await prisma.enrollment.upsert({
+    where: { userId_courseId: { userId, courseId: course.id } },
+    update: {},
+    create: { userId, courseId: course.id },
   });
 
   revalidatePath(`/courses/${courseId}`);
@@ -416,92 +438,55 @@ export async function enrollInCourse(courseId: string) {
 }
 
 export async function toggleChapterComplete(chapterId: string) {
-  const session = await getSession();
-  if (!session) throw new Error("Unauthorized");
+  const { userId, chapter } = await requireAccessibleChapter(chapterId);
+  const courseId = chapter.courseId;
 
-  // Find existing progress to determine new state
   const existing = await prisma.chapterProgress.findUnique({
-    where: {
-      userId_chapterId: {
-        userId: session.user.id,
-        chapterId,
-      },
-    },
+    where: { userId_chapterId: { userId, chapterId } },
   });
-
   const newCompleted = !existing?.completed;
 
   await prisma.chapterProgress.upsert({
-    where: {
-      userId_chapterId: {
-        userId: session.user.id,
-        chapterId,
-      },
-    },
+    where: { userId_chapterId: { userId, chapterId } },
     update: { completed: newCompleted, completedAt: newCompleted ? new Date() : null },
     create: {
-      userId: session.user.id,
+      userId,
       chapterId,
       completed: newCompleted,
       completedAt: newCompleted ? new Date() : null,
     },
   });
 
-  // Update enrollment progress
-  const chapter = await prisma.chapter.findUnique({
-    where: { id: chapterId },
-    select: { courseId: true },
+  // Progress counts only published chapters, so it can never exceed 100%
+  const [totalChapters, completedChapters] = await Promise.all([
+    prisma.chapter.count({ where: { courseId, published: true } }),
+    prisma.chapterProgress.count({
+      where: { userId, completed: true, chapter: { courseId, published: true } },
+    }),
+  ]);
+  const progressPct =
+    totalChapters > 0 ? Math.min(100, (completedChapters / totalChapters) * 100) : 0;
+
+  // Only update an existing enrollment; auto-enroll only into free courses —
+  // never create an enrollment (= access) for a paid course here.
+  const enrollmentData = { progressPct, completedAt: progressPct >= 100 ? new Date() : null };
+  const hasEnrollment = await prisma.enrollment.findUnique({
+    where: { userId_courseId: { userId, courseId } },
+    select: { id: true },
   });
-
-  if (chapter) {
-    const totalChapters = await prisma.chapter.count({
-      where: { courseId: chapter.courseId, published: true },
-    });
-
-    const completedChapters = await prisma.chapterProgress.count({
-      where: {
-        userId: session.user.id,
-        chapter: { courseId: chapter.courseId },
-        completed: true,
-      },
-    });
-
-    const progressPct =
-      totalChapters > 0 ? (completedChapters / totalChapters) * 100 : 0;
-
-    await prisma.enrollment.upsert({
-      where: {
-        userId_courseId: {
-          userId: session.user.id,
-          courseId: chapter.courseId,
-        },
-      },
-      update: {
-        progressPct,
-        completedAt: progressPct >= 100 ? new Date() : null,
-      },
-      create: {
-        userId: session.user.id,
-        courseId: chapter.courseId,
-        progressPct,
-        completedAt: progressPct >= 100 ? new Date() : null,
-      },
-    });
-
-    // Course fully completed: issue certificate when the course has no quizzes
-    // (quizzed courses issue certificates on quiz pass instead)
-    if (progressPct >= 100) {
-      const quizCount = await prisma.quiz.count({
-        where: { chapter: { courseId: chapter.courseId } },
-      });
-      if (quizCount === 0) {
-        const { issueCertificateForCourse } = await import("./certificates");
-        await issueCertificateForCourse(session.user.id, chapter.courseId);
-      }
-    }
-
-    revalidatePath(`/courses/${chapter.courseId}`);
+  if (hasEnrollment) {
+    await prisma.enrollment.update({ where: { id: hasEnrollment.id }, data: enrollmentData });
+  } else if (isFreeCourse(chapter.course.price)) {
+    await prisma.enrollment.create({ data: { userId, courseId, ...enrollmentData } });
   }
+
+  if (progressPct >= 100) {
+    await maybeIssueCertificate(userId, courseId);
+  }
+
+  revalidatePath(`/courses/${courseId}`);
+  revalidatePath(`/courses/${courseId}/chapters/${chapterId}`);
+  revalidatePath("/dashboard");
 
   return newCompleted;
 }
@@ -513,89 +498,49 @@ export async function markChapterComplete(chapterId: string) {
 
 // ─── Likes / Favourites ─────────────────────────────────────────
 
-export async function toggleChapterLike(chapterId: string) {
-  const session = await getSession();
-  if (!session) throw new Error("Unauthorized");
-
-  const tenantId = getTenantId();
-
-  const existing = await prisma.like.findUnique({
-    where: {
-      userId_targetType_targetId: {
-        userId: session.user.id,
-        targetType: "chapter",
-        targetId: chapterId,
-      },
-    },
-  });
-
-  if (existing) {
-    await prisma.like.delete({ where: { id: existing.id } });
+async function togglePolymorphic(
+  model: "like" | "favourite",
+  userId: string,
+  tenantId: string,
+  targetType: string,
+  targetId: string,
+) {
+  const where = { userId_targetType_targetId: { userId, targetType, targetId } };
+  if (model === "like") {
+    const existing = await prisma.like.findUnique({ where });
+    if (existing) await prisma.like.delete({ where: { id: existing.id } });
+    else await prisma.like.create({ data: { userId, tenantId, targetType, targetId } });
   } else {
-    await prisma.like.create({
-      data: {
-        userId: session.user.id,
-        tenantId,
-        targetType: "chapter",
-        targetId: chapterId,
-      },
-    });
+    const existing = await prisma.favourite.findUnique({ where });
+    if (existing) await prisma.favourite.delete({ where: { id: existing.id } });
+    else await prisma.favourite.create({ data: { userId, tenantId, targetType, targetId } });
   }
+}
 
-  revalidatePath(`/courses/chapters/${chapterId}`);
+export async function toggleChapterLike(chapterId: string) {
+  const { userId, tenantId, chapter } = await requireAccessibleChapter(chapterId);
+  await togglePolymorphic("like", userId, tenantId, "chapter", chapterId);
+  revalidatePath(`/courses/${chapter.courseId}/chapters/${chapterId}`);
 }
 
 export async function toggleChapterFavourite(chapterId: string) {
-  const session = await getSession();
-  if (!session) throw new Error("Unauthorized");
-
-  const tenantId = getTenantId();
-
-  const existing = await prisma.favourite.findUnique({
-    where: {
-      userId_targetType_targetId: {
-        userId: session.user.id,
-        targetType: "chapter",
-        targetId: chapterId,
-      },
-    },
-  });
-
-  if (existing) {
-    await prisma.favourite.delete({ where: { id: existing.id } });
-  } else {
-    await prisma.favourite.create({
-      data: {
-        userId: session.user.id,
-        tenantId,
-        targetType: "chapter",
-        targetId: chapterId,
-      },
-    });
-  }
-
-  revalidatePath(`/courses/chapters/${chapterId}`);
+  const { userId, tenantId, chapter } = await requireAccessibleChapter(chapterId);
+  await togglePolymorphic("favourite", userId, tenantId, "chapter", chapterId);
+  revalidatePath(`/courses/${chapter.courseId}/chapters/${chapterId}`);
 }
 
 // ─── Comments ───────────────────────────────────────────────────
 
 export async function addComment(chapterId: string, content: string) {
-  const session = await getSession();
-  if (!session) throw new Error("Unauthorized");
-
-  const tenantId = getTenantId();
+  const { userId, tenantId, chapter } = await requireAccessibleChapter(chapterId);
+  const text = validateCommentContent(content);
 
   const comment = await prisma.comment.create({
-    data: {
-      userId: session.user.id,
-      tenantId,
-      chapterId,
-      content,
-    },
+    data: { userId, tenantId, chapterId, content: text },
   });
 
-  revalidatePath(`/courses/chapters/${chapterId}`);
-  return comment;
+  revalidatePath(`/courses/${chapter.courseId}/chapters/${chapterId}`);
+  return { id: comment.id };
 }
 
 export async function addCommentReply(
@@ -603,118 +548,40 @@ export async function addCommentReply(
   parentId: string,
   content: string,
 ) {
-  const session = await getSession();
-  if (!session) throw new Error("Unauthorized");
+  const { userId, tenantId, chapter } = await requireAccessibleChapter(chapterId);
+  const text = validateCommentContent(content);
 
-  const tenantId = getTenantId();
+  const parent = await prisma.comment.findFirst({
+    where: { id: parentId, chapterId, tenantId },
+    select: { id: true },
+  });
+  if (!parent) throw new Error("Comment not found");
 
   const comment = await prisma.comment.create({
-    data: {
-      userId: session.user.id,
-      tenantId,
-      chapterId,
-      parentId,
-      content,
-    },
+    data: { userId, tenantId, chapterId, parentId, content: text },
   });
 
-  revalidatePath(`/courses/chapters/${chapterId}`);
-  return comment;
+  revalidatePath(`/courses/${chapter.courseId}/chapters/${chapterId}`);
+  return { id: comment.id };
 }
 
 export async function toggleChapterCommentLike(
   commentId: string,
   chapterId: string,
 ) {
-  const session = await getSession();
-  if (!session) throw new Error("Unauthorized");
+  const { userId, tenantId, chapter } = await requireAccessibleChapter(chapterId);
 
-  const tenantId = getTenantId();
-
-  const existing = await prisma.like.findUnique({
-    where: {
-      userId_targetType_targetId: {
-        userId: session.user.id,
-        targetType: "comment",
-        targetId: commentId,
-      },
-    },
+  const comment = await prisma.comment.findFirst({
+    where: { id: commentId, chapterId, tenantId },
+    select: { id: true },
   });
+  if (!comment) throw new Error("Comment not found");
 
-  if (existing) {
-    await prisma.like.delete({ where: { id: existing.id } });
-  } else {
-    await prisma.like.create({
-      data: {
-        userId: session.user.id,
-        tenantId,
-        targetType: "comment",
-        targetId: commentId,
-      },
-    });
-  }
-
-  revalidatePath(`/courses/chapters/${chapterId}`);
+  await togglePolymorphic("like", userId, tenantId, "comment", commentId);
+  revalidatePath(`/courses/${chapter.courseId}/chapters/${chapterId}`);
 }
 
 export async function getChapterComments(chapterId: string) {
-  const session = await getSession();
-  if (!session) throw new Error("Unauthorized");
-
-  const allComments = await prisma.comment.findMany({
-    where: { chapterId },
-    include: { user: { include: { profile: true } } },
-    orderBy: { createdAt: "asc" },
-  });
-
-  const commentIds = allComments.map((c) => c.id);
-  const [commentLikeCounts, userCommentLikes] = await Promise.all([
-    prisma.like.groupBy({
-      by: ["targetId"],
-      where: { targetType: "comment", targetId: { in: commentIds } },
-      _count: { _all: true },
-    }),
-    prisma.like.findMany({
-      where: {
-        userId: session.user.id,
-        targetType: "comment",
-        targetId: { in: commentIds },
-      },
-      select: { targetId: true },
-    }),
-  ]);
-
-  const commentLikeCountMap = new Map(
-    commentLikeCounts.map((l) => [l.targetId, l._count._all]),
-  );
-  const userLikedCommentIds = new Set(userCommentLikes.map((l) => l.targetId));
-
-  // Build nested comment tree
-  const commentMap = new Map<string, any>();
-  allComments.forEach((c) => {
-    commentMap.set(c.id, {
-      id: c.id,
-      content: c.content,
-      authorName: c.user.name ?? c.user.email,
-      authorUsername: c.user.profile?.username ?? null,
-      authorAvatarUrl: c.user.profile?.avatarUrl ?? null,
-      createdAt: c.createdAt.toISOString(),
-      likeCount: commentLikeCountMap.get(c.id) ?? 0,
-      liked: userLikedCommentIds.has(c.id),
-      replies: [],
-    });
-  });
-
-  const topLevelComments: any[] = [];
-  allComments.forEach((c) => {
-    const node = commentMap.get(c.id);
-    if (c.parentId && commentMap.has(c.parentId)) {
-      commentMap.get(c.parentId).replies.push(node);
-    } else {
-      topLevelComments.push(node);
-    }
-  });
-  topLevelComments.reverse();
-
-  return topLevelComments;
+  const ctx = await requireAccessibleChapter(chapterId);
+  return buildCommentTree(ctx, { chapterId, tenantId: ctx.tenantId });
 }

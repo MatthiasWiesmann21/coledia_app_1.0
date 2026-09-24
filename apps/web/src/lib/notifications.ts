@@ -58,7 +58,14 @@ async function resolveRecipients(input: NotifyInput): Promise<string[]> {
   }
 
   for (const excluded of input.excludeUserIds ?? []) ids.delete(excluded);
-  return [...ids];
+  if (ids.size === 0) return [];
+
+  // Only ever notify members of this tenant
+  const members = await prisma.membership.findMany({
+    where: { tenantId: input.tenantId, userId: { in: [...ids] } },
+    select: { userId: true },
+  });
+  return members.map((m) => m.userId);
 }
 
 /** Push a realtime event to connected users via the realtime service. */
@@ -93,7 +100,7 @@ export async function notify(input: NotifyInput): Promise<void> {
 
     // Load preference rows for these users + this type
     const prefs = await prisma.notificationPreference.findMany({
-      where: { userId: { in: recipients }, type: input.type },
+      where: { userId: { in: recipients }, tenantId: input.tenantId, type: input.type },
       select: { userId: true, channel: true, enabled: true },
     });
 

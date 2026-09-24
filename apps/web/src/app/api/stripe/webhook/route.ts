@@ -8,11 +8,13 @@ import { dispatchWebhookAsync } from "@/lib/webhooks";
 /**
  * Stripe webhook handler.
  *
- * Handles:
- *  - checkout.session.completed (plan subscription + course purchase)
- *  - customer.subscription.updated / deleted
+ * Only handles course sales (Stripe Connect, revenue for the tenant owner):
+ *  - checkout.session.completed (course purchase)
  *  - payment_intent.succeeded (course purchase confirmation)
  *  - charge.refunded (revoke course access)
+ *
+ * Tenant plans / subscriptions are managed exclusively by the Coledia
+ * Controlcenter (internal API) and are never changed from here.
  *
  * Signature verification uses the raw body (NextRequest body must not be
  * parsed before this point). The route exports `runtime = "nodejs"` and
@@ -48,10 +50,6 @@ export async function POST(req: NextRequest) {
       case "checkout.session.completed":
         await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session);
         break;
-      case "customer.subscription.updated":
-      case "customer.subscription.deleted":
-        await handleSubscriptionChange(event.data.object as Stripe.Subscription);
-        break;
       case "payment_intent.succeeded":
         await handlePaymentSucceeded(event.data.object as Stripe.PaymentIntent);
         break;
@@ -75,45 +73,17 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   const tenantId = metadata.tenantId;
   if (!tenantId) return;
 
-  if (metadata.type === "plan_subscription") {
-    // Update tenant plan + subscription record
-    const plan = metadata.plan ?? "starter";
-    await prisma.tenant.update({
-      where: { id: tenantId },
-      data: {
-        plan,
-        stripeCustomerId: session.customer as string,
-        stripeSubscriptionId: session.subscription as string,
-        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      },
-    });
-
-    await prisma.subscription.upsert({
-      where: { stripeSubscriptionId: session.subscription as string },
-      create: {
-        tenantId,
-        stripeSubscriptionId: session.subscription as string,
-        plan,
-        status: "active",
-        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      },
-      update: { plan, status: "active" },
-    });
-
-    logAuditAsync({
-      tenantId,
-      action: "billing_change",
-      entityType: "subscription",
-      entityId: session.subscription as string,
-      metadata: { plan, type: "plan_subscription" },
-    });
-    dispatchWebhookAsync({ tenantId, event: "payment.succeeded", data: { type: "subscription", plan } });
-  }
-
   if (metadata.type === "course_purchase") {
     const courseId = metadata.courseId;
     const userId = metadata.userId;
     if (!courseId || !userId) return;
+
+    // The course must belong to the tenant named in the (signed) metadata
+    const course = await prisma.course.findFirst({
+      where: { id: courseId, tenantId },
+      select: { id: true },
+    });
+    if (!course) return;
 
     // Update CoursePurchase + enroll user
     await prisma.coursePurchase.updateMany({
@@ -143,52 +113,6 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       tenantId,
       event: "user.enrolled",
       data: { userId, courseId },
-    });
-  }
-}
-
-async function handleSubscriptionChange(subscription: Stripe.Subscription) {
-  const tenant = await prisma.tenant.findFirst({
-    where: { stripeSubscriptionId: subscription.id },
-  });
-  if (!tenant) return;
-
-  const status = subscription.status;
-  const plan = tenant.plan;
-
-  // Map Stripe status to our status
-  const ourStatus =
-    status === "active" ? "active" :
-    status === "past_due" ? "past_due" :
-    status === "canceled" ? "canceled" :
-    status === "trialing" ? "trialing" : "active";
-
-  await prisma.subscription.updateMany({
-    where: { stripeSubscriptionId: subscription.id },
-    data: { status: ourStatus },
-  });
-
-  // If canceled, downgrade to starter
-  if (status === "canceled") {
-    await prisma.tenant.update({
-      where: { id: tenant.id },
-      data: { plan: "starter", status: "active" },
-    });
-    logAuditAsync({
-      tenantId: tenant.id,
-      action: "billing_change",
-      entityType: "subscription",
-      entityId: subscription.id,
-      metadata: { status: "canceled", downgradedTo: "starter" },
-    });
-  }
-
-  // Update current period end
-  const periodEnd = (subscription as unknown as { current_period_end?: number }).current_period_end;
-  if (periodEnd) {
-    await prisma.tenant.update({
-      where: { id: tenant.id },
-      data: { currentPeriodEnd: new Date(periodEnd * 1000) },
     });
   }
 }
@@ -229,15 +153,21 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
     where: { userId: purchase.userId, courseId: purchase.courseId },
   });
 
+  const course = await prisma.course.findUnique({
+    where: { id: purchase.courseId },
+    select: { tenantId: true },
+  });
+  if (!course) return;
+
   logAuditAsync({
-    tenantId: purchase.courseId, // will be overridden by tenantId lookup
+    tenantId: course.tenantId,
     action: "billing_change",
     entityType: "payment",
     entityId: charge.payment_intent as string,
     metadata: { type: "refund", courseId: purchase.courseId, userId: purchase.userId },
   });
   dispatchWebhookAsync({
-    tenantId: "", // tenant lookup needed — but dispatchWebhook handles empty gracefully
+    tenantId: course.tenantId,
     event: "payment.refunded",
     data: { courseId: purchase.courseId, userId: purchase.userId },
   });

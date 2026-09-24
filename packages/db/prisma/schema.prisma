@@ -50,6 +50,8 @@ model Tenant {
   payments       Payment[]
   certificateTemplates CertificateTemplate[]
   customPages    CustomPage[]
+  userProfiles   UserProfile[]
+  notificationPreferences NotificationPreference[]
 
   @@index([status])
 }
@@ -107,7 +109,7 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  profile       UserProfile?
+  profiles      UserProfile[]
   memberships   Membership[]
   enrollments   Enrollment[]
   chapterProgress ChapterProgress[]
@@ -131,10 +133,14 @@ model User {
   accounts     Account[]
 }
 
+// Profiles are per tenant: the same account has an independent profile
+// (avatar, bio, username, status, language, terms acceptance) in each container.
 model UserProfile {
   id              String   @id @default(cuid())
-  userId          String   @unique
+  userId          String
+  tenantId        String
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   username        String?
   bio             String?  @db.Text
   avatarUrl       String?
@@ -143,6 +149,9 @@ model UserProfile {
   acceptedTermsAt DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+
+  @@unique([userId, tenantId])
+  @@index([tenantId])
 }
 
 model Membership {
@@ -151,6 +160,7 @@ model Membership {
   tenantId  String
   role      String   @default("member") // owner | admin | operator | member
   joinedAt  DateTime @default(now())
+  lastSeenAt DateTime? // presence in this tenant (updated by AppShell, throttled)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
@@ -445,6 +455,8 @@ model Event {
   streamChatEnabled Boolean   @default(true)
   published         Boolean   @default(false)
   recurrenceRule    String?   // RRULE string for recurring events
+  location          String?
+  maxAttendees      Int?      // null = unlimited
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   tenant            Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -651,12 +663,15 @@ model Notification {
 model NotificationPreference {
   id        String   @id @default(cuid())
   userId    String
+  tenantId  String
   type      String   // notification type
   channel   String   // in_app | email | push
   enabled   Boolean  @default(true)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, type, channel])
+  @@unique([userId, tenantId, type, channel])
+  @@index([tenantId])
 }
 
 // ─── Better-Auth core models ────────────────────────────────────

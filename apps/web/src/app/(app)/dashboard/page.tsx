@@ -4,6 +4,8 @@ import { prisma } from "@coledia/db";
 import { getTenantId } from "@/lib/tenant";
 import { TermsModal } from "@/components/terms-modal";
 import { DashboardContent } from "@/components/dashboard-content";
+import { profileKey } from "@/lib/profile";
+import { onlineSince as getOnlineSince } from "@/lib/presence";
 
 export default async function DashboardPage() {
   const session = await getSession();
@@ -12,11 +14,14 @@ export default async function DashboardPage() {
   const tenantId = getTenantId();
   const userId = session.user.id;
 
+  // Everything below is scoped to THIS tenant — the same account may belong to
+  // several containers, and nothing from another container may show up here.
   const profile = await prisma.userProfile.findUnique({
-    where: { userId },
+    where: profileKey(userId, tenantId),
   });
 
   const needsTerms = !profile?.acceptedTermsAt;
+  const onlineSince = getOnlineSince();
 
   // Fetch all real data in parallel
   const [
@@ -28,9 +33,9 @@ export default async function DashboardPage() {
     favourites,
     signedInMembers,
   ] = await Promise.all([
-    // All enrollments with course + category info
+    // Enrollments in this tenant's courses, with course + category info
     prisma.enrollment.findMany({
-      where: { userId },
+      where: { userId, course: { tenantId } },
       include: {
         course: {
           select: {
@@ -43,18 +48,17 @@ export default async function DashboardPage() {
       },
     }),
 
-    // Count of completed chapters by this user
+    // Count of completed (published) chapters by this user in this tenant
     prisma.chapterProgress.count({
-      where: { userId, completed: true },
+      where: { userId, completed: true, chapter: { published: true, course: { tenantId } } },
     }),
 
-    // Online members = users with an active (non-expired) session in this tenant
-    prisma.session.count({
+    // Online members = members of this tenant seen here recently (not invisible)
+    prisma.membership.count({
       where: {
-        expiresAt: { gt: new Date() },
-        user: {
-          memberships: { some: { tenantId } },
-        },
+        tenantId,
+        lastSeenAt: { gte: onlineSince },
+        user: { profiles: { none: { tenantId, status: "invisible" } } },
       },
     }),
 
@@ -100,20 +104,19 @@ export default async function DashboardPage() {
       take: 5,
     }),
 
-    // Favourited course IDs by this user
+    // Favourited course IDs by this user in this tenant
     prisma.favourite.findMany({
-      where: { userId, targetType: "course" },
+      where: { userId, tenantId, targetType: "course" },
       orderBy: { createdAt: "desc" },
       take: 5,
     }),
 
-    // Signed-in members: users with active sessions in this tenant
-    prisma.session.findMany({
+    // Members of this tenant seen recently (per-tenant presence)
+    prisma.membership.findMany({
       where: {
-        expiresAt: { gt: new Date() },
-        user: {
-          memberships: { some: { tenantId } },
-        },
+        tenantId,
+        lastSeenAt: { gte: onlineSince },
+        user: { profiles: { none: { tenantId, status: "invisible" } } },
       },
       include: {
         user: {
@@ -121,15 +124,15 @@ export default async function DashboardPage() {
             id: true,
             name: true,
             email: true,
-            profile: {
+            profiles: {
+              where: { tenantId },
               select: { avatarUrl: true, status: true },
+              take: 1,
             },
           },
         },
       },
-      orderBy: { updatedAt: "desc" },
-      // Avoid duplicates from multiple sessions per user
-      distinct: ["userId"],
+      orderBy: { lastSeenAt: "desc" },
       take: 20,
     }),
   ]);
@@ -138,7 +141,7 @@ export default async function DashboardPage() {
   const favouriteCourseIds = favourites.map((f) => f.targetId);
   const favouriteCoursesData = favouriteCourseIds.length > 0
     ? await prisma.course.findMany({
-        where: { id: { in: favouriteCourseIds } },
+        where: { id: { in: favouriteCourseIds }, tenantId, published: true },
         select: {
           id: true,
           title: true,
@@ -163,7 +166,7 @@ export default async function DashboardPage() {
       category: e.course.category?.name ?? "Uncategorized",
       categoryColor: e.course.category?.color ?? "#008080",
       progress: Math.round(e.progressPct),
-      paymentStatus: e.course.price ? "Paid" : "Free",
+      paymentStatus: e.course.price && Number(e.course.price) > 0 ? "Paid" : "Free",
     }));
 
   // Build upcoming events list
@@ -205,13 +208,16 @@ export default async function DashboardPage() {
     .filter((f): f is NonNullable<typeof f> => f !== null);
 
   // Build signed-in members list
-  const onlineMembersList = signedInMembers.map((s) => ({
-    id: s.user.id,
-    name: s.user.name ?? s.user.email,
-    avatarUrl: s.user.profile?.avatarUrl ?? null,
-    status: s.user.profile?.status ?? "online",
-    lastActive: s.updatedAt.toISOString(),
-  }));
+  const onlineMembersList = signedInMembers.map((m) => {
+    const memberProfile = m.user.profiles[0];
+    return {
+      id: m.user.id,
+      name: m.user.name ?? m.user.email,
+      avatarUrl: memberProfile?.avatarUrl ?? null,
+      status: memberProfile?.status ?? "online",
+      lastActive: (m.lastSeenAt ?? new Date()).toISOString(),
+    };
+  });
 
   return (
     <>

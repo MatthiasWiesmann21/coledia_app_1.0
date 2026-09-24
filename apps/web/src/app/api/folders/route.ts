@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@coledia/db";
 import { getSession } from "@/lib/session";
 import { getTenantId } from "@/lib/tenant";
+import { assertTenantUserGroups } from "@/lib/guards";
 import { z } from "zod";
 
 const createFolderSchema = z.object({
@@ -103,8 +104,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const body = await request.json();
-  const parsed = createFolderSchema.parse(body);
+  const result = createFolderSchema.safeParse(await request.json().catch(() => null));
+  if (!result.success) {
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  }
+  const parsed = result.data;
+  try {
+    await assertTenantUserGroups(tenantId, parsed.userGroupIds);
+  } catch {
+    return NextResponse.json({ error: "Invalid user group" }, { status: 400 });
+  }
 
   // Verify parent folder exists within tenant if provided
   if (parsed.parentId) {

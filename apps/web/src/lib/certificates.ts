@@ -3,6 +3,7 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { getTenantId } from "./tenant";
 import { readFile, resolveStoragePath, storagePathToUrl } from "./storage";
 import { notify } from "./notifications";
+import { tenantHasFeature } from "./plan";
 import fs from "fs/promises";
 import path from "path";
 
@@ -280,6 +281,41 @@ export async function issueCertificateForCourse(
     console.error("[certificates] issuance failed:", err);
     return { issued: false };
   }
+}
+
+/**
+ * Issue the course certificate only when the user has completed every
+ * published chapter AND passed every quiz of the course (published chapters).
+ * Certificates are a plan feature (quizzesCertificates).
+ */
+export async function maybeIssueCertificate(
+  userId: string,
+  courseId: string,
+): Promise<{ issued: boolean }> {
+  const tenantId = getTenantId();
+  if (!(await tenantHasFeature(tenantId, "quizzesCertificates"))) return { issued: false };
+
+  const course = await prisma.course.findFirst({
+    where: { id: courseId, tenantId },
+    select: { id: true },
+  });
+  if (!course) return { issued: false };
+
+  const [totalChapters, completedChapters, quizzes] = await Promise.all([
+    prisma.chapter.count({ where: { courseId, published: true } }),
+    prisma.chapterProgress.count({
+      where: { userId, completed: true, chapter: { courseId, published: true } },
+    }),
+    prisma.quiz.findMany({
+      where: { chapter: { courseId, published: true } },
+      select: { attempts: { where: { userId, passed: true }, select: { id: true }, take: 1 } },
+    }),
+  ]);
+
+  if (totalChapters === 0 || completedChapters < totalChapters) return { issued: false };
+  if (quizzes.some((q) => q.attempts.length === 0)) return { issued: false };
+
+  return issueCertificateForCourse(userId, courseId);
 }
 
 /** Default placeholder template hints shown in the admin editor. */

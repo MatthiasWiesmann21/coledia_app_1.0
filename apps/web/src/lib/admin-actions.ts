@@ -1,39 +1,22 @@
 "use server";
 
 import { prisma } from "@coledia/db";
-import { getSession } from "./session";
-import { getTenantId } from "./tenant";
+import { ROLES, type Role } from "@coledia/shared";
 import { revalidatePath } from "next/cache";
 import { validPresetIds } from "@coledia/ui";
 import { logAuditAsync } from "./audit";
 import { generateApiKey, hashApiKey } from "./api-keys";
+import { requireAdminAction } from "./guards";
 
-async function requireAdmin() {
-  const session = await getSession();
-  if (!session) throw new Error("Unauthorized");
-
-  const tenantId = getTenantId();
-  const membership = await prisma.membership.findUnique({
-    where: {
-      userId_tenantId: { userId: session.user.id, tenantId },
-    },
-  });
-
-  if (!membership || !["owner", "admin", "operator"].includes(membership.role)) {
-    throw new Error("Forbidden");
-  }
-
-  return { session, tenantId, membership };
-}
+const VALID_ROLES = Object.values(ROLES) as string[];
 
 // ─── User Management ───────────────────────────────────────────
 
 export async function updateUserRole(userId: string, role: string) {
-  const { membership } = await requireAdmin();
+  const { membership, tenantId } = await requireAdminAction();
 
-  // Only owners can change roles to owner/admin
-  if ((role === "owner" || role === "admin") && membership.role !== "owner") {
-    throw new Error("Only owners can assign owner/admin roles");
+  if (!VALID_ROLES.includes(role)) {
+    throw new Error("Invalid role");
   }
 
   // Can't change your own role
@@ -41,39 +24,57 @@ export async function updateUserRole(userId: string, role: string) {
     throw new Error("You cannot change your own role");
   }
 
+  const target = await prisma.membership.findUnique({
+    where: { userId_tenantId: { userId, tenantId } },
+  });
+  if (!target) throw new Error("User is not a member of this community");
+
+  const isOwner = (membership.role as Role) === ROLES.OWNER;
+  const privileged: string[] = [ROLES.OWNER, ROLES.ADMIN];
+
+  // Only owners can grant owner/admin, or change an existing owner/admin
+  if ((privileged.includes(role) || privileged.includes(target.role)) && !isOwner) {
+    throw new Error("Only owners can change owner/admin roles");
+  }
+
+  // Never leave the tenant without an owner
+  if (target.role === ROLES.OWNER && role !== ROLES.OWNER) {
+    const owners = await prisma.membership.count({
+      where: { tenantId, role: ROLES.OWNER },
+    });
+    if (owners <= 1) throw new Error("The community must keep at least one owner");
+  }
+
   await prisma.membership.update({
-    where: {
-      userId_tenantId: { userId, tenantId: getTenantId() },
-    },
+    where: { userId_tenantId: { userId, tenantId } },
     data: { role },
   });
-  logAuditAsync({ action: "role_change", entityType: "user", entityId: userId, metadata: { role } });
+  logAuditAsync({ action: "role_change", entityType: "user", entityId: userId, metadata: { role, previous: target.role } });
 
   revalidatePath("/admin/users");
 }
 
 export async function removeUser(userId: string) {
-  const { membership } = await requireAdmin();
+  const { membership, tenantId } = await requireAdminAction();
 
   if (userId === membership.userId) {
     throw new Error("You cannot remove yourself");
   }
 
-  // Check target isn't an owner
   const target = await prisma.membership.findUnique({
-    where: {
-      userId_tenantId: { userId, tenantId: getTenantId() },
-    },
+    where: { userId_tenantId: { userId, tenantId } },
   });
+  if (!target) throw new Error("User is not a member of this community");
 
-  if (target?.role === "owner") {
+  if (target.role === ROLES.OWNER) {
     throw new Error("Cannot remove an owner");
+  }
+  if (target.role === ROLES.ADMIN && membership.role !== ROLES.OWNER) {
+    throw new Error("Only owners can remove admins");
   }
 
   await prisma.membership.delete({
-    where: {
-      userId_tenantId: { userId, tenantId: getTenantId() },
-    },
+    where: { userId_tenantId: { userId, tenantId } },
   });
   logAuditAsync({ action: "delete", entityType: "user", entityId: userId });
 
@@ -82,25 +83,59 @@ export async function removeUser(userId: string) {
 
 // ─── Tenant Settings ───────────────────────────────────────────
 
-export async function updateTenantSettings(data: {
-  name?: string;
-  status?: string;
-  plan?: string;
-}) {
-  const { tenantId, membership } = await requireAdmin();
+/**
+ * Update tenant settings. Plan and status are intentionally NOT editable here —
+ * they are managed exclusively by the Coledia Controlcenter (internal API).
+ */
+export async function updateTenantSettings(data: { name?: string }) {
+  const { tenantId } = await requireAdminAction();
 
-  // Only owners can change plan/status
-  if ((data.plan || data.status) && membership.role !== "owner") {
-    throw new Error("Only owners can change plan or status");
-  }
+  const name = data.name?.trim();
+  if (!name) throw new Error("Name is required");
+  if (name.length > 120) throw new Error("Name is too long");
 
   await prisma.tenant.update({
     where: { id: tenantId },
-    data,
+    data: { name },
   });
-  logAuditAsync({ action: "settings_change", entityType: "settings", entityId: tenantId, metadata: data });
+  logAuditAsync({ action: "settings_change", entityType: "settings", entityId: tenantId, metadata: { name } });
 
   revalidatePath("/admin/settings");
+}
+
+const COLOR_FIELDS = [
+  "primaryColorLight",
+  "primaryColorDark",
+  "navTextColorLight",
+  "navTextColorDark",
+  "navBgColorLight",
+  "navBgColorDark",
+] as const;
+
+const URL_FIELDS = [
+  "logoLightUrl",
+  "logoDarkUrl",
+  "logoClickUrl",
+  "faviconUrl",
+  "authLogoSignUpLight",
+  "authLogoSignUpDark",
+  "authLogoSignInLight",
+  "authLogoSignInDark",
+  "authLogoForgotLight",
+  "authLogoForgotDark",
+] as const;
+
+const HEX_COLOR = /^#[0-9a-f]{3,8}$/i;
+
+/** Allow only http(s) URLs or same-origin relative paths (blocks javascript:, data:). */
+function isSafeUrl(value: string): boolean {
+  if (value.startsWith("/") && !value.startsWith("//")) return true;
+  try {
+    const u = new URL(value);
+    return u.protocol === "https:" || u.protocol === "http:";
+  } catch {
+    return false;
+  }
 }
 
 export async function updateBranding(data: {
@@ -123,7 +158,16 @@ export async function updateBranding(data: {
   themePreset?: string | null;
   themeMode?: string | null;
 }) {
-  const { tenantId, membership } = await requireAdmin();
+  const { tenantId, membership } = await requireAdminAction();
+
+  for (const field of COLOR_FIELDS) {
+    const v = data[field];
+    if (v && !HEX_COLOR.test(v)) throw new Error(`Invalid color for ${field}`);
+  }
+  for (const field of URL_FIELDS) {
+    const v = data[field];
+    if (v && !isSafeUrl(v)) throw new Error(`Invalid URL for ${field}`);
+  }
 
   // Validate themePreset
   if (data.themePreset !== undefined && data.themePreset !== null) {
@@ -147,21 +191,11 @@ export async function updateBranding(data: {
     throw new Error("Only owners can change the theme preset or mode");
   }
 
-  // Upsert branding record
-  const existing = await prisma.branding.findUnique({
+  await prisma.branding.upsert({
     where: { tenantId },
+    update: data,
+    create: { tenantId, ...data },
   });
-
-  if (existing) {
-    await prisma.branding.update({
-      where: { tenantId },
-      data,
-    });
-  } else {
-    await prisma.branding.create({
-      data: { tenantId, ...data },
-    });
-  }
 
   revalidatePath("/admin/settings");
   revalidatePath("/", "layout");
@@ -172,7 +206,7 @@ export async function updateBranding(data: {
 // ─── API Keys ──────────────────────────────────────────────────
 
 export async function createApiKey(name: string) {
-  const { tenantId } = await requireAdmin();
+  const { tenantId } = await requireAdminAction();
 
   // Only org-tier tenants can create API keys
   const { hasFeature } = await import("./plan");
@@ -199,9 +233,10 @@ export async function createApiKey(name: string) {
 }
 
 export async function deleteApiKey(id: string) {
-  await requireAdmin();
+  const { tenantId } = await requireAdminAction();
 
-  await prisma.apiKey.delete({ where: { id } });
+  const { count } = await prisma.apiKey.deleteMany({ where: { id, tenantId } });
+  if (count === 0) throw new Error("API key not found");
   logAuditAsync({ action: "api_key_revoke", entityType: "api_key", entityId: id });
 
   revalidatePath("/admin/settings");

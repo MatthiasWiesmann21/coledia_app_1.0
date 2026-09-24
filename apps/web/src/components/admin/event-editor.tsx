@@ -27,6 +27,8 @@ type EventData = {
   videoType?: string | null;
   streamChatEnabled: boolean;
   published: boolean;
+  location?: string | null;
+  maxAttendees?: number | null;
 };
 
 type Category = { id: string; name: string; color: string };
@@ -63,6 +65,10 @@ export function EventEditor({
   const [videoType, setVideoType] = useState(event.videoType ?? "youtube");
   const [streamChatEnabled, setStreamChatEnabled] = useState(event.streamChatEnabled);
   const [published, setPublished] = useState(event.published);
+  const [location, setLocation] = useState(event.location ?? "");
+  const [maxAttendees, setMaxAttendees] = useState(
+    event.maxAttendees ? String(event.maxAttendees) : "",
+  );
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -105,6 +111,8 @@ export function EventEditor({
         videoUrl: videoUrl || null,
         videoType: videoType || null,
         streamChatEnabled,
+        location: location.trim() || null,
+        maxAttendees: maxAttendees ? Number(maxAttendees) : null,
       };
 
       if (activeLanguage === defaultLocale) {
@@ -126,8 +134,8 @@ export function EventEditor({
       }
 
       setMsg("Event saved");
-    } catch {
-      setMsg("Could not save event");
+    } catch (e) {
+      setMsg(e instanceof Error && e.message ? e.message : "Could not save event");
     }
     setSaving(false);
   }
@@ -231,6 +239,34 @@ export function EventEditor({
                 value={endAt}
                 onChange={(e) => setEndAt(e.target.value)}
               />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="location">Location</Label>
+              <Input
+                id="location"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="e.g. Clubhouse, Main Street 1 — or Online"
+                maxLength={190}
+              />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="maxAttendees">Max. attendees</Label>
+              <Input
+                id="maxAttendees"
+                type="number"
+                min={1}
+                value={maxAttendees}
+                onChange={(e) => setMaxAttendees(e.target.value)}
+                placeholder="Unlimited"
+              />
+              <p className="text-xs text-muted-foreground">
+                Leave empty for unlimited registrations.
+              </p>
             </div>
           </div>
         </div>

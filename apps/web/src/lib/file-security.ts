@@ -335,6 +335,10 @@ export async function validateImageFile(
   if (!result.mimeType?.startsWith("image/")) {
     return { valid: false, error: "Only image files are allowed" };
   }
+  // SVG can carry scripts — never accept it for images rendered in the app
+  if (result.mimeType === "image/svg+xml") {
+    return { valid: false, error: "SVG images are not allowed — please upload PNG, JPG, GIF or WebP" };
+  }
   return result;
 }
 

@@ -14,7 +14,7 @@ export default async function AdminUsersPage() {
       where: { tenantId },
       include: {
         user: {
-          include: { profile: true },
+          include: { profiles: { where: { tenantId }, take: 1 } },
         },
       },
       orderBy: { joinedAt: "desc" },
@@ -54,9 +54,9 @@ export default async function AdminUsersPage() {
           userId: m.userId,
           name: m.user.name ?? m.user.email,
           email: m.user.email,
-          username: m.user.profile?.username ?? null,
-          avatarUrl: m.user.profile?.avatarUrl ?? null,
-          status: m.user.profile?.status ?? "online",
+          username: m.user.profiles[0]?.username ?? null,
+          avatarUrl: m.user.profiles[0]?.avatarUrl ?? null,
+          status: m.user.profiles[0]?.status ?? "online",
           role: m.role,
           joinedAt: m.joinedAt.toISOString(),
         }))}

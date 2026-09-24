@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Heart, Send, ArrowLeft, Reply, MessageCircle } from "lucide-react";
+import { Heart, Send, ArrowLeft, Reply, MessageCircle, Trash2 } from "lucide-react";
 import { Button } from "@coledia/ui/button";
 import { Input } from "@coledia/ui/input";
+import { useConfirm } from "@/components/confirm-provider";
 
 type Post = {
   id: string;
@@ -26,6 +27,7 @@ type Comment = {
   createdAt: string;
   likeCount: number;
   liked: boolean;
+  canDelete?: boolean;
   replies: Comment[];
 };
 
@@ -35,6 +37,7 @@ type Actions = {
   addReply: (postId: string, parentId: string, content: string) => Promise<any>;
   toggleCommentLike: (commentId: string, postId: string) => Promise<any>;
   getComments: (postId: string) => Promise<Comment[]>;
+  deleteComment?: (commentId: string) => Promise<any>;
 };
 
 function Avatar({
@@ -87,6 +90,28 @@ function CommentItem({
   const [replyText, setReplyText] = useState("");
   const [posting, setPosting] = useState(false);
   const [replies, setReplies] = useState<Comment[]>(comment.replies);
+  const [removed, setRemoved] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const confirm = useConfirm();
+
+  async function handleDelete() {
+    if (!actions.deleteComment) return;
+    const ok = await confirm({
+      title: "Delete comment?",
+      description: "This also deletes all replies. This action cannot be undone.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
+    setDeleting(true);
+    try {
+      await actions.deleteComment(comment.id);
+      setRemoved(true);
+    } catch (e) {
+      console.error(e);
+    }
+    setDeleting(false);
+  }
 
   async function handleCommentLike() {
     if (!isLoggedIn) {
@@ -108,11 +133,11 @@ function CommentItem({
     if (!replyText.trim()) return;
     setPosting(true);
     try {
-      await actions.addReply(postId, comment.id, replyText);
+      const created = await actions.addReply(postId, comment.id, replyText);
       setReplies([
         ...replies,
         {
-          id: Date.now().toString(),
+          id: created?.id ?? Date.now().toString(),
           content: replyText,
           authorName: "You",
           authorUsername: null,
@@ -120,6 +145,7 @@ function CommentItem({
           createdAt: new Date().toISOString(),
           likeCount: 0,
           liked: false,
+          canDelete: true,
           replies: [],
         },
       ]);
@@ -130,6 +156,8 @@ function CommentItem({
     }
     setPosting(false);
   }
+
+  if (removed) return null;
 
   return (
     <li className="flex gap-3">
@@ -170,6 +198,17 @@ function CommentItem({
             >
               <Reply className="h-3.5 w-3.5" />
               Reply
+            </button>
+          )}
+          {comment.canDelete && actions.deleteComment && (
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="flex items-center gap-1 text-xs text-muted-foreground transition hover:text-red-500 disabled:opacity-50"
+              aria-label="Delete comment"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete
             </button>
           )}
         </div>
@@ -271,10 +310,10 @@ export function NewsDetail({
     if (!commentText.trim()) return;
     setPosting(true);
     try {
-      await actions.addComment(post.id, commentText);
+      const created = await actions.addComment(post.id, commentText);
       setCommentList([
         {
-          id: Date.now().toString(),
+          id: created?.id ?? Date.now().toString(),
           content: commentText,
           authorName: "You",
           authorUsername: null,
@@ -282,6 +321,7 @@ export function NewsDetail({
           createdAt: new Date().toISOString(),
           likeCount: 0,
           liked: false,
+          canDelete: true,
           replies: [],
         },
         ...commentList,

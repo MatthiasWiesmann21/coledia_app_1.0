@@ -1,6 +1,7 @@
 import { prisma } from "@coledia/db";
 import { getTenantId } from "@/lib/tenant";
 import { getSession } from "@/lib/session";
+import { profileKey } from "@/lib/profile";
 import { notFound } from "next/navigation";
 import { NewsDetail } from "@/components/news/news-detail";
 import {
@@ -9,6 +10,7 @@ import {
   togglePostLike,
   toggleCommentLike,
   getPostComments,
+  deleteComment,
 } from "@/lib/content-actions";
 
 export default async function NewsDetailPage({
@@ -58,7 +60,7 @@ export default async function NewsDetailPage({
   // Get post likes, user's post like, comment count, and current user's profile
   const [likeCount, userLike, commentCount, currentUserProfile] = await Promise.all([
     prisma.like.count({
-      where: { targetType: "post", targetId: post.id },
+      where: { tenantId, targetType: "post", targetId: post.id },
     }),
     session
       ? prisma.like.findUnique({
@@ -76,7 +78,7 @@ export default async function NewsDetailPage({
     }),
     session
       ? prisma.userProfile.findUnique({
-          where: { userId: session.user.id },
+          where: profileKey(session.user.id, tenantId),
         })
       : null,
   ]);
@@ -105,6 +107,7 @@ export default async function NewsDetailPage({
           addReply: addCommentReply,
           toggleCommentLike,
           getComments: getPostComments,
+          deleteComment,
         }}
       />
     </div>

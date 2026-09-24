@@ -69,7 +69,7 @@ export default async function EventDetailPage({
         },
       }),
       prisma.like.count({
-        where: { targetType: "event", targetId: event.id },
+        where: { tenantId, targetType: "event", targetId: event.id },
       }),
     ]);
     isRegistered = !!reg;
@@ -93,6 +93,8 @@ export default async function EventDetailPage({
           videoType: event.videoType,
           streamChatEnabled: event.streamChatEnabled,
           registrationCount: event._count.registrations,
+          location: event.location,
+          maxAttendees: event.maxAttendees,
         }}
         isRegistered={isRegistered}
         liked={!!userLike}

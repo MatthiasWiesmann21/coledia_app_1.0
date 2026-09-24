@@ -5,6 +5,8 @@ import { getTenantId } from "@/lib/tenant";
 import { Sidebar } from "@/components/sidebar";
 import { TopNav } from "@/components/top-nav";
 import { SignOutButton } from "@/components/sign-out-button";
+import { profileKey } from "@/lib/profile";
+import { touchPresence } from "@/lib/presence";
 import { getPlanFeatureMap } from "@/lib/plan";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ConfirmProvider } from "@/components/confirm-provider";
@@ -26,7 +28,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       include: { branding: true },
     }),
     prisma.userProfile.findUnique({
-      where: { userId: session.user.id },
+      where: profileKey(session.user.id, tenantId),
     }),
     prisma.membership.findUnique({
       where: {
@@ -70,6 +72,9 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
+
+  // Per-tenant presence ("online members"), throttled
+  touchPresence(membership);
 
   const locale: Locale =
     profile?.language && isLocale(profile.language) ? profile.language : defaultLocale;

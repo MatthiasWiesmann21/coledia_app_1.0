@@ -3,6 +3,7 @@ import { prisma } from "@coledia/db";
 import { getSession } from "@/lib/session";
 import { getTenantId } from "@/lib/tenant";
 import { deleteFile } from "@/lib/storage";
+import { isAdminRole, assertTenantUserGroups, getMyUserGroupIds } from "@/lib/guards";
 import { z } from "zod";
 
 const updateFolderSchema = z.object({
@@ -17,7 +18,7 @@ async function requireAdmin(session: any) {
   const membership = await prisma.membership.findUnique({
     where: { userId_tenantId: { userId: session.user.id, tenantId } },
   });
-  if (!membership || !["owner", "admin", "operator"].includes(membership.role)) {
+  if (!membership || !isAdminRole(membership.role)) {
     return null;
   }
   return { tenantId, membership };
@@ -36,6 +37,13 @@ export async function GET(
   const { id } = await params;
   const tenantId = getTenantId();
 
+  const membership = await prisma.membership.findUnique({
+    where: { userId_tenantId: { userId: session.user.id, tenantId } },
+  });
+  if (!membership) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const folder = await prisma.folder.findFirst({
     where: { id, tenantId },
     include: {
@@ -46,6 +54,16 @@ export async function GET(
 
   if (!folder) {
     return NextResponse.json({ error: "Folder not found" }, { status: 404 });
+  }
+
+  // Non-admins only see visible, published folders they have group access to
+  if (!isAdminRole(membership.role)) {
+    const myGroups = await getMyUserGroupIds(session.user.id, tenantId);
+    const groupOk =
+      folder.userGroups.length === 0 || folder.userGroups.some((g) => myGroups.includes(g.id));
+    if (!folder.visible || !folder.published || !groupOk) {
+      return NextResponse.json({ error: "Folder not found" }, { status: 404 });
+    }
   }
 
   return NextResponse.json({
@@ -79,20 +97,34 @@ export async function PATCH(
   }
 
   const { id } = await params;
-  const body = await request.json();
-  const parsed = updateFolderSchema.parse(body);
+  const parsed = updateFolderSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  }
 
-  const { userGroupIds, ...rest } = parsed;
-  const updateData: any = { ...rest };
-  if (userGroupIds !== undefined) {
-    updateData.userGroups = {
-      set: userGroupIds.map((gid) => ({ id: gid })),
-    };
+  const existing = await prisma.folder.findFirst({
+    where: { id, tenantId: admin.tenantId },
+    select: { id: true },
+  });
+  if (!existing) {
+    return NextResponse.json({ error: "Folder not found" }, { status: 404 });
+  }
+
+  const { userGroupIds, ...rest } = parsed.data;
+  try {
+    await assertTenantUserGroups(admin.tenantId, userGroupIds);
+  } catch {
+    return NextResponse.json({ error: "Invalid user group" }, { status: 400 });
   }
 
   const folder = await prisma.folder.update({
-    where: { id },
-    data: updateData,
+    where: { id, tenantId: admin.tenantId },
+    data: {
+      ...rest,
+      ...(userGroupIds !== undefined
+        ? { userGroups: { set: userGroupIds.map((gid) => ({ id: gid })) } }
+        : {}),
+    },
   });
 
   return NextResponse.json({
@@ -133,9 +165,11 @@ export async function DELETE(
     return NextResponse.json({ error: "Folder not found" }, { status: 404 });
   }
 
-  // Recursively collect all document storage paths to delete
+  // Recursively collect the folder subtree (parent first) and its documents
+  const folderIds: string[] = [];
   const storagePathsToDelete: string[] = [];
-  async function collectDocuments(folderId: string) {
+  async function collect(folderId: string) {
+    folderIds.push(folderId);
     const docs = await prisma.document.findMany({
       where: { folderId, tenantId },
       select: { storagePath: true },
@@ -148,18 +182,24 @@ export async function DELETE(
       select: { id: true },
     });
     for (const child of children) {
-      await collectDocuments(child.id);
+      await collect(child.id);
     }
   }
-  await collectDocuments(id);
+  await collect(id);
 
-  // Delete from disk
+  // Delete DB rows: documents first (their FK would otherwise be set to NULL),
+  // then folders deepest-first (the parent relation has no DB cascade)
+  await prisma.$transaction([
+    prisma.document.deleteMany({ where: { folderId: { in: folderIds }, tenantId } }),
+    ...[...folderIds].reverse().map((fid) =>
+      prisma.folder.deleteMany({ where: { id: fid, tenantId } }),
+    ),
+  ]);
+
+  // Delete files from disk once the DB is consistent
   for (const sp of storagePathsToDelete) {
     await deleteFile(sp);
   }
-
-  // Delete from DB (cascades)
-  await prisma.folder.delete({ where: { id } });
 
   return NextResponse.json({ success: true });
 }

@@ -56,6 +56,8 @@ export default async function EditEventPage({
           videoType: event.videoType,
           streamChatEnabled: event.streamChatEnabled,
           published: event.published,
+          location: event.location,
+          maxAttendees: event.maxAttendees,
         }}
         translations={translationsMap}
         categories={categories.map((c) => ({ id: c.id, name: c.name, color: c.color }))}

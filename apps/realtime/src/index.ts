@@ -1,4 +1,5 @@
 import { createServer } from "http";
+import { createHmac, timingSafeEqual } from "crypto";
 import { Server } from "socket.io";
 import { PrismaClient } from "@prisma/client";
 
@@ -94,16 +95,43 @@ function setUserOffline(userId: string, socketId: string) {
   }
 }
 
-// Authentication middleware
+/**
+ * Verify the short-lived HMAC token issued by the web app (getRealtimeToken).
+ * Format: base64url(JSON {userId, tenantId, exp}) + "." + base64url(HMAC-SHA256).
+ */
+function verifyRealtimeToken(token: string): { userId: string; tenantId: string } | null {
+  if (!INTERNAL_SECRET) return null;
+  const [data, signature] = token.split(".");
+  if (!data || !signature) return null;
+
+  const expected = Buffer.from(createHmac("sha256", INTERNAL_SECRET).update(data).digest("base64url"));
+  const actual = Buffer.from(signature);
+  if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) return null;
+
+  try {
+    const payload = JSON.parse(Buffer.from(data, "base64url").toString()) as {
+      userId?: string;
+      tenantId?: string;
+      exp?: number;
+    };
+    if (!payload.userId || !payload.tenantId || typeof payload.exp !== "number") return null;
+    if (payload.exp < Math.floor(Date.now() / 1000)) return null;
+    return { userId: payload.userId, tenantId: payload.tenantId };
+  } catch {
+    return null;
+  }
+}
+
+// Authentication middleware — identity comes ONLY from the signed token,
+// never from client-supplied userId/tenantId.
 io.use(async (socket, next) => {
   try {
     const token = socket.handshake.auth.token as string | undefined;
-    const userId = socket.handshake.auth.userId as string | undefined;
-    const tenantId = socket.handshake.auth.tenantId as string | undefined;
-
-    if (!userId || !tenantId) {
-      return next(new Error("Missing userId or tenantId"));
+    const verified = token ? verifyRealtimeToken(token) : null;
+    if (!verified) {
+      return next(new Error("Unauthorized"));
     }
+    const { userId, tenantId } = verified;
 
     // Verify the user is a member of the tenant
     const membership = await prisma.membership.findUnique({
@@ -398,8 +426,9 @@ io.on("connection", (socket) => {
           const recipientId = data.otherUserId;
           const pref = await prisma.notificationPreference.findUnique({
             where: {
-              userId_type_channel: {
+              userId_tenantId_type_channel: {
                 userId: recipientId,
+                tenantId,
                 type: "direct_message",
                 channel: "in_app",
               },

@@ -4,6 +4,8 @@ import { getSession } from "@/lib/session";
 import { getTenantId } from "@/lib/tenant";
 import { readFile } from "@/lib/storage";
 import { getMimeType } from "@/lib/storage";
+import { isAdminRole } from "@/lib/guards";
+import { canViewDocument } from "@/lib/document-access";
 
 /** GET /api/documents/[id]/download — download a document file */
 export async function GET(
@@ -18,12 +20,14 @@ export async function GET(
   const { id } = await params;
   const tenantId = getTenantId();
 
-  // Check admin status (admins can download any document)
   const membership = await prisma.membership.findUnique({
     where: { userId_tenantId: { userId: session.user.id, tenantId } },
   });
-  const isAdmin =
-    membership && ["owner", "admin", "operator"].includes(membership.role);
+  if (!membership) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  // Admins can download any document of their tenant
+  const isAdmin = isAdminRole(membership.role);
 
   const document = await prisma.document.findFirst({
     where: { id, tenantId },
@@ -34,48 +38,16 @@ export async function GET(
     return NextResponse.json({ error: "File not found" }, { status: 404 });
   }
 
-  // Non-admins: check visibility
-  if (!isAdmin) {
-    if (!document.visible || !document.published) {
-      return NextResponse.json({ error: "File not found" }, { status: 404 });
-    }
-    // Check document-level userGroup access
-    if (document.userGroups.length > 0) {
-      const groupMember = await prisma.userGroupMember.findFirst({
-        where: {
-          userId: session.user.id,
-          userGroupId: { in: document.userGroups.map((g) => g.id) },
-        },
-      });
-      if (!groupMember) {
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-      }
-    }
-    // Check folder visibility chain
-    if (document.folderId) {
-      const folder = await prisma.folder.findFirst({
-        where: { id: document.folderId, visible: true, published: true },
-        include: { userGroups: { select: { id: true } } },
-      });
-      if (!folder) {
-        return NextResponse.json({ error: "File not found" }, { status: 404 });
-      }
-      // Check userGroup access if folder has any assigned groups
-      if (folder.userGroups.length > 0) {
-        const groupMember = await prisma.userGroupMember.findFirst({
-          where: {
-            userId: session.user.id,
-            userGroupId: { in: folder.userGroups.map((g) => g.id) },
-          },
-        });
-        if (!groupMember) {
-          return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-        }
-      }
-    }
+  if (!isAdmin && !(await canViewDocument(session.user.id, tenantId, document))) {
+    return NextResponse.json({ error: "File not found" }, { status: 404 });
   }
 
-  const fileBuffer = await readFile(document.storagePath);
+  let fileBuffer: Buffer;
+  try {
+    fileBuffer = await readFile(document.storagePath);
+  } catch {
+    return NextResponse.json({ error: "File not found" }, { status: 404 });
+  }
   const contentType = document.mimeType ?? getMimeType(document.name);
 
   // Return with proper Content-Disposition (RFC 5987)
@@ -83,13 +55,16 @@ export async function GET(
     /['()]/g,
     escape,
   );
-  const contentDisposition = `attachment; filename="${document.name.replace(/[^\x00-\x7F]/g, "_")}"; filename*=UTF-8''${encodedFilename}`;
+  const contentDisposition = `attachment; filename="${document.name.replace(/[^\x20-\x7E]/g, "_").replace(/"/g, "")}"; filename*=UTF-8''${encodedFilename}`;
 
   return new NextResponse(new Uint8Array(fileBuffer), {
     headers: {
       "Content-Type": contentType,
       "Content-Disposition": contentDisposition,
-      "Content-Length": document.fileSize?.toString() ?? "0",
+      "Content-Length": String(fileBuffer.length),
+      "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": "sandbox",
+      "Cache-Control": "private, no-store",
     },
   });
 }

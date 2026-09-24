@@ -2,13 +2,15 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
 import { prisma } from "@coledia/db";
 import { ProfileSettings } from "@/components/profile-settings";
+import { profileKey } from "@/lib/profile";
 
 export default async function ProfileSettingsPage() {
   const session = await getSession();
   if (!session) redirect("/sign-in");
 
+  // Profile of this community only (profiles are per tenant)
   const profile = await prisma.userProfile.findUnique({
-    where: { userId: session.user.id },
+    where: profileKey(session.user.id),
   });
 
   return (

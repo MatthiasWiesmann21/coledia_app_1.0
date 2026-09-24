@@ -11,6 +11,8 @@ import {
   CheckCircle2,
   ArrowLeft,
   Play,
+  MapPin,
+  CalendarPlus,
 } from "lucide-react";
 import { Button } from "@coledia/ui/button";
 
@@ -27,7 +29,16 @@ type EventData = {
   videoType?: string | null;
   streamChatEnabled: boolean;
   registrationCount: number;
+  location?: string | null;
+  maxAttendees?: number | null;
 };
+
+function formatStartsIn(ms: number): string {
+  const hours = Math.ceil(ms / (1000 * 60 * 60));
+  if (hours < 24) return `${hours} ${hours === 1 ? "hour" : "hours"}`;
+  const days = Math.ceil(hours / 24);
+  return `${days} ${days === 1 ? "day" : "days"}`;
+}
 
 function getEmbedUrl(url: string, type: string): string {
   if (type === "youtube") {
@@ -63,12 +74,15 @@ export function EventDetail({
   const [isLiked, setIsLiked] = useState(liked);
   const [likes, setLikes] = useState(likeCount);
   const [registering, setRegistering] = useState(false);
+  const [regError, setRegError] = useState<string | null>(null);
 
   const eventDate = new Date(event.startAt);
   const endDate = event.endAt ? new Date(event.endAt) : null;
   const now = new Date();
   const isLive = now >= eventDate && (!endDate || now <= endDate);
   const isPast = endDate ? now > endDate : now > eventDate;
+  const isFull =
+    event.maxAttendees != null && regCount >= event.maxAttendees && !registered;
 
   async function handleRegister() {
     if (!isLoggedIn) {
@@ -76,13 +90,19 @@ export function EventDetail({
       return;
     }
     setRegistering(true);
+    setRegError(null);
     setRegistered(!registered);
     setRegCount(registered ? regCount - 1 : regCount + 1);
     try {
       await registerAction(event.id);
-    } catch {
+    } catch (e) {
       setRegistered(registered);
       setRegCount(regCount);
+      setRegError(
+        e instanceof Error && e.message.includes("full")
+          ? "Sorry, this event is full."
+          : "Could not update your registration. Please try again.",
+      );
     }
     setRegistering(false);
   }
@@ -197,8 +217,16 @@ export function EventDetail({
             </span>
             <span className="flex items-center gap-2">
               <Users className="h-4 w-4" />
-              {regCount} registered
+              {event.maxAttendees != null
+                ? `${regCount} / ${event.maxAttendees} registered`
+                : `${regCount} registered`}
             </span>
+            {event.location && (
+              <span className="flex items-center gap-2">
+                <MapPin className="h-4 w-4" />
+                {event.location}
+              </span>
+            )}
           </div>
 
           {/* Description */}
@@ -225,10 +253,9 @@ export function EventDetail({
                   This event is live now!
                 </p>
                 {registered ? (
-                  <Button disabled className="w-full">
-                    <CheckCircle2 className="mr-1 h-4 w-4" />
-                    Registered
-                  </Button>
+                  <RegisteredState onCancel={handleRegister} disabled={registering} />
+                ) : isFull ? (
+                  <Button disabled className="w-full">Event full</Button>
                 ) : (
                   <Button onClick={handleRegister} disabled={registering} className="w-full">
                     {registering ? "..." : "Register Now"}
@@ -240,20 +267,35 @@ export function EventDetail({
                 <div className="text-center">
                   <p className="text-xs text-[var(--muted-foreground)]">Starts in</p>
                   <p className="text-lg font-bold">
-                    {Math.ceil((eventDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))} days
+                    {formatStartsIn(eventDate.getTime() - now.getTime())}
                   </p>
                 </div>
                 {registered ? (
-                  <Button disabled className="w-full">
-                    <CheckCircle2 className="mr-1 h-4 w-4" />
-                    Registered
-                  </Button>
+                  <RegisteredState onCancel={handleRegister} disabled={registering} />
+                ) : isFull ? (
+                  <Button disabled className="w-full">Event full</Button>
                 ) : (
                   <Button onClick={handleRegister} disabled={registering} className="w-full">
                     {registering ? "..." : "Register"}
                   </Button>
                 )}
               </div>
+            )}
+
+            {regError && (
+              <p className="mt-3 rounded-lg bg-red-500/10 px-3 py-2 text-center text-xs text-red-500">
+                {regError}
+              </p>
+            )}
+
+            {!isPast && (
+              <a
+                href={`/api/events/${event.id}/ics`}
+                className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-2 text-sm text-[var(--muted-foreground)] transition hover:bg-[var(--muted)]"
+              >
+                <CalendarPlus className="h-4 w-4" />
+                Add to calendar
+              </a>
             )}
 
             {/* Like button */}
@@ -271,6 +313,31 @@ export function EventDetail({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function RegisteredState({
+  onCancel,
+  disabled,
+}: {
+  onCancel: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <Button disabled className="w-full">
+        <CheckCircle2 className="mr-1 h-4 w-4" />
+        Registered
+      </Button>
+      <button
+        type="button"
+        onClick={onCancel}
+        disabled={disabled}
+        className="text-xs text-[var(--muted-foreground)] hover:underline disabled:opacity-50"
+      >
+        Cancel registration
+      </button>
     </div>
   );
 }

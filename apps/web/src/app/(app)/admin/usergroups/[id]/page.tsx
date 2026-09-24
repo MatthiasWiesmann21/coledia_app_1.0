@@ -19,7 +19,7 @@ export default async function EditUserGroupPage({
       members: {
         include: {
           user: {
-            include: { profile: true },
+            include: { profiles: { where: { tenantId }, take: 1 } },
           },
         },
       },
@@ -33,7 +33,7 @@ export default async function EditUserGroupPage({
     where: { tenantId },
     include: {
       user: {
-        include: { profile: true },
+        include: { profiles: { where: { tenantId }, take: 1 } },
       },
     },
   });
@@ -48,13 +48,13 @@ export default async function EditUserGroupPage({
           members: group.members.map((m) => ({
             userId: m.userId,
             name: m.user.name ?? m.user.email,
-            username: m.user.profile?.username ?? null,
+            username: m.user.profiles[0]?.username ?? null,
           })),
         }}
         availableMembers={tenantMembers.map((m) => ({
           userId: m.userId,
           name: m.user.name ?? m.user.email,
-          username: m.user.profile?.username ?? null,
+          username: m.user.profiles[0]?.username ?? null,
         }))}
       />
     </div>

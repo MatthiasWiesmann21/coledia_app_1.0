@@ -37,7 +37,7 @@ export default async function ChatPage() {
       members: {
         include: {
           user: {
-            include: { profile: true },
+            include: { profiles: { where: { tenantId }, take: 1 } },
           },
         },
       },
@@ -62,7 +62,7 @@ export default async function ChatPage() {
     where: { tenantId },
     include: {
       user: {
-        include: { profile: true },
+        include: { profiles: { where: { tenantId }, take: 1 } },
       },
     },
   });
@@ -74,8 +74,8 @@ export default async function ChatPage() {
       OR: [{ user1Id: session.user.id }, { user2Id: session.user.id }],
     },
     include: {
-      user1: { include: { profile: true } },
-      user2: { include: { profile: true } },
+      user1: { include: { profiles: { where: { tenantId }, take: 1 } } },
+      user2: { include: { profiles: { where: { tenantId }, take: 1 } } },
     },
   });
 
@@ -96,16 +96,16 @@ export default async function ChatPage() {
           members: s.members.map((m) => ({
             userId: m.userId,
             name: m.user.name ?? m.user.email,
-            username: m.user.profile?.username ?? null,
-            avatarUrl: m.user.profile?.avatarUrl ?? null,
+            username: m.user.profiles[0]?.username ?? null,
+            avatarUrl: m.user.profiles[0]?.avatarUrl ?? null,
             role: m.role,
           })),
         }))}
         tenantMembers={tenantMembers.map((m) => ({
           userId: m.userId,
           name: m.user.name ?? m.user.email,
-          username: m.user.profile?.username ?? null,
-          avatarUrl: m.user.profile?.avatarUrl ?? null,
+          username: m.user.profiles[0]?.username ?? null,
+          avatarUrl: m.user.profiles[0]?.avatarUrl ?? null,
         }))}
         dmConversations={dmConversations.map((c) => {
           const otherUser = c.user1Id === session.user.id ? c.user2 : c.user1;
@@ -113,8 +113,8 @@ export default async function ChatPage() {
             id: c.id,
             otherUserId: otherUser.id,
             otherUserName: otherUser.name ?? otherUser.email,
-            otherUserUsername: otherUser.profile?.username ?? null,
-            otherUserAvatarUrl: otherUser.profile?.avatarUrl ?? null,
+            otherUserUsername: otherUser.profiles[0]?.username ?? null,
+            otherUserAvatarUrl: otherUser.profiles[0]?.avatarUrl ?? null,
           };
         })}
       />

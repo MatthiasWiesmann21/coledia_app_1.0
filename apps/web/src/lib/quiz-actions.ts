@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import { getSession } from "./session";
 import { getTenantId } from "./tenant";
 import { hasFeature } from "./plan";
-import { issueCertificateForCourse } from "./certificates";
+import { maybeIssueCertificate } from "./certificates";
+import { requireAdminAction, requireAccessibleChapter } from "./guards";
 
 /**
  * Quiz question shape (stored in Quiz.questions JSON):
@@ -27,23 +28,6 @@ export type QuizQuestion = {
   points: number;
 };
 
-async function requireAdmin() {
-  const session = await getSession();
-  if (!session) throw new Error("Unauthorized");
-
-  const membership = await prisma.membership.findUnique({
-    where: {
-      userId_tenantId: { userId: session.user.id, tenantId: getTenantId() },
-    },
-  });
-
-  if (!membership || !["owner", "admin", "operator"].includes(membership.role)) {
-    throw new Error("Forbidden");
-  }
-
-  return { session, tenantId: getTenantId() };
-}
-
 // ─── Admin: quiz builder ───────────────────────────────────────
 
 export async function upsertQuiz(
@@ -54,7 +38,7 @@ export async function upsertQuiz(
     attemptLimit?: number | null;
   },
 ) {
-  await requireAdmin();
+  await requireAdminAction();
 
   if (!(await hasFeature("quizzesCertificates"))) {
     throw new Error("plan_required");
@@ -96,9 +80,11 @@ export async function upsertQuiz(
 }
 
 export async function deleteQuiz(chapterId: string) {
-  await requireAdmin();
+  const { tenantId } = await requireAdminAction();
 
-  const quiz = await prisma.quiz.findFirst({ where: { chapterId } });
+  const quiz = await prisma.quiz.findFirst({
+    where: { chapterId, chapter: { course: { tenantId } } },
+  });
   if (!quiz) return;
 
   await prisma.quiz.delete({ where: { id: quiz.id } });
@@ -114,7 +100,7 @@ export async function getQuizForChapter(chapterId: string) {
   if (!(await hasFeature("quizzesCertificates"))) return null;
 
   const quiz = await prisma.quiz.findFirst({
-    where: { chapterId },
+    where: { chapterId, chapter: { course: { tenantId: getTenantId() } } },
     include: {
       attempts: {
         where: { userId: session.user.id },
@@ -151,20 +137,18 @@ export async function submitQuizAttempt(
   quizId: string,
   answers: Record<string, string>,
 ) {
-  const session = await getSession();
-  if (!session) throw new Error("Unauthorized");
-
   if (!(await hasFeature("quizzesCertificates"))) {
     throw new Error("plan_required");
   }
 
-  const quiz = await prisma.quiz.findUnique({
-    where: { id: quizId },
-    include: { chapter: { select: { courseId: true, course: { select: { tenantId: true } } } } },
+  const quiz = await prisma.quiz.findFirst({
+    where: { id: quizId, chapter: { course: { tenantId: getTenantId() } } },
+    include: { chapter: { select: { id: true, courseId: true } } },
   });
-  if (!quiz || quiz.chapter.course.tenantId !== getTenantId()) {
-    throw new Error("Quiz not found");
-  }
+  if (!quiz) throw new Error("Quiz not found");
+
+  // Same access rules as viewing the chapter (published, groups, paid course)
+  const { session } = await requireAccessibleChapter(quiz.chapter.id);
 
   // Enforce attempt limit (unless the user already passed)
   const attempts = await prisma.quizAttempt.findMany({
@@ -204,7 +188,7 @@ export async function submitQuizAttempt(
 
   // Passing the quiz issues the course certificate
   if (passed) {
-    await issueCertificateForCourse(session.user.id, quiz.chapter.courseId);
+    await maybeIssueCertificate(session.user.id, quiz.chapter.courseId);
   }
 
   return { score, passed, alreadyPassed: false };

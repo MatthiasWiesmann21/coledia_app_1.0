@@ -37,6 +37,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No file provided" }, { status: 400 });
   }
 
+  if (folderId) {
+    const folder = await prisma.folder.findFirst({ where: { id: folderId, tenantId }, select: { id: true } });
+    if (!folder) {
+      return NextResponse.json({ error: "Folder not found" }, { status: 404 });
+    }
+  }
+
   // Validate file size
   const sizeResult = validateFileSize(file.size, MAX_DOC_SIZE);
   if (!sizeResult.valid) {
@@ -82,8 +89,8 @@ export async function POST(request: NextRequest) {
   // Notify members with access to the target folder (or all members if ungrouped)
   void (async () => {
     const folder = folderId
-      ? await prisma.folder.findUnique({
-          where: { id: folderId },
+      ? await prisma.folder.findFirst({
+          where: { id: folderId, tenantId },
           include: { userGroups: { select: { id: true } } },
         })
       : null;

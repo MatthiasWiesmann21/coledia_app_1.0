@@ -121,9 +121,9 @@ export async function POST(req: NextRequest) {
 
     if (data.ownerUsername) {
       await tx.userProfile.upsert({
-        where: { userId: owner.id },
+        where: { userId_tenantId: { userId: owner.id, tenantId: tenant.id } },
         update: { username: data.ownerUsername },
-        create: { userId: owner.id, username: data.ownerUsername },
+        create: { userId: owner.id, tenantId: tenant.id, username: data.ownerUsername },
       });
     }
 

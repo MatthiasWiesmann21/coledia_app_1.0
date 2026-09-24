@@ -1,35 +1,21 @@
 "use server";
 
 import { prisma } from "@coledia/db";
-import { getSession } from "./session";
-import { getTenantId } from "./tenant";
 import { revalidatePath } from "next/cache";
 import { notify } from "./notifications";
 import { logAuditAsync } from "./audit";
 import { dispatchWebhookAsync } from "./webhooks";
-
-async function requireAdmin() {
-  const session = await getSession();
-  if (!session) throw new Error("Unauthorized");
-
-  const membership = await prisma.membership.findUnique({
-    where: {
-      userId_tenantId: {
-        userId: session.user.id,
-        tenantId: getTenantId(),
-      },
-    },
-  });
-
-  if (
-    !membership ||
-    !["owner", "admin", "operator"].includes(membership.role)
-  ) {
-    throw new Error("Forbidden");
-  }
-
-  return { session, tenantId: getTenantId() };
-}
+import { hasFeature } from "./plan";
+import {
+  requireAdminAction,
+  requireMember,
+  requireVisiblePost,
+  requireVisibleEvent,
+  assertTenantUserGroups,
+  assertTenantCategory,
+  validateCommentContent,
+} from "./guards";
+import { buildCommentTree, deleteCommentTree } from "./comments";
 
 // ─── Posts (News) ───────────────────────────────────────────────
 
@@ -41,7 +27,9 @@ export async function createPost(data: {
   imageUrl?: string;
   gifUrl?: string;
 }) {
-  const { tenantId } = await requireAdmin();
+  const { tenantId } = await requireAdminAction();
+  await assertTenantCategory(tenantId, data.categoryId);
+  await assertTenantUserGroups(tenantId, data.userGroupIds);
 
   const post = await prisma.post.create({
     data: {
@@ -77,34 +65,30 @@ export async function updatePost(
     scheduledAt?: Date | null;
   },
 ) {
-  const { tenantId } = await requireAdmin();
+  const { tenantId } = await requireAdminAction();
 
-  const wasPublished =
-    data.published === true
-      ? (
-          await prisma.post.findUnique({
-            where: { id },
-            select: { published: true },
-          })
-        )?.published
-      : undefined;
+  const existing = await prisma.post.findFirst({
+    where: { id, tenantId },
+    select: { published: true },
+  });
+  if (!existing) throw new Error("Post not found");
+  await assertTenantCategory(tenantId, data.categoryId);
+  await assertTenantUserGroups(tenantId, data.userGroupIds);
 
   const { userGroupIds, ...rest } = data;
-  const updateData: any = { ...rest };
-  if (userGroupIds !== undefined) {
-    updateData.userGroups = {
-      set: userGroupIds.map((gid) => ({ id: gid })),
-    };
-  }
-
   const post = await prisma.post.update({
-    where: { id },
-    data: updateData,
+    where: { id, tenantId },
+    data: {
+      ...rest,
+      ...(userGroupIds !== undefined
+        ? { userGroups: { set: userGroupIds.map((gid) => ({ id: gid })) } }
+        : {}),
+    },
     include: { userGroups: { select: { id: true } } },
   });
 
   // Notify audience when a post is published for the first time
-  if (data.published === true && wasPublished === false) {
+  if (data.published === true && !existing.published) {
     const groupIds = post.userGroups.map((g) => g.id);
     void notify({
       tenantId,
@@ -126,182 +110,116 @@ export async function updatePost(
 }
 
 export async function deletePost(id: string) {
-  await requireAdmin();
+  const { tenantId } = await requireAdminAction();
 
-  await prisma.post.delete({ where: { id } });
+  const { count } = await prisma.post.deleteMany({ where: { id, tenantId } });
+  if (count === 0) throw new Error("Post not found");
   logAuditAsync({ action: "delete", entityType: "post", entityId: id });
-  dispatchWebhookAsync({ tenantId: getTenantId(), event: "post.deleted", data: { id } });
+  dispatchWebhookAsync({ tenantId, event: "post.deleted", data: { id } });
 
   revalidatePath("/admin/posts");
   revalidatePath("/news");
 }
 
-export async function addPostComment(postId: string, content: string) {
-  const session = await getSession();
-  if (!session) throw new Error("Unauthorized");
+// ─── Post comments ──────────────────────────────────────────────
 
-  const tenantId = getTenantId();
+export async function addPostComment(postId: string, content: string) {
+  const { tenantId, userId } = await requireVisiblePost(postId);
+  const text = validateCommentContent(content);
 
   const comment = await prisma.comment.create({
-    data: {
-      userId: session.user.id,
-      tenantId,
-      postId,
-      content,
-    },
+    data: { userId, tenantId, postId, content: text },
   });
 
   revalidatePath(`/news/${postId}`);
-  return comment;
-}
-
-export async function getPostComments(postId: string) {
-  const session = await getSession();
-  if (!session) throw new Error("Unauthorized");
-
-  const allComments = await prisma.comment.findMany({
-    where: { postId },
-    include: { user: { include: { profile: true } } },
-    orderBy: { createdAt: "asc" },
-  });
-
-  const commentIds = allComments.map((c) => c.id);
-  const [commentLikeCounts, userCommentLikes] = await Promise.all([
-    prisma.like.groupBy({
-      by: ["targetId"],
-      where: { targetType: "comment", targetId: { in: commentIds } },
-      _count: { _all: true },
-    }),
-    prisma.like.findMany({
-      where: {
-        userId: session.user.id,
-        targetType: "comment",
-        targetId: { in: commentIds },
-      },
-      select: { targetId: true },
-    }),
-  ]);
-
-  const commentLikeCountMap = new Map(
-    commentLikeCounts.map((l) => [l.targetId, l._count._all]),
-  );
-  const userLikedCommentIds = new Set(userCommentLikes.map((l) => l.targetId));
-
-  // Build nested comment tree
-  const commentMap = new Map<string, any>();
-  allComments.forEach((c) => {
-    commentMap.set(c.id, {
-      id: c.id,
-      content: c.content,
-      authorName: c.user.name ?? c.user.email,
-      authorUsername: c.user.profile?.username ?? null,
-      authorAvatarUrl: c.user.profile?.avatarUrl ?? null,
-      createdAt: c.createdAt.toISOString(),
-      likeCount: commentLikeCountMap.get(c.id) ?? 0,
-      liked: userLikedCommentIds.has(c.id),
-      replies: [],
-    });
-  });
-
-  const topLevelComments: any[] = [];
-  allComments.forEach((c) => {
-    const node = commentMap.get(c.id);
-    if (c.parentId && commentMap.has(c.parentId)) {
-      commentMap.get(c.parentId).replies.push(node);
-    } else {
-      topLevelComments.push(node);
-    }
-  });
-  topLevelComments.reverse();
-
-  return topLevelComments;
+  return { id: comment.id };
 }
 
 export async function addCommentReply(postId: string, parentId: string, content: string) {
-  const session = await getSession();
-  if (!session) throw new Error("Unauthorized");
+  const { tenantId, userId } = await requireVisiblePost(postId);
+  const text = validateCommentContent(content);
 
-  const tenantId = getTenantId();
+  const parent = await prisma.comment.findFirst({
+    where: { id: parentId, postId, tenantId },
+    select: { id: true },
+  });
+  if (!parent) throw new Error("Comment not found");
 
   const comment = await prisma.comment.create({
-    data: {
-      userId: session.user.id,
-      tenantId,
-      postId,
-      parentId,
-      content,
-    },
+    data: { userId, tenantId, postId, parentId, content: text },
   });
 
   revalidatePath(`/news/${postId}`);
-  return comment;
+  return { id: comment.id };
 }
 
-export async function togglePostLike(postId: string) {
-  const session = await getSession();
-  if (!session) throw new Error("Unauthorized");
+export async function getPostComments(postId: string) {
+  const ctx = await requireVisiblePost(postId);
+  return buildCommentTree(ctx, { postId, tenantId: ctx.tenantId });
+}
 
-  const tenantId = getTenantId();
+/** Delete a comment (and its replies). Allowed for the author or a tenant admin. */
+export async function deleteComment(commentId: string) {
+  const { tenantId, userId, isAdmin } = await requireMember();
 
-  const existing = await prisma.like.findUnique({
-    where: {
-      userId_targetType_targetId: {
-        userId: session.user.id,
-        targetType: "post",
-        targetId: postId,
-      },
-    },
+  const comment = await prisma.comment.findFirst({
+    where: { id: commentId, tenantId },
+    select: { id: true, userId: true, postId: true, chapterId: true, chapter: { select: { courseId: true } } },
   });
+  if (!comment) throw new Error("Comment not found");
+  if (comment.userId !== userId && !isAdmin) throw new Error("Forbidden");
 
+  await deleteCommentTree(comment.id, tenantId);
+
+  if (comment.userId !== userId) {
+    logAuditAsync({ action: "delete", entityType: "comment", entityId: comment.id, metadata: { moderated: true } });
+  }
+  if (comment.postId) revalidatePath(`/news/${comment.postId}`);
+  if (comment.chapterId && comment.chapter) {
+    revalidatePath(`/courses/${comment.chapter.courseId}/chapters/${comment.chapterId}`);
+  }
+}
+
+// ─── Likes ──────────────────────────────────────────────────────
+
+async function toggleLike(userId: string, tenantId: string, targetType: string, targetId: string) {
+  const existing = await prisma.like.findUnique({
+    where: { userId_targetType_targetId: { userId, targetType, targetId } },
+  });
   if (existing) {
     await prisma.like.delete({ where: { id: existing.id } });
   } else {
-    await prisma.like.create({
-      data: {
-        userId: session.user.id,
-        tenantId,
-        targetType: "post",
-        targetId: postId,
-      },
-    });
+    await prisma.like.create({ data: { userId, tenantId, targetType, targetId } });
   }
+}
 
+export async function togglePostLike(postId: string) {
+  const { tenantId, userId } = await requireVisiblePost(postId);
+  await toggleLike(userId, tenantId, "post", postId);
   revalidatePath(`/news/${postId}`);
 }
 
 export async function toggleCommentLike(commentId: string, postId: string) {
-  const session = await getSession();
-  if (!session) throw new Error("Unauthorized");
+  const { tenantId, userId } = await requireVisiblePost(postId);
 
-  const tenantId = getTenantId();
-
-  const existing = await prisma.like.findUnique({
-    where: {
-      userId_targetType_targetId: {
-        userId: session.user.id,
-        targetType: "comment",
-        targetId: commentId,
-      },
-    },
+  const comment = await prisma.comment.findFirst({
+    where: { id: commentId, postId, tenantId },
+    select: { id: true },
   });
+  if (!comment) throw new Error("Comment not found");
 
-  if (existing) {
-    await prisma.like.delete({ where: { id: existing.id } });
-  } else {
-    await prisma.like.create({
-      data: {
-        userId: session.user.id,
-        tenantId,
-        targetType: "comment",
-        targetId: commentId,
-      },
-    });
-  }
-
+  await toggleLike(userId, tenantId, "comment", commentId);
   revalidatePath(`/news/${postId}`);
 }
 
 // ─── Events ─────────────────────────────────────────────────────
+
+function parseMaxAttendees(value: number | null | undefined): number | null {
+  if (value === null || value === undefined) return null;
+  const n = Math.floor(Number(value));
+  if (!Number.isFinite(n) || n < 1) return null;
+  return n;
+}
 
 export async function createEvent(data: {
   title: string;
@@ -314,8 +232,12 @@ export async function createEvent(data: {
   videoUrl?: string;
   videoType?: string;
   streamChatEnabled?: boolean;
+  location?: string;
+  maxAttendees?: number | null;
 }) {
-  const { tenantId } = await requireAdmin();
+  const { tenantId } = await requireAdminAction();
+  await assertTenantCategory(tenantId, data.categoryId);
+  await assertTenantUserGroups(tenantId, data.userGroupIds);
 
   const event = await prisma.event.create({
     data: {
@@ -329,6 +251,8 @@ export async function createEvent(data: {
       videoUrl: data.videoUrl || null,
       videoType: data.videoType || null,
       streamChatEnabled: data.streamChatEnabled ?? true,
+      location: data.location?.trim() || null,
+      maxAttendees: parseMaxAttendees(data.maxAttendees),
       published: false,
       userGroups: data.userGroupIds?.length
         ? { connect: data.userGroupIds.map((id) => ({ id })) }
@@ -357,36 +281,36 @@ export async function updateEvent(
     streamChatEnabled?: boolean;
     published?: boolean;
     recurrenceRule?: string | null;
+    location?: string | null;
+    maxAttendees?: number | null;
   },
 ) {
-  const { tenantId } = await requireAdmin();
+  const { tenantId } = await requireAdminAction();
 
-  const wasPublished =
-    data.published === true
-      ? (
-          await prisma.event.findUnique({
-            where: { id },
-            select: { published: true },
-          })
-        )?.published
-      : undefined;
+  const existing = await prisma.event.findFirst({
+    where: { id, tenantId },
+    select: { published: true },
+  });
+  if (!existing) throw new Error("Event not found");
+  await assertTenantCategory(tenantId, data.categoryId);
+  await assertTenantUserGroups(tenantId, data.userGroupIds);
 
-  const { userGroupIds, ...rest } = data;
-  const updateData: any = { ...rest };
-  if (userGroupIds !== undefined) {
-    updateData.userGroups = {
-      set: userGroupIds.map((gid) => ({ id: gid })),
-    };
-  }
-
+  const { userGroupIds, location, maxAttendees, ...rest } = data;
   const event = await prisma.event.update({
-    where: { id },
-    data: updateData,
+    where: { id, tenantId },
+    data: {
+      ...rest,
+      ...(location !== undefined ? { location: location?.trim() || null } : {}),
+      ...(maxAttendees !== undefined ? { maxAttendees: parseMaxAttendees(maxAttendees) } : {}),
+      ...(userGroupIds !== undefined
+        ? { userGroups: { set: userGroupIds.map((gid) => ({ id: gid })) } }
+        : {}),
+    },
     include: { userGroups: { select: { id: true } } },
   });
 
   // Notify audience when an event is published for the first time
-  if (data.published === true && wasPublished === false) {
+  if (data.published === true && !existing.published) {
     const groupIds = event.userGroups.map((g) => g.id);
     void notify({
       tenantId,
@@ -408,69 +332,49 @@ export async function updateEvent(
 }
 
 export async function deleteEvent(id: string) {
-  await requireAdmin();
+  const { tenantId } = await requireAdminAction();
 
-  await prisma.event.delete({ where: { id } });
+  const { count } = await prisma.event.deleteMany({ where: { id, tenantId } });
+  if (count === 0) throw new Error("Event not found");
   logAuditAsync({ action: "delete", entityType: "event", entityId: id });
-  dispatchWebhookAsync({ tenantId: getTenantId(), event: "event.deleted", data: { id } });
+  dispatchWebhookAsync({ tenantId, event: "event.deleted", data: { id } });
 
   revalidatePath("/admin/events");
   revalidatePath("/events");
 }
 
+/** Toggle the current user's registration. Enforces plan, visibility and capacity. */
 export async function registerForEvent(eventId: string) {
-  const session = await getSession();
-  if (!session) throw new Error("Unauthorized");
+  if (!(await hasFeature("liveEvents"))) throw new Error("plan_required");
+  const { userId, event } = await requireVisibleEvent(eventId);
 
-  const existing = await prisma.eventRegistration.findUnique({
-    where: {
-      userId_eventId: {
-        userId: session.user.id,
-        eventId,
-      },
-    },
+  await prisma.$transaction(async (tx) => {
+    const existing = await tx.eventRegistration.findUnique({
+      where: { userId_eventId: { userId, eventId: event.id } },
+    });
+
+    if (existing) {
+      await tx.eventRegistration.delete({ where: { id: existing.id } });
+      return;
+    }
+
+    if (event.maxAttendees !== null) {
+      // Lock the event row so concurrent registrations can't exceed capacity
+      await tx.$queryRaw`SELECT id FROM Event WHERE id = ${event.id} FOR UPDATE`;
+      const count = await tx.eventRegistration.count({ where: { eventId: event.id } });
+      if (count >= event.maxAttendees) throw new Error("This event is full");
+    }
+
+    await tx.eventRegistration.create({ data: { userId, eventId: event.id } });
   });
 
-  if (existing) {
-    // Unregister
-    await prisma.eventRegistration.delete({ where: { id: existing.id } });
-  } else {
-    await prisma.eventRegistration.create({
-      data: { userId: session.user.id, eventId },
-    });
-  }
-
   revalidatePath(`/events/${eventId}`);
+  revalidatePath("/dashboard");
 }
 
 export async function toggleEventLike(eventId: string) {
-  const session = await getSession();
-  if (!session) throw new Error("Unauthorized");
-
-  const tenantId = getTenantId();
-
-  const existing = await prisma.like.findUnique({
-    where: {
-      userId_targetType_targetId: {
-        userId: session.user.id,
-        targetType: "event",
-        targetId: eventId,
-      },
-    },
-  });
-
-  if (existing) {
-    await prisma.like.delete({ where: { id: existing.id } });
-  } else {
-    await prisma.like.create({
-      data: {
-        userId: session.user.id,
-        tenantId,
-        targetType: "event",
-        targetId: eventId,
-      },
-    });
-  }
-
+  if (!(await hasFeature("liveEvents"))) throw new Error("plan_required");
+  const { tenantId, userId } = await requireVisibleEvent(eventId);
+  await toggleLike(userId, tenantId, "event", eventId);
   revalidatePath(`/events/${eventId}`);
 }

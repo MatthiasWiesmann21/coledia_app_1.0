@@ -3,6 +3,8 @@ import { prisma } from "@coledia/db";
 import { getSession } from "@/lib/session";
 import { getTenantId } from "@/lib/tenant";
 import { deleteFile } from "@/lib/storage";
+import { isAdminRole, assertTenantUserGroups } from "@/lib/guards";
+import { canViewDocument } from "@/lib/document-access";
 import { z } from "zod";
 
 const updateDocSchema = z.object({
@@ -12,18 +14,15 @@ const updateDocSchema = z.object({
   userGroupIds: z.array(z.string()).optional(),
 });
 
-async function requireAdmin(session: any) {
+async function getMembership(userId: string) {
   const tenantId = getTenantId();
   const membership = await prisma.membership.findUnique({
-    where: { userId_tenantId: { userId: session.user.id, tenantId } },
+    where: { userId_tenantId: { userId, tenantId } },
   });
-  if (!membership || !["owner", "admin", "operator"].includes(membership.role)) {
-    return null;
-  }
-  return { tenantId, membership };
+  return { tenantId, membership, isAdmin: isAdminRole(membership?.role) };
 }
 
-/** GET /api/documents/[id] — get document details */
+/** GET /api/documents/[id] — get document details (visibility enforced) */
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -34,14 +33,17 @@ export async function GET(
   }
 
   const { id } = await params;
-  const tenantId = getTenantId();
+  const { tenantId, membership, isAdmin } = await getMembership(session.user.id);
+  if (!membership) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const document = await prisma.document.findFirst({
     where: { id, tenantId },
     include: { userGroups: { select: { id: true, name: true } } },
   });
 
-  if (!document) {
+  if (!document || (!isAdmin && !(await canViewDocument(session.user.id, tenantId, document)))) {
     return NextResponse.json({ error: "Document not found" }, { status: 404 });
   }
 
@@ -49,7 +51,7 @@ export async function GET(
     document: {
       id: document.id,
       name: document.name,
-      fileUrl: document.fileUrl,
+      fileUrl: `/api/documents/${document.id}/download`,
       fileSize: document.fileSize?.toString() ?? "0",
       mimeType: document.mimeType,
       fileType: document.fileType,
@@ -72,26 +74,37 @@ export async function PATCH(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const admin = await requireAdmin(session);
-  if (!admin) {
+  const { tenantId, isAdmin } = await getMembership(session.user.id);
+  if (!isAdmin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { id } = await params;
-  const body = await request.json();
-  const parsed = updateDocSchema.parse(body);
+  const parsed = updateDocSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  }
 
-  const { userGroupIds, ...rest } = parsed;
-  const updateData: any = { ...rest };
-  if (userGroupIds !== undefined) {
-    updateData.userGroups = {
-      set: userGroupIds.map((gid) => ({ id: gid })),
-    };
+  const existing = await prisma.document.findFirst({ where: { id, tenantId }, select: { id: true } });
+  if (!existing) {
+    return NextResponse.json({ error: "Document not found" }, { status: 404 });
+  }
+
+  const { userGroupIds, ...rest } = parsed.data;
+  try {
+    await assertTenantUserGroups(tenantId, userGroupIds);
+  } catch {
+    return NextResponse.json({ error: "Invalid user group" }, { status: 400 });
   }
 
   const document = await prisma.document.update({
-    where: { id },
-    data: updateData,
+    where: { id, tenantId },
+    data: {
+      ...rest,
+      ...(userGroupIds !== undefined
+        ? { userGroups: { set: userGroupIds.map((gid) => ({ id: gid })) } }
+        : {}),
+    },
   });
 
   return NextResponse.json({
@@ -114,13 +127,12 @@ export async function DELETE(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const admin = await requireAdmin(session);
-  if (!admin) {
+  const { tenantId, isAdmin } = await getMembership(session.user.id);
+  if (!isAdmin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { id } = await params;
-  const tenantId = getTenantId();
 
   const document = await prisma.document.findFirst({
     where: { id, tenantId },
@@ -136,7 +148,7 @@ export async function DELETE(
   }
 
   // Delete DB record
-  await prisma.document.delete({ where: { id } });
+  await prisma.document.delete({ where: { id, tenantId } });
 
   return NextResponse.json({ success: true });
 }

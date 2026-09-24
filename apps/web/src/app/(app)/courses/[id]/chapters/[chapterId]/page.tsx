@@ -12,7 +12,15 @@ import {
   toggleChapterCommentLike,
   getChapterComments,
 } from "@/lib/course-actions";
+import { deleteComment } from "@/lib/content-actions";
 import { getQuizForChapter } from "@/lib/quiz-actions";
+import { buildCommentTree } from "@/lib/comments";
+import {
+  isAdminRole,
+  canAccessCourse,
+  getMyUserGroupIds,
+  groupVisibilityFilter,
+} from "@/lib/guards";
 import { QuizPlayer } from "@/components/courses/quiz-player";
 
 export default async function ChapterPage({
@@ -26,9 +34,21 @@ export default async function ChapterPage({
 
   if (!session) redirect("/sign-in");
 
+  const membership = await prisma.membership.findUnique({
+    where: { userId_tenantId: { userId: session.user.id, tenantId } },
+    select: { role: true },
+  });
+  if (!membership) redirect("/dashboard");
+  const isAdmin = isAdminRole(membership.role);
+  const userGroupIds = isAdmin ? [] : await getMyUserGroupIds(session.user.id, tenantId);
+
   const [course, chapter] = await Promise.all([
     prisma.course.findFirst({
-      where: { id, tenantId, published: true },
+      where: {
+        id,
+        tenantId,
+        ...(isAdmin ? {} : { published: true, ...groupVisibilityFilter(userGroupIds) }),
+      },
       include: {
         chapters: {
           where: { published: true },
@@ -38,31 +58,23 @@ export default async function ChapterPage({
       },
     }),
     prisma.chapter.findFirst({
-      where: { id: chapterId, courseId: id, published: true },
+      where: { id: chapterId, courseId: id, ...(isAdmin ? {} : { published: true }) },
     }),
   ]);
 
   if (!course || !chapter) notFound();
 
-  // Check enrollment
-  const enrollment = await prisma.enrollment.findUnique({
-    where: {
-      userId_courseId: {
-        userId: session.user.id,
-        courseId: course.id,
-      },
-    },
-  });
-
   const canAccess =
-    !!enrollment || course.price === null || Number(course.price) === 0 || chapter.accessFree;
+    chapter.accessFree || (await canAccessCourse(session.user.id, course, isAdmin));
 
   if (!canAccess) {
     redirect(`/courses/${course.id}`);
   }
 
+  const viewer = { userId: session.user.id, isAdmin, tenantId };
+
   // Get chapter progress, likes, favourites, comments
-  const [progress, userLike, userFav, allComments, likeCount] = await Promise.all([
+  const [progress, userLike, userFav, topLevelComments, likeCount] = await Promise.all([
     prisma.chapterProgress.findUnique({
       where: {
         userId_chapterId: {
@@ -89,66 +101,11 @@ export default async function ChapterPage({
         },
       },
     }),
-    prisma.comment.findMany({
-      where: { chapterId: chapter.id },
-      include: {
-        user: { include: { profile: true } },
-      },
-      orderBy: { createdAt: "asc" },
-    }),
+    buildCommentTree(viewer, { chapterId: chapter.id, tenantId }),
     prisma.like.count({
-      where: { targetType: "chapter", targetId: chapter.id },
+      where: { tenantId, targetType: "chapter", targetId: chapter.id },
     }),
   ]);
-
-  // Build comment tree with like counts
-  const commentIds = allComments.map((c) => c.id);
-  const [commentLikeCounts, userCommentLikes] = await Promise.all([
-    prisma.like.groupBy({
-      by: ["targetId"],
-      where: { targetType: "comment", targetId: { in: commentIds } },
-      _count: { _all: true },
-    }),
-    prisma.like.findMany({
-      where: {
-        userId: session.user.id,
-        targetType: "comment",
-        targetId: { in: commentIds },
-      },
-      select: { targetId: true },
-    }),
-  ]);
-
-  const commentLikeCountMap = new Map(
-    commentLikeCounts.map((l) => [l.targetId, l._count._all]),
-  );
-  const userLikedCommentIds = new Set(userCommentLikes.map((l) => l.targetId));
-
-  const commentMap = new Map<string, any>();
-  allComments.forEach((c) => {
-    commentMap.set(c.id, {
-      id: c.id,
-      content: c.content,
-      authorName: c.user.name ?? c.user.email,
-      authorUsername: c.user.profile?.username ?? null,
-      authorAvatarUrl: c.user.profile?.avatarUrl ?? null,
-      createdAt: c.createdAt.toISOString(),
-      likeCount: commentLikeCountMap.get(c.id) ?? 0,
-      liked: userLikedCommentIds.has(c.id),
-      replies: [] as any[],
-    });
-  });
-
-  const topLevelComments: any[] = [];
-  allComments.forEach((c) => {
-    const node = commentMap.get(c.id);
-    if (c.parentId && commentMap.has(c.parentId)) {
-      commentMap.get(c.parentId).replies.push(node);
-    } else {
-      topLevelComments.push(node);
-    }
-  });
-  topLevelComments.reverse();
 
   // Find next/prev chapters
   const currentIndex = course.chapters.findIndex((c) => c.id === chapter.id);
@@ -162,7 +119,7 @@ export default async function ChapterPage({
   const completedProgress = await prisma.chapterProgress.findMany({
     where: {
       userId: session.user.id,
-      chapter: { courseId: course.id },
+      chapter: { courseId: course.id, published: true },
       completed: true,
     },
     select: { chapterId: true },
@@ -171,7 +128,7 @@ export default async function ChapterPage({
   const completedCount = completedChapterIds.length;
   const totalChapters = course.chapters.length;
   const progressPct =
-    totalChapters > 0 ? (completedCount / totalChapters) * 100 : 0;
+    totalChapters > 0 ? Math.min(100, (completedCount / totalChapters) * 100) : 0;
 
   // Quiz for this chapter (Club+ feature; returns null when locked or absent)
   const quiz = await getQuizForChapter(chapter.id).catch(() => null);
@@ -213,6 +170,7 @@ export default async function ChapterPage({
           addReply: addCommentReply,
           toggleCommentLike: toggleChapterCommentLike,
           getComments: getChapterComments,
+          deleteComment,
         }}
       />
       {quiz && <QuizPlayer quiz={quiz} />}

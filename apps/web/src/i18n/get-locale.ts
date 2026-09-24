@@ -1,5 +1,6 @@
 import { prisma } from "@coledia/db";
 import { getSession } from "@/lib/session";
+import { profileKey } from "@/lib/profile";
 import { defaultLocale, isLocale, type Locale } from "./config";
 
 /**
@@ -12,7 +13,7 @@ export async function getUserLocale(): Promise<Locale> {
     if (!session?.user?.id) return defaultLocale;
 
     const profile = await prisma.userProfile.findUnique({
-      where: { userId: session.user.id },
+      where: profileKey(session.user.id),
       select: { language: true },
     });
 

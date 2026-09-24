@@ -82,10 +82,11 @@ async function main() {
 
   // ─── User Profile ────────────────────────────────────────────
   await prisma.userProfile.upsert({
-    where: { userId: user.id },
+    where: { userId_tenantId: { userId: user.id, tenantId: tenant.id } },
     update: {},
     create: {
       userId: user.id,
+      tenantId: tenant.id,
       username: "admin",
       bio: "Demo club administrator",
       status: "online",

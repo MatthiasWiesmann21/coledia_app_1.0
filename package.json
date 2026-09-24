@@ -9,6 +9,7 @@
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
     "db:generate": "pnpm --filter @coledia/db run generate",
     "db:migrate": "pnpm --filter @coledia/db run migrate",
     "db:migrate:dev": "pnpm --filter @coledia/db run migrate:dev",

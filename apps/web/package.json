@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "clean": "rimraf .next .turbo"
+    "clean": "rimraf .next .turbo",
+    "test": "vitest run"
   },
   "dependencies": {
     "@coledia/db": "workspace:*",
@@ -47,6 +48,7 @@
     "postcss": "^8.4.0",
     "rimraf": "^6.0.1",
     "tailwindcss": "^4.3.3",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "4.1.11"
   }
 }

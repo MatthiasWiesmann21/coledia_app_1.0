@@ -32,6 +32,7 @@ pnpm build            # Build all packages
 pnpm dev              # Start dev servers (web + realtime)
 pnpm typecheck        # TypeScript check all packages
 pnpm lint             # ESLint all packages
+pnpm test             # Vitest authz suite (apps/web/src/**/__tests__, Prisma is mocked)
 pnpm db:generate      # Generate Prisma client
 pnpm db:migrate:dev   # Create + apply a new migration
 pnpm db:migrate       # Apply migrations (production)
@@ -56,6 +57,17 @@ pnpm db:seed          # Seed dev tenant + admin user
 - **Tenant resolution via `TENANT_ID` env var** — each Dokploy container knows its tenant
 - Isolation enforced by: Prisma `tenantScoped()` extension (auto-filters all queries)
 - `getTenantId()` in `src/lib/tenant.ts` reads the env var
+- In practice every query filters `tenantId` explicitly; use the guards in
+  `src/lib/guards.ts` (`requireMember` / `requireAdminAction` / `requireOwnerAction`,
+  `assertTenantUserGroups`, `requireAccessibleChapter`, …) in server actions —
+  a session alone is never enough, the user needs a Membership in this tenant.
+- Update/delete by id always uses `{ id, tenantId }` (or verifies the parent chain).
+- One Better-Auth `User` per email (global identity), but **per-tenant data**:
+  `UserProfile` (incl. terms acceptance) and `NotificationPreference` are keyed by
+  `[userId, tenantId]` (`src/lib/profile.ts`), presence is `Membership.lastSeenAt`.
+- Tenant plan/status are changed only by the Controlcenter internal API; the app's
+  Stripe webhook handles Connect course sales only.
+- Use `pnpm db:generate` / `pnpm db:migrate` (not `npx prisma …` from the root).
 
 ## Key Decisions
 - **Deployment**: Dokploy containers, not Docker Compose. Each client = own container, shared DB.

@@ -108,7 +108,7 @@ export function UploadButton({
 
       {value ? (
         /* Preview + remove */
-        <div className={cn("group relative overflow-hidden rounded-lg border border-[var(--border)]", compact && "max-w-[200px]")}>
+        <div className={cn("group relative overflow-hidden rounded-lg border border-border", compact && "max-w-[200px]")}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={value}
@@ -135,21 +135,21 @@ export function UploadButton({
             "flex w-full flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed transition",
             compact && "max-w-[200px]",
             dragOver
-              ? "border-[var(--tenant-primary)] bg-[var(--tenant-primary)]/5"
-              : "border-[var(--border)] bg-[var(--background)] hover:border-[var(--tenant-primary)]/50 hover:bg-[var(--muted)]",
+              ? "border-primary bg-primary/5"
+              : "border-border bg-background hover:border-primary/50 hover:bg-muted",
             uploading && "opacity-60",
             aspectClass,
           )}
         >
           {uploading ? (
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--tenant-primary)] border-t-transparent" />
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           ) : (
-            <ImagePlus className="h-6 w-6 text-[var(--muted-foreground)]" />
+            <ImagePlus className="h-6 w-6 text-muted-foreground" />
           )}
-          <span className="text-sm text-[var(--muted-foreground)]">
+          <span className="text-sm text-muted-foreground">
             {uploading ? "Uploading..." : "Click or drag to upload"}
           </span>
-          <span className="text-xs text-[var(--muted-foreground)]">
+          <span className="text-xs text-muted-foreground">
             {maxSizeMB}MB max
           </span>
         </button>

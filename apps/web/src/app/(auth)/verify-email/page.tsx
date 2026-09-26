@@ -70,7 +70,7 @@ function VerifyEmailForm() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1 text-center">
         <h1 className="text-2xl font-bold">Verify your email</h1>
-        <p className="text-sm text-[var(--muted-foreground)]">
+        <p className="text-sm text-muted-foreground">
           {token
             ? "Click below to verify your email address"
             : "Enter the verification code sent to your email"}
@@ -104,17 +104,17 @@ function VerifyEmailForm() {
       </form>
 
       {resent ? (
-        <p className="text-center text-sm text-[var(--muted-foreground)]">
+        <p className="text-center text-sm text-muted-foreground">
           Verification email sent to{" "}
-          <span className="font-medium text-[var(--foreground)]">{email}</span>.
+          <span className="font-medium text-foreground">{email}</span>.
           Check your inbox.
         </p>
       ) : (
         <form
           onSubmit={handleResend}
-          className="flex flex-col gap-3 rounded-lg border border-[var(--border)] p-4"
+          className="flex flex-col gap-3 rounded-lg border border-border p-4"
         >
-          <p className="text-sm text-[var(--muted-foreground)]">
+          <p className="text-sm text-muted-foreground">
             Didn&apos;t receive an email? Resend verification:
           </p>
           <Input
@@ -137,7 +137,7 @@ function VerifyEmailForm() {
 
       <Link
         href="/sign-in"
-        className="text-center text-sm text-[var(--muted-foreground)] hover:underline"
+        className="text-center text-sm text-muted-foreground hover:underline"
       >
         Back to sign in
       </Link>
@@ -149,7 +149,7 @@ export default function VerifyEmailPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex justify-center p-8 text-sm text-[var(--muted-foreground)]">
+        <div className="flex justify-center p-8 text-sm text-muted-foreground">
           Loading...
         </div>
       }

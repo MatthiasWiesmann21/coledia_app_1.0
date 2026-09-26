@@ -20,11 +20,11 @@ import {
   createChapter,
   deleteChapter,
 } from "@/lib/course-actions";
-import { saveTranslation } from "@/lib/translation-actions";
+import { saveTranslation, fillEmptyTranslations } from "@/lib/translation-actions";
 import { LanguageToggle } from "@/components/admin/language-toggle";
 import { UploadButton } from "@/components/upload-button";
 import { UserGroupMultiSelect } from "@/components/admin/usergroup-multiselect";
-import { defaultLocale, type Locale } from "@/i18n/config";
+import { defaultLocale, locales, type Locale } from "@/i18n/config";
 import { useConfirm } from "@/components/confirm-provider";
 
 type Chapter = {
@@ -141,6 +141,30 @@ export function CourseEditor({
         translatedLanguages.add(lang);
       }
     }
+  }
+
+  async function handleFillLanguages() {
+    const fieldValues = { title, description };
+    const res = await fillEmptyTranslations({
+      entityType: "course",
+      entityId: course.id,
+      fieldValues,
+      languages: [...locales],
+    });
+    if (res.filled > 0) {
+      setAllTranslations((prev) => {
+        const next = { ...prev };
+        for (const lang of locales) {
+          if (lang === defaultLocale || lang === activeLanguage) continue;
+          next[lang] = { ...next[lang] };
+          for (const [f, v] of Object.entries(fieldValues)) {
+            if (!next[lang][f] && v.trim()) next[lang][f] = v;
+          }
+        }
+        return next;
+      });
+    }
+    return res.filled;
   }
 
   async function handleSaveDetails() {
@@ -270,6 +294,7 @@ export function CourseEditor({
           activeLanguage={activeLanguage}
           onLanguageChange={handleLanguageChange}
           translatedLanguages={translatedLanguages}
+          onFillLanguages={handleFillLanguages}
           className="mb-4 border-b border-border pb-4"
         />
 
@@ -399,7 +424,7 @@ export function CourseEditor({
                 Selling courses requires the{" "}
                 <a
                   href="/upgrade?feature=sellCourses"
-                  className="text-(--tenant-primary) hover:underline"
+                  className="text-primary hover:underline"
                 >
                   Club plan or higher
                 </a>
@@ -508,7 +533,7 @@ export function CourseEditor({
                 </div>
                 <Link
                   href={`/admin/courses/${course.id}/chapters/${ch.id}`}
-                  className="rounded-lg px-3 py-1 text-sm text-(--tenant-primary) transition hover:bg-(--tenant-primary)/10"
+                  className="rounded-lg px-3 py-1 text-sm text-primary transition hover:bg-primary/10"
                 >
                   Edit
                 </Link>
@@ -549,7 +574,7 @@ export function CourseEditor({
 
       <Link
         href="/admin/courses"
-        className="text-sm text-(--tenant-primary) hover:underline"
+        className="text-sm text-primary hover:underline"
       >
         ← Back to courses
       </Link>

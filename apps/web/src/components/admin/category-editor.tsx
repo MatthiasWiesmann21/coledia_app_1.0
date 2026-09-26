@@ -8,9 +8,9 @@ import { Button } from "@coledia/ui/button";
 import { Input } from "@coledia/ui/input";
 import { Label } from "@coledia/ui/label";
 import { updateCategory } from "@/lib/course-actions";
-import { saveTranslation } from "@/lib/translation-actions";
+import { saveTranslation, fillEmptyTranslations } from "@/lib/translation-actions";
 import { LanguageToggle } from "@/components/admin/language-toggle";
-import { defaultLocale, type Locale } from "@/i18n/config";
+import { defaultLocale, locales, type Locale } from "@/i18n/config";
 
 type CategoryData = {
   id: string;
@@ -71,6 +71,28 @@ export function CategoryEditor({
   const translatedLanguages = new Set<string>();
   for (const lang of Object.keys(allTranslations)) {
     if (allTranslations[lang]?.name) translatedLanguages.add(lang);
+  }
+
+  async function handleFillLanguages() {
+    const fieldValues = { name };
+    const res = await fillEmptyTranslations({
+      entityType: "category",
+      entityId: category.id,
+      fieldValues,
+      languages: [...locales],
+    });
+    if (res.filled > 0) {
+      setAllTranslations((prev) => {
+        const next = { ...prev };
+        for (const lang of locales) {
+          if (lang === defaultLocale || lang === activeLanguage) continue;
+          next[lang] = { ...next[lang] };
+          if (!next[lang].name && name.trim()) next[lang].name = name;
+        }
+        return next;
+      });
+    }
+    return res.filled;
   }
 
   async function handleSaveName() {
@@ -138,14 +160,15 @@ export function CategoryEditor({
   return (
     <div className="flex max-w-2xl flex-col gap-6">
       {/* Name */}
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+      <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="mb-4 text-lg font-semibold">{t("editCategory")}</h2>
 
         <LanguageToggle
           activeLanguage={activeLanguage}
           onLanguageChange={handleLanguageChange}
           translatedLanguages={translatedLanguages}
-          className="mb-4 border-b border-[var(--border)] pb-4"
+          onFillLanguages={handleFillLanguages}
+          className="mb-4 border-b border-border pb-4"
         />
 
         <div className="flex items-end gap-3">
@@ -168,9 +191,9 @@ export function CategoryEditor({
       </section>
 
       {/* Type toggles */}
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+      <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="mb-4 text-lg font-semibold">Category Type</h2>
-        <p className="mb-4 text-sm text-[var(--muted-foreground)]">
+        <p className="mb-4 text-sm text-muted-foreground">
           Select which modules this category applies to. A category can be used
           across multiple modules.
         </p>
@@ -214,7 +237,7 @@ export function CategoryEditor({
       </section>
 
       {/* Colors */}
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+      <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="mb-4 text-lg font-semibold">Customization</h2>
         <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col gap-2">
@@ -224,7 +247,7 @@ export function CategoryEditor({
                 type="color"
                 value={color}
                 onChange={(e) => setColor(e.target.value)}
-                className="h-10 w-12 rounded border border-[var(--border)]"
+                className="h-10 w-12 rounded border border-border"
               />
               <Input
                 value={color}
@@ -240,7 +263,7 @@ export function CategoryEditor({
                 type="color"
                 value={textColorLight}
                 onChange={(e) => setTextColorLight(e.target.value)}
-                className="h-10 w-12 rounded border border-[var(--border)]"
+                className="h-10 w-12 rounded border border-border"
               />
               <Input
                 value={textColorLight}
@@ -256,7 +279,7 @@ export function CategoryEditor({
                 type="color"
                 value={textColorDark}
                 onChange={(e) => setTextColorDark(e.target.value)}
-                className="h-10 w-12 rounded border border-[var(--border)]"
+                className="h-10 w-12 rounded border border-border"
               />
               <Input
                 value={textColorDark}
@@ -277,9 +300,9 @@ export function CategoryEditor({
       </section>
 
       {/* Publish */}
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+      <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="mb-2 text-lg font-semibold">{tc("publish")}</h2>
-        <p className="mb-4 text-sm text-[var(--muted-foreground)]">
+        <p className="mb-4 text-sm text-muted-foreground">
           {published
             ? "This category is visible to users."
             : "This category is a draft and not visible to users."}
@@ -294,12 +317,12 @@ export function CategoryEditor({
       </section>
 
       {msg && (
-        <p className="text-sm text-[var(--muted-foreground)]">{msg}</p>
+        <p className="text-sm text-muted-foreground">{msg}</p>
       )}
 
       <Link
         href="/admin/categories"
-        className="text-sm text-[var(--tenant-primary)] hover:underline"
+        className="text-sm text-primary hover:underline"
       >
         ← Back to categories
       </Link>

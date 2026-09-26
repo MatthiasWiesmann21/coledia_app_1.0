@@ -14,19 +14,57 @@ export type CommentNode = {
   replies: CommentNode[];
 };
 
+export type CommentPage = {
+  comments: CommentNode[];
+  hasMore: boolean;
+  total: number;
+};
+
 /**
  * Load the comments of a post or chapter as a nested tree (newest top-level
  * first), with like counts, the viewer's likes and a per-comment delete flag.
+ * Pagination applies to top-level comments only; replies always arrive
+ * attached to their parent.
  */
 export async function buildCommentTree(
   viewer: { userId: string; isAdmin: boolean; tenantId: string },
   where: { postId?: string; chapterId?: string; tenantId: string },
-): Promise<CommentNode[]> {
-  const allComments = await prisma.comment.findMany({
-    where,
-    include: { user: { include: tenantProfileInclude(viewer.tenantId) } },
-    orderBy: { createdAt: "asc" },
-  });
+  opts?: { skip?: number; take?: number },
+): Promise<CommentPage> {
+  const skip = Math.max(0, opts?.skip ?? 0);
+  const take = opts?.take;
+
+  // Paginate top-level comments at the DB level (newest first)
+  const [total, topRows] = await Promise.all([
+    prisma.comment.count({ where: { ...where, parentId: null } }),
+    prisma.comment.findMany({
+      where: { ...where, parentId: null },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take,
+      select: { id: true },
+    }),
+  ]);
+
+  // Fetch the page's top-level comments plus all their descendants
+  const ids = new Set(topRows.map((r) => r.id));
+  let frontier = topRows.map((r) => r.id);
+  while (frontier.length > 0) {
+    const children = await prisma.comment.findMany({
+      where: { tenantId: where.tenantId, parentId: { in: frontier } },
+      select: { id: true },
+    });
+    frontier = children.map((c) => c.id);
+    for (const c of children) ids.add(c.id);
+  }
+
+  const allComments = ids.size
+    ? await prisma.comment.findMany({
+        where: { ...where, id: { in: [...ids] } },
+        include: { user: { include: tenantProfileInclude(viewer.tenantId) } },
+        orderBy: { createdAt: "asc" },
+      })
+    : [];
 
   const commentIds = allComments.map((c) => c.id);
   const [likeCounts, viewerLikes] = commentIds.length
@@ -70,7 +108,11 @@ export async function buildCommentTree(
     if (parent) parent.replies.push(node);
     else topLevel.push(node);
   }
-  return topLevel.reverse();
+  // Keep the newest-first order from the pagination query
+  const order = new Map(topRows.map((r, i) => [r.id, i]));
+  topLevel.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+
+  return { comments: topLevel, hasMore: skip + topLevel.length < total, total };
 }
 
 /**

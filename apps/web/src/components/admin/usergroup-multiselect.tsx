@@ -75,7 +75,7 @@ export function UserGroupMultiSelect({
             selectedGroups.slice(0, 3).map((g) => (
               <span
                 key={g.id}
-                className="inline-flex items-center gap-1 rounded-md bg-(--tenant-primary)/15 px-2 py-0.5 text-xs text-(--tenant-primary)"
+                className="inline-flex items-center gap-1 rounded-md bg-primary/15 px-2 py-0.5 text-xs text-primary"
               >
                 {g.name}
                 <X
@@ -137,7 +137,7 @@ export function UserGroupMultiSelect({
                     onClick={() => toggle(g.id)}
                     className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm hover:bg-muted"
                   >
-                    <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${selected ? "border-(--tenant-primary) bg-(--tenant-primary)" : "border-border"}`}>
+                    <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${selected ? "border-primary bg-primary" : "border-border"}`}>
                       {selected && <Check className="h-3 w-3 text-white" />}
                     </div>
                     {g.name}

@@ -529,6 +529,31 @@ export async function toggleChapterFavourite(chapterId: string) {
   revalidatePath(`/courses/${chapter.courseId}/chapters/${chapterId}`);
 }
 
+export async function toggleCourseFavourite(courseId: string) {
+  const { userId, tenantId, isAdmin } = await requireMember();
+  const groupIds = isAdmin ? [] : await getMyUserGroupIds(userId, tenantId);
+  const course = await prisma.course.findFirst({
+    where: {
+      id: courseId,
+      tenantId,
+      ...(isAdmin
+        ? {}
+        : {
+            published: true,
+            OR: [
+              { userGroups: { none: {} } },
+              { userGroups: { some: { id: { in: groupIds } } } },
+            ],
+          }),
+    },
+    select: { id: true },
+  });
+  if (!course) throw new Error("Not found");
+  await togglePolymorphic("favourite", userId, tenantId, "course", courseId);
+  revalidatePath(`/courses/${courseId}`);
+  revalidatePath("/dashboard");
+}
+
 // ─── Comments ───────────────────────────────────────────────────
 
 export async function addComment(chapterId: string, content: string) {
@@ -581,7 +606,10 @@ export async function toggleChapterCommentLike(
   revalidatePath(`/courses/${chapter.courseId}/chapters/${chapterId}`);
 }
 
-export async function getChapterComments(chapterId: string) {
+export async function getChapterComments(
+  chapterId: string,
+  opts?: { skip?: number; take?: number },
+) {
   const ctx = await requireAccessibleChapter(chapterId);
-  return buildCommentTree(ctx, { chapterId, tenantId: ctx.tenantId });
+  return buildCommentTree(ctx, { chapterId, tenantId: ctx.tenantId }, opts);
 }

@@ -36,7 +36,7 @@ const ROLE_COLORS: Record<string, string> = {
   owner: "text-purple-500 bg-purple-500/15",
   admin: "text-blue-500 bg-blue-500/15",
   operator: "text-orange-500 bg-orange-500/15",
-  member: "text-[var(--muted-foreground)] bg-[var(--muted)]",
+  member: "text-muted-foreground bg-muted",
 };
 
 export function UsersList({
@@ -90,14 +90,14 @@ export function UsersList({
       )}
 
       {users.length === 0 ? (
-        <p className="py-8 text-center text-sm text-[var(--muted-foreground)]">
+        <p className="py-8 text-center text-sm text-muted-foreground">
           No users in this tenant yet.
         </p>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-[var(--border)]">
+        <div className="overflow-hidden rounded-lg border border-border">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-[var(--border)] bg-[var(--muted)] text-left text-xs text-[var(--muted-foreground)]">
+              <tr className="border-b border-border bg-muted text-left text-xs text-muted-foreground">
                 <th className="px-4 py-3 font-medium">User</th>
                 <th className="px-4 py-3 font-medium">Email</th>
                 <th className="px-4 py-3 font-medium">Status</th>
@@ -112,7 +112,7 @@ export function UsersList({
                 return (
                   <tr
                     key={u.userId}
-                    className="border-b border-[var(--border)] last:border-0"
+                    className="border-b border-border last:border-0"
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
@@ -125,12 +125,12 @@ export function UsersList({
                               className="h-8 w-8 rounded-full"
                             />
                           ) : (
-                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--tenant-primary)] text-sm font-medium text-white">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-medium text-white">
                               {u.name.charAt(0).toUpperCase()}
                             </div>
                           )}
                           <span
-                            className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-[var(--card)]"
+                            className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-card"
                             style={{
                               backgroundColor: STATUS_COLORS[u.status] ?? "#31a354",
                             }}
@@ -139,14 +139,14 @@ export function UsersList({
                         <div>
                           <p className="text-sm font-medium">{u.name}</p>
                           {u.username && (
-                            <p className="text-xs text-[var(--muted-foreground)]">
+                            <p className="text-xs text-muted-foreground">
                               @{u.username}
                             </p>
                           )}
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-[var(--muted-foreground)]">
+                    <td className="px-4 py-3 text-sm text-muted-foreground">
                       {u.email}
                     </td>
                     <td className="px-4 py-3">
@@ -186,7 +186,7 @@ export function UsersList({
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-[var(--muted-foreground)]">
+                    <td className="px-4 py-3 text-sm text-muted-foreground">
                       {new Date(u.joinedAt).toLocaleDateString()}
                     </td>
                     <td className="px-4 py-3">

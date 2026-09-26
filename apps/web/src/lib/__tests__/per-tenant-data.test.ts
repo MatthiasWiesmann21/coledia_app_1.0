@@ -61,7 +61,7 @@ describe("per-tenant notification preferences", () => {
 describe("dashboard shows only this tenant's data", () => {
   it("scopes every per-user query to the current tenant", async () => {
     signInAs("member");
-    for (const m of ["enrollment", "eventRegistration", "comment", "favourite", "membership", "course"] as const) {
+    for (const m of ["enrollment", "eventRegistration", "comment", "favourite", "membership", "course", "chapter", "post", "event", "userGroupMember"] as const) {
       prisma[m].findMany.mockResolvedValue([]);
     }
     prisma.chapterProgress.count.mockResolvedValue(0);

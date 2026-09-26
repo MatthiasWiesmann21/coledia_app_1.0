@@ -71,7 +71,7 @@ export function NotificationList({
           className={cn(
             "rounded-lg px-3 py-1.5 text-sm font-medium transition",
             filter === "all"
-              ? "bg-(--tenant-primary)/15 text-(--tenant-primary)"
+              ? "bg-primary/15 text-primary"
               : "text-muted-foreground hover:bg-muted",
           )}
         >
@@ -82,7 +82,7 @@ export function NotificationList({
           className={cn(
             "rounded-lg px-3 py-1.5 text-sm font-medium transition",
             filter === "unread"
-              ? "bg-(--tenant-primary)/15 text-(--tenant-primary)"
+              ? "bg-primary/15 text-primary"
               : "text-muted-foreground hover:bg-muted",
           )}
         >
@@ -111,7 +111,7 @@ export function NotificationList({
                 onClick={() => handleOpen(item)}
                 className={cn(
                   "flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-muted",
-                  !item.read && "bg-(--tenant-primary)/5",
+                  !item.read && "bg-primary/5",
                 )}
               >
                 <span

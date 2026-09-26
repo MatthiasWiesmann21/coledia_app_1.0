@@ -1,16 +1,21 @@
 "use client";
 
+import { useState, useTransition } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import {
   BookOpen,
   CheckCircle,
   Layers,
   Users,
-  Calendar,
   MessageSquare,
-  Heart,
   Clock,
+  Bookmark,
+  Newspaper,
+  CalendarDays,
+  X,
 } from "lucide-react";
+import { removeFavourite } from "@/lib/content-actions";
 
 type Stats = {
   inProgress: number;
@@ -36,11 +41,12 @@ type RecentActivity = {
   targetHref: string;
 };
 
-type FavouriteCourse = {
+type FavouriteItem = {
   id: string;
+  targetType: string;
+  targetId: string;
   title: string;
-  category: string;
-  categoryColor: string;
+  href: string;
 };
 
 type OnlineMember = {
@@ -65,21 +71,22 @@ export function DashboardContent({
   myCourses,
   upcomingEvents = [],
   recentActivity = [],
-  favouriteCourses = [],
+  favouriteItems = [],
   onlineMembers = [],
 }: {
   stats: Stats;
   myCourses: MyCourse[];
   upcomingEvents?: UpcomingEvent[];
   recentActivity?: RecentActivity[];
-  favouriteCourses?: FavouriteCourse[];
+  favouriteItems?: FavouriteItem[];
   onlineMembers?: OnlineMember[];
 }) {
+  const t = useTranslations("dashboard");
   const notStarted = myCourses.length - stats.inProgress - stats.completed;
   const donutData = [
-    { label: "Not Started", value: Math.max(0, notStarted), color: "#1f78b4" },
-    { label: "In Progress", value: stats.inProgress, color: "#e6550d" },
-    { label: "Complete", value: stats.completed, color: "#31a354" },
+    { label: t("statNotStarted"), value: Math.max(0, notStarted), color: "#1f78b4" },
+    { label: t("statInProgress"), value: stats.inProgress, color: "#e6550d" },
+    { label: t("statComplete"), value: stats.completed, color: "#31a354" },
   ];
   const total = donutData.reduce((sum, d) => sum + d.value, 0) || 1;
 
@@ -96,31 +103,31 @@ export function DashboardContent({
 
   return (
     <div className="p-6">
-      <h1 className="mb-6 text-2xl font-bold">Dashboard</h1>
+      <h1 className="mb-6 text-2xl font-bold">{t("title")}</h1>
 
       {/* Stats row */}
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           icon={BookOpen}
-          label="In Progress"
+          label={t("inProgress")}
           value={stats.inProgress}
           color="#e6550d"
         />
         <StatCard
           icon={CheckCircle}
-          label="Completed Courses"
+          label={t("completedCourses")}
           value={stats.completed}
           color="#31a354"
         />
         <StatCard
           icon={Layers}
-          label="Completed Chapters"
+          label={t("completedChapters")}
           value={stats.completedChapters}
           color="#1f78b4"
         />
         <StatCard
           icon={Users}
-          label="Signed-in Members"
+          label={t("signedInMembers")}
           value={stats.onlineMembers}
           color="#008080"
         />
@@ -130,17 +137,17 @@ export function DashboardContent({
         {/* Upcoming Events */}
         <div className="lg:col-span-2 rounded-xl border border-border bg-card p-6">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Upcoming Events</h2>
+            <h2 className="text-lg font-semibold">{t("upcomingEvents")}</h2>
             <Link
               href="/events"
-              className="text-sm text-(--tenant-primary) hover:underline"
+              className="text-sm text-primary hover:underline"
             >
-              View All
+              {t("viewAll")}
             </Link>
           </div>
           {upcomingEvents.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
-              No upcoming events. Check the events page for more.
+              {t("noUpcomingEvents")}
             </p>
           ) : (
             <div className="flex flex-col gap-3">
@@ -192,7 +199,7 @@ export function DashboardContent({
 
         {/* Donut chart */}
         <div className="rounded-xl border border-border bg-card p-6">
-          <h2 className="mb-4 text-lg font-semibold">Course Progress</h2>
+          <h2 className="mb-4 text-lg font-semibold">{t("courseProgress")}</h2>
           <div className="flex flex-col items-center gap-4">
             <svg width="120" height="120" viewBox="0 0 120 120">
               <circle
@@ -222,7 +229,7 @@ export function DashboardContent({
                 y="60"
                 textAnchor="middle"
                 dominantBaseline="central"
-                className="fill-[var(--foreground)] text-xl font-bold"
+                className="fill-foreground text-xl font-bold"
               >
                 {total}
               </text>
@@ -230,9 +237,9 @@ export function DashboardContent({
                 x="60"
                 y="78"
                 textAnchor="middle"
-                className="fill-[var(--muted-foreground)] text-[10px]"
+                className="fill-muted-foreground text-[10px]"
               >
-                Courses
+                {t("courses")}
               </text>
             </svg>
             <div className="flex w-full flex-col gap-2">
@@ -260,24 +267,24 @@ export function DashboardContent({
         {/* My Courses */}
         <div className="lg:col-span-2 rounded-xl border border-border bg-card p-6">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">My Courses</h2>
+            <h2 className="text-lg font-semibold">{t("myCourses")}</h2>
             <Link
               href="/courses"
-              className="text-sm text-(--tenant-primary) hover:underline"
+              className="text-sm text-primary hover:underline"
             >
-              View All
+              {t("viewAll")}
             </Link>
           </div>
           {myCourses.length === 0 ? (
             <div className="py-8 text-center">
               <p className="mb-3 text-sm text-muted-foreground">
-                You haven&apos;t enrolled in any courses yet.
+                {t("noEnrolled")}
               </p>
               <Link
                 href="/courses"
-                className="text-sm font-medium text-(--tenant-primary) hover:underline"
+                className="text-sm font-medium text-primary hover:underline"
               >
-                Browse courses →
+                {t("browseCourses")} →
               </Link>
             </div>
           ) : (
@@ -285,10 +292,10 @@ export function DashboardContent({
               <table className="w-full">
                 <thead className="sticky top-0 bg-card">
                   <tr className="border-b border-border text-left text-xs text-muted-foreground">
-                    <th className="pb-2 font-medium">Course Name</th>
-                    <th className="pb-2 font-medium">Category</th>
-                    <th className="pb-2 font-medium">Payment</th>
-                    <th className="pb-2 font-medium">Progress</th>
+                    <th className="pb-2 font-medium">{t("courseName")}</th>
+                    <th className="pb-2 font-medium">{t("category")}</th>
+                    <th className="pb-2 font-medium">{t("payment")}</th>
+                    <th className="pb-2 font-medium">{t("progress")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -300,7 +307,7 @@ export function DashboardContent({
                       <td className="py-3 text-sm font-medium">
                         <Link
                           href={`/courses/${course.id}`}
-                          className="hover:text-(--tenant-primary)"
+                          className="hover:text-primary"
                         >
                           {course.title}
                         </Link>
@@ -342,11 +349,10 @@ export function DashboardContent({
 
         {/* Recent Activity */}
         <div className="rounded-xl border border-border bg-card p-6">
-          <h2 className="mb-4 text-lg font-semibold">Recent Activity</h2>
+          <h2 className="mb-4 text-lg font-semibold">{t("recentActivity")}</h2>
           {recentActivity.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
-              No recent activity. Start commenting on courses or news to see
-              your activity here.
+              {t("noActivity")}
             </p>
           ) : (
             <div className="flex max-h-80 flex-col gap-3 overflow-y-auto">
@@ -361,7 +367,7 @@ export function DashboardContent({
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-xs text-muted-foreground">
-                      Commented on
+                      {t("commentedOn")}
                     </p>
                     <p className="truncate text-sm font-medium">
                       {activity.targetTitle}
@@ -380,54 +386,23 @@ export function DashboardContent({
         </div>
       </div>
 
-      {/* Favourite Courses */}
-      {favouriteCourses.length > 0 && (
-        <div className="mt-6 rounded-xl border border-border bg-card p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="flex items-center gap-2 text-lg font-semibold">
-              <Heart className="h-5 w-5 text-red-500" />
-              Favourite Courses
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {favouriteCourses.map((course) => (
-              <Link
-                key={course.id}
-                href={`/courses/${course.id}`}
-                className="flex items-center gap-3 rounded-lg border border-border p-3 transition hover:bg-muted"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{course.title}</p>
-                  <span
-                    className="mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
-                    style={{
-                      backgroundColor: `${course.categoryColor}20`,
-                      color: course.categoryColor,
-                    }}
-                  >
-                    {course.category}
-                  </span>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Favourites (grouped by type) */}
+      <FavouritesSection items={favouriteItems} />
 
       {/* Signed-in Members */}
       <div className="mt-6 rounded-xl border border-border bg-card p-6">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="flex items-center gap-2 text-lg font-semibold">
-            <Users className="h-5 w-5 text-(--tenant-primary)" />
-            Signed-in Members
+            <Users className="h-5 w-5 text-primary" />
+            {t("signedInMembers")}
           </h2>
           <span className="text-sm text-muted-foreground">
-            {onlineMembers.length} active
+            {t("xActive", { count: onlineMembers.length })}
           </span>
         </div>
         {onlineMembers.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">
-            No members are currently signed in.
+            {t("noMembersOnline")}
           </p>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -445,7 +420,7 @@ export function DashboardContent({
                       className="h-10 w-10 rounded-full object-cover"
                     />
                   ) : (
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-(--tenant-primary) text-sm font-medium text-white">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-medium text-white">
                       {member.name.charAt(0).toUpperCase()}
                     </div>
                   )}
@@ -454,7 +429,7 @@ export function DashboardContent({
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{member.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    Active {timeAgo(member.lastActive)}
+                    {t("activeAgo", { time: timeAgo(member.lastActive, t) })}
                   </p>
                 </div>
               </div>
@@ -466,16 +441,97 @@ export function DashboardContent({
   );
 }
 
-function timeAgo(isoDate: string): string {
+const FAVOURITE_GROUPS: {
+  type: string;
+  labelKey: "courses" | "chapters" | "news" | "events";
+  icon: React.ComponentType<{ className?: string }>;
+}[] = [
+  { type: "course", labelKey: "courses", icon: BookOpen },
+  { type: "chapter", labelKey: "chapters", icon: Layers },
+  { type: "post", labelKey: "news", icon: Newspaper },
+  { type: "event", labelKey: "events", icon: CalendarDays },
+];
+
+function FavouritesSection({ items }: { items: FavouriteItem[] }) {
+  const t = useTranslations("dashboard");
+  const [list, setList] = useState(items);
+  const [pending, startTransition] = useTransition();
+
+  function handleRemove(item: FavouriteItem) {
+    setList((prev) => prev.filter((f) => f.id !== item.id));
+    startTransition(async () => {
+      try {
+        await removeFavourite(item.targetType, item.targetId);
+      } catch {
+        setList((prev) =>
+          [...prev, item].sort(
+            (a, b) => items.findIndex((i) => i.id === a.id) - items.findIndex((i) => i.id === b.id),
+          ),
+        );
+      }
+    });
+  }
+
+  if (list.length === 0) return null;
+
+  return (
+    <div className="mt-6 rounded-xl border border-border bg-card p-6">
+      <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
+        <Bookmark className="h-5 w-5 text-primary" />
+        {t("favourites")}
+      </h2>
+      <div className="flex flex-col gap-5">
+        {FAVOURITE_GROUPS.map((group) => {
+          const groupItems = list.filter((f) => f.targetType === group.type);
+          if (groupItems.length === 0) return null;
+          const GroupIcon = group.icon;
+          return (
+            <div key={group.type}>
+              <h3 className="mb-2 flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <GroupIcon className="h-4 w-4" />
+                {t(group.labelKey)}
+              </h3>
+              <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {groupItems.map((item) => (
+                  <li
+                    key={item.id}
+                    className="group flex items-center gap-2 rounded-lg border border-border px-3 py-2 transition hover:bg-muted"
+                  >
+                    <Link href={item.href} className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium">
+                        {item.title}
+                      </span>
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => handleRemove(item)}
+                      disabled={pending}
+                      aria-label={t("removeFavourite")}
+                      className="shrink-0 rounded p-1 text-muted-foreground opacity-0 transition hover:text-red-500 group-hover:opacity-100 focus:opacity-100 disabled:opacity-50"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function timeAgo(isoDate: string, t: ReturnType<typeof useTranslations>): string {
   const date = new Date(isoDate);
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
-  if (seconds < 60) return "just now";
+  if (seconds < 60) return t("justNow");
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) return t("minutesAgo", { count: minutes });
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return t("hoursAgo", { count: hours });
   const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+  return t("daysAgo", { count: days });
 }
 
 function StatCard({

@@ -94,7 +94,7 @@ export default async function EditChapterPage({
             Quizzes and certificates require the Club plan or higher.{" "}
             <Link
               href="/upgrade?feature=quizzesCertificates"
-              className="text-(--tenant-primary) hover:underline"
+              className="text-primary hover:underline"
             >
               Upgrade →
             </Link>

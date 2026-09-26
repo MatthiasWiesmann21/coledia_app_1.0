@@ -53,7 +53,7 @@ export function EventsList({
       {/* Search + filters */}
       <div className="flex flex-col gap-4">
         <div className="relative max-w-md">
-          <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted-foreground)]" />
+          <Calendar className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search events..."
             value={search}
@@ -67,8 +67,8 @@ export function EventsList({
             onClick={() => setSelectedCategory(null)}
             className={`rounded-full px-3 py-1 text-sm transition ${
               !selectedCategory
-                ? "bg-[var(--tenant-primary)] text-white"
-                : "border border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                ? "bg-primary text-white"
+                : "border border-border text-muted-foreground hover:bg-muted"
             }`}
           >
             All
@@ -80,7 +80,7 @@ export function EventsList({
               className={`rounded-full px-3 py-1 text-sm transition ${
                 selectedCategory === cat.id
                   ? "text-white"
-                  : "border border-[var(--border)] hover:bg-[var(--muted)]"
+                  : "border border-border hover:bg-muted"
               }`}
               style={selectedCategory === cat.id ? { backgroundColor: cat.color } : undefined}
             >
@@ -95,8 +95,8 @@ export function EventsList({
             onClick={() => setShowPast(false)}
             className={`rounded-lg px-3 py-1.5 text-sm transition ${
               !showPast
-                ? "bg-[var(--muted)] text-[var(--foreground)]"
-                : "text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                ? "bg-muted text-foreground"
+                : "text-muted-foreground hover:bg-muted"
             }`}
           >
             Upcoming ({filteredUpcoming.length})
@@ -105,8 +105,8 @@ export function EventsList({
             onClick={() => setShowPast(true)}
             className={`rounded-lg px-3 py-1.5 text-sm transition ${
               showPast
-                ? "bg-[var(--muted)] text-[var(--foreground)]"
-                : "text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                ? "bg-muted text-foreground"
+                : "text-muted-foreground hover:bg-muted"
             }`}
           >
             Past ({filteredPast.length})
@@ -116,7 +116,7 @@ export function EventsList({
 
       {/* Events grid */}
       {displayed.length === 0 ? (
-        <p className="py-12 text-center text-sm text-[var(--muted-foreground)]">
+        <p className="py-12 text-center text-sm text-muted-foreground">
           {showPast ? "No past events found." : "No upcoming events. Check back soon!"}
         </p>
       ) : (
@@ -127,9 +127,9 @@ export function EventsList({
               <Link
                 key={e.id}
                 href={`/events/${e.id}`}
-                className="group overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] transition hover:border-[var(--tenant-primary)]/50 hover:shadow-lg"
+                className="group overflow-hidden rounded-xl border border-border bg-card transition hover:border-primary/50 hover:shadow-lg"
               >
-                <div className="relative h-40 bg-[var(--muted)]">
+                <div className="relative h-40 bg-muted">
                   {e.thumbnailUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -139,7 +139,7 @@ export function EventsList({
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center">
-                      <Video className="h-10 w-10 text-[var(--muted-foreground)]" />
+                      <Video className="h-10 w-10 text-muted-foreground" />
                     </div>
                   )}
                   {/* Date badge */}
@@ -165,10 +165,10 @@ export function EventsList({
                       {e.categoryName}
                     </span>
                   )}
-                  <h3 className="font-semibold line-clamp-2 group-hover:text-[var(--tenant-primary)]">
+                  <h3 className="font-semibold line-clamp-2 group-hover:text-primary">
                     {e.title}
                   </h3>
-                  <div className="mt-2 flex items-center gap-3 text-xs text-[var(--muted-foreground)]">
+                  <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Clock className="h-3.5 w-3.5" />
                       {eventDate.toLocaleTimeString("en", {

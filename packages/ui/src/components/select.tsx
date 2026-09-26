@@ -65,7 +65,7 @@ export function Select({
           id={id}
           aria-label={ariaLabel}
           className={cn(
-            "flex items-center justify-between gap-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-left text-[var(--foreground)] transition-colors hover:border-[var(--muted-foreground)]/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-[placeholder]:text-[var(--muted-foreground)] [&>span]:truncate",
+            "flex items-center justify-between gap-2 rounded-lg border border-border bg-card text-left text-foreground transition-colors hover:border-muted-foreground/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-[placeholder]:text-muted-foreground [&>span]:truncate",
             size === "default"
               ? "h-10 w-full px-3 text-sm"
               : "h-7 w-auto pl-2 pr-1.5 text-xs",
@@ -76,7 +76,7 @@ export function Select({
           <SelectPrimitive.Icon asChild>
             <ChevronDown
               className={cn(
-                "shrink-0 text-[var(--muted-foreground)]",
+                "shrink-0 text-muted-foreground",
                 size === "default" ? "h-4 w-4" : "h-3.5 w-3.5",
               )}
             />
@@ -86,9 +86,9 @@ export function Select({
           <SelectPrimitive.Content
             position="popper"
             sideOffset={4}
-            className="z-50 max-h-72 min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] shadow-lg data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-1"
+            className="z-50 max-h-72 min-w-(--radix-select-trigger-width) overflow-hidden rounded-lg border border-border bg-card text-foreground shadow-lg data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-1"
           >
-            <SelectPrimitive.ScrollUpButton className="flex h-6 items-center justify-center text-[var(--muted-foreground)]">
+            <SelectPrimitive.ScrollUpButton className="flex h-6 items-center justify-center text-muted-foreground">
               <ChevronUp className="h-3.5 w-3.5" />
             </SelectPrimitive.ScrollUpButton>
             <SelectPrimitive.Viewport className="p-1">
@@ -97,16 +97,16 @@ export function Select({
                   key={o.value === "" ? EMPTY_VALUE : o.value}
                   value={o.value === "" ? EMPTY_VALUE : o.value}
                   disabled={o.disabled}
-                  className="relative flex cursor-pointer select-none items-center rounded-md py-1.5 pl-2 pr-8 text-sm outline-none data-[disabled]:pointer-events-none data-[highlighted]:bg-[var(--tenant-primary)]/10 data-[highlighted]:text-[var(--tenant-primary)] data-[disabled]:opacity-50"
+                  className="relative flex cursor-pointer select-none items-center rounded-md py-1.5 pl-2 pr-8 text-sm outline-none data-[disabled]:pointer-events-none data-[highlighted]:bg-primary/10 data-[highlighted]:text-primary data-[disabled]:opacity-50"
                 >
                   <SelectPrimitive.ItemText>{o.label}</SelectPrimitive.ItemText>
                   <SelectPrimitive.ItemIndicator className="absolute right-2 flex items-center">
-                    <Check className="h-4 w-4 text-[var(--tenant-primary)]" />
+                    <Check className="h-4 w-4 text-primary" />
                   </SelectPrimitive.ItemIndicator>
                 </SelectPrimitive.Item>
               ))}
             </SelectPrimitive.Viewport>
-            <SelectPrimitive.ScrollDownButton className="flex h-6 items-center justify-center text-[var(--muted-foreground)]">
+            <SelectPrimitive.ScrollDownButton className="flex h-6 items-center justify-center text-muted-foreground">
               <ChevronDown className="h-3.5 w-3.5" />
             </SelectPrimitive.ScrollDownButton>
           </SelectPrimitive.Content>

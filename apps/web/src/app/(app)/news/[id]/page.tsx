@@ -8,6 +8,7 @@ import {
   addPostComment,
   addCommentReply,
   togglePostLike,
+  togglePostFavourite,
   toggleCommentLike,
   getPostComments,
   deleteComment,
@@ -58,12 +59,23 @@ export default async function NewsDetailPage({
   if (!post) notFound();
 
   // Get post likes, user's post like, comment count, and current user's profile
-  const [likeCount, userLike, commentCount, currentUserProfile] = await Promise.all([
+  const [likeCount, userLike, userFav, commentCount, currentUserProfile] = await Promise.all([
     prisma.like.count({
       where: { tenantId, targetType: "post", targetId: post.id },
     }),
     session
       ? prisma.like.findUnique({
+          where: {
+            userId_targetType_targetId: {
+              userId: session.user.id,
+              targetType: "post",
+              targetId: post.id,
+            },
+          },
+        })
+      : null,
+    session
+      ? prisma.favourite.findUnique({
           where: {
             userId_targetType_targetId: {
               userId: session.user.id,
@@ -98,11 +110,13 @@ export default async function NewsDetailPage({
         }}
         liked={!!userLike}
         likeCount={likeCount}
+        favourited={!!userFav}
         commentCount={commentCount}
         isLoggedIn={!!session}
         currentUserAvatarUrl={currentUserProfile?.avatarUrl ?? null}
         actions={{
           toggleLike: togglePostLike,
+          toggleFavourite: togglePostFavourite,
           addComment: addPostComment,
           addReply: addCommentReply,
           toggleCommentLike,

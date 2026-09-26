@@ -68,7 +68,7 @@ export function EventsList({ events }: { events: EventItem[] }) {
       {showCreate && (
         <form
           onSubmit={handleCreate}
-          className="flex flex-col gap-3 rounded-lg border border-[var(--border)] bg-[var(--card)] p-4 sm:flex-row sm:items-end"
+          className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-end"
         >
           <div className="flex flex-1 flex-col gap-1">
             <Label htmlFor="newTitle">Event Title</Label>
@@ -100,7 +100,7 @@ export function EventsList({ events }: { events: EventItem[] }) {
       )}
 
       {events.length === 0 ? (
-        <p className="py-8 text-center text-sm text-[var(--muted-foreground)]">
+        <p className="py-8 text-center text-sm text-muted-foreground">
           No events yet. Create one to schedule a live event.
         </p>
       ) : (
@@ -112,9 +112,9 @@ export function EventsList({ events }: { events: EventItem[] }) {
             return (
               <div
                 key={e.id}
-                className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)]"
+                className="overflow-hidden rounded-xl border border-border bg-card"
               >
-                <div className="relative h-32 bg-[var(--muted)]">
+                <div className="relative h-32 bg-muted">
                   {e.thumbnailUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -124,7 +124,7 @@ export function EventsList({ events }: { events: EventItem[] }) {
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center">
-                      <Video className="h-8 w-8 text-[var(--muted-foreground)]" />
+                      <Video className="h-8 w-8 text-muted-foreground" />
                     </div>
                   )}
                   <div className="absolute right-2 top-2">
@@ -134,7 +134,7 @@ export function EventsList({ events }: { events: EventItem[] }) {
                         Published
                       </span>
                     ) : (
-                      <span className="flex items-center gap-1 rounded-full bg-[var(--muted)]/90 px-2 py-0.5 text-xs text-[var(--muted-foreground)]">
+                      <span className="flex items-center gap-1 rounded-full bg-muted/90 px-2 py-0.5 text-xs text-muted-foreground">
                         <Circle className="h-3 w-3" />
                         Draft
                       </span>
@@ -162,7 +162,7 @@ export function EventsList({ events }: { events: EventItem[] }) {
                     </span>
                   )}
                   <h3 className="font-semibold line-clamp-1">{e.title}</h3>
-                  <div className="mt-2 flex items-center gap-3 text-xs text-[var(--muted-foreground)]">
+                  <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Calendar className="h-3.5 w-3.5" />
                       {eventDate.toLocaleDateString()}

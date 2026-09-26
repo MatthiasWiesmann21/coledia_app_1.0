@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   Heart,
   Bookmark,
@@ -14,10 +16,12 @@ import {
   Play,
   Lock,
   Trash2,
+  Flag,
 } from "lucide-react";
 import { Button } from "@coledia/ui/button";
 import { Input } from "@coledia/ui/input";
 import { useConfirm } from "@/components/confirm-provider";
+import { Celebration } from "@/components/celebration";
 
 type Chapter = {
   id: string;
@@ -55,7 +59,10 @@ type Actions = {
   addComment: (id: string, content: string) => Promise<any>;
   addReply: (chapterId: string, parentId: string, content: string) => Promise<any>;
   toggleCommentLike: (commentId: string, chapterId: string) => Promise<any>;
-  getComments: (chapterId: string) => Promise<Comment[]>;
+  getComments: (
+    chapterId: string,
+    opts?: { skip?: number; take?: number },
+  ) => Promise<{ comments: Comment[]; hasMore: boolean; total: number }>;
   deleteComment?: (commentId: string) => Promise<any>;
 };
 
@@ -81,7 +88,7 @@ function Avatar({
   const [box, text] = size.split(" ");
   return (
     <div
-      className={`${box} shrink-0 items-center justify-center rounded-full bg-(--tenant-primary) ${text} font-medium text-white flex`}
+      className={`${box} shrink-0 items-center justify-center rounded-full bg-primary ${text} font-medium text-white flex`}
     >
       {name.charAt(0).toUpperCase()}
     </div>
@@ -108,13 +115,16 @@ function CommentItem({
   const [removed, setRemoved] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const confirm = useConfirm();
+  const tc = useTranslations("courses");
+  const tp = useTranslations("posts");
+  const tcm = useTranslations("common");
 
   async function handleDelete() {
     if (!actions.deleteComment) return;
     const ok = await confirm({
-      title: "Delete comment?",
-      description: "This also deletes all replies. This action cannot be undone.",
-      confirmLabel: "Delete",
+      title: tp("deleteCommentTitle"),
+      description: tp("deleteCommentBody"),
+      confirmLabel: tp("delete"),
       destructive: true,
     });
     if (!ok) return;
@@ -150,7 +160,7 @@ function CommentItem({
         {
           id: created?.id ?? Date.now().toString(),
           content: replyText,
-          authorName: "You",
+          authorName: tcm("you"),
           authorUsername: null,
           authorAvatarUrl: null,
           createdAt: new Date().toISOString(),
@@ -208,7 +218,7 @@ function CommentItem({
               className="flex items-center gap-1 text-xs text-muted-foreground transition hover:text-foreground"
             >
               <Reply className="h-3.5 w-3.5" />
-              Reply
+              {tp("reply")}
             </button>
           )}
           {comment.canDelete && actions.deleteComment && (
@@ -216,10 +226,10 @@ function CommentItem({
               onClick={handleDelete}
               disabled={deleting}
               className="flex items-center gap-1 text-xs text-muted-foreground transition hover:text-red-500 disabled:opacity-50"
-              aria-label="Delete comment"
+              aria-label={tc("deleteComment")}
             >
               <Trash2 className="h-3.5 w-3.5" />
-              Delete
+              {tp("delete")}
             </button>
           )}
         </div>
@@ -228,7 +238,7 @@ function CommentItem({
         {showReplyForm && (
           <form onSubmit={handleReply} className="mt-3 flex gap-2">
             <Input
-              placeholder={`Reply to ${comment.authorName}...`}
+              placeholder={tp("replyTo", { name: comment.authorName })}
               value={replyText}
               onChange={(e) => setReplyText(e.target.value)}
               className="flex-1"
@@ -258,6 +268,8 @@ function CommentItem({
   );
 }
 
+const COMMENTS_PAGE = 10;
+
 export function ChapterView({
   course,
   chapter,
@@ -266,6 +278,9 @@ export function ChapterView({
   favourited,
   likeCount,
   comments,
+  commentsTotal,
+  commentsHasMore,
+  courseComplete,
   completedChapterIds,
   progressPct,
   prevChapterId,
@@ -279,19 +294,44 @@ export function ChapterView({
   favourited: boolean;
   likeCount: number;
   comments: Comment[];
+  commentsTotal: number;
+  commentsHasMore: boolean;
+  courseComplete: boolean;
   completedChapterIds: string[];
   progressPct: number;
   prevChapterId: string | null;
   nextChapterId: string | null;
   actions: Actions;
 }) {
+  const router = useRouter();
+  const t = useTranslations("courses");
+  const tp = useTranslations("posts");
+  const tcm = useTranslations("common");
   const [isCompleted, setIsCompleted] = useState(completed);
   const [isLiked, setIsLiked] = useState(liked);
   const [isFav, setIsFav] = useState(favourited);
   const [likes, setLikes] = useState(likeCount);
   const [commentText, setCommentText] = useState("");
   const [commentList, setCommentList] = useState<Comment[]>(comments);
+  const [hasMoreComments, setHasMoreComments] = useState(commentsHasMore);
+  const [totalComments, setTotalComments] = useState(commentsTotal);
+  const [loadingComments, setLoadingComments] = useState(false);
   const [posting, setPosting] = useState(false);
+  const [celebrating, setCelebrating] = useState(false);
+
+  // Celebrate once per session when the course reaches complete state
+  useEffect(() => {
+    if (!courseComplete) return;
+    const key = `celebrated:${course.id}`;
+    try {
+      if (!sessionStorage.getItem(key)) {
+        sessionStorage.setItem(key, "1");
+        setCelebrating(true);
+      }
+    } catch {
+      setCelebrating(true);
+    }
+  }, [courseComplete, course.id]);
 
   async function handleLike() {
     setIsLiked(!isLiked);
@@ -318,9 +358,27 @@ export function ChapterView({
     setIsCompleted(!isCompleted);
     try {
       await actions.markComplete(chapter.id);
+      // Re-evaluate course completion (celebration + Finish button)
+      router.refresh();
     } catch {
       setIsCompleted(prevState);
     }
+  }
+
+  async function handleLoadMoreComments() {
+    setLoadingComments(true);
+    try {
+      const res = await actions.getComments(chapter.id, {
+        skip: commentList.length,
+        take: COMMENTS_PAGE,
+      });
+      setCommentList((prev) => [...prev, ...res.comments]);
+      setHasMoreComments(res.hasMore);
+      setTotalComments(res.total);
+    } catch (e) {
+      console.error(e);
+    }
+    setLoadingComments(false);
   }
 
   async function handleComment(e: React.FormEvent) {
@@ -333,7 +391,7 @@ export function ChapterView({
         {
           id: created?.id ?? Date.now().toString(),
           content: commentText,
-          authorName: "You",
+          authorName: tcm("you"),
           authorUsername: null,
           authorAvatarUrl: null,
           createdAt: new Date().toISOString(),
@@ -344,6 +402,7 @@ export function ChapterView({
         },
         ...commentList,
       ]);
+      setTotalComments((n) => n + 1);
       setCommentText("");
     } catch (e) {
       console.error(e);
@@ -366,10 +425,16 @@ export function ChapterView({
 
   return (
     <div className="mx-auto max-w-5xl">
+      {celebrating && (
+        <Celebration
+          courseTitle={course.title}
+          onDone={() => setCelebrating(false)}
+        />
+      )}
       {/* Breadcrumb */}
       <Link
         href={`/courses/${course.id}`}
-        className="mb-4 inline-block text-sm text-(--tenant-primary) hover:underline"
+        className="mb-4 inline-block text-sm text-primary hover:underline"
       >
         ← {course.title}
       </Link>
@@ -385,21 +450,21 @@ export function ChapterView({
                   href={chapter.videoUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex h-72 items-center justify-center text-white hover:underline"
+                  className="flex aspect-video w-full items-center justify-center text-white hover:underline"
                 >
-                  Open video in new tab →
+                  {t("openVideo")} →
                 </a>
               ) : (
                 <iframe
                   src={getEmbedUrl(chapter.videoUrl, chapter.videoType ?? "youtube")}
-                  className="h-72 w-full"
+                  className="aspect-video w-full"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
                 />
               )
             ) : (
-              <div className="flex h-72 items-center justify-center text-muted-foreground">
-                No video available
+              <div className="flex aspect-video w-full items-center justify-center text-muted-foreground">
+                {t("noVideo")}
               </div>
             )}
           </div>
@@ -431,12 +496,12 @@ export function ChapterView({
                 onClick={handleFavourite}
                 className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition ${
                   isFav
-                    ? "bg-(--tenant-primary)/15 text-(--tenant-primary)"
+                    ? "bg-primary/15 text-primary"
                     : "border border-border text-muted-foreground hover:bg-muted"
                 }`}
               >
                 <Bookmark className={`h-4 w-4 ${isFav ? "fill-current" : ""}`} />
-                Favourite
+                {t("saveFavourite")}
               </button>
 
               <button
@@ -452,7 +517,7 @@ export function ChapterView({
                 ) : (
                   <Circle className="h-4 w-4" />
                 )}
-                {isCompleted ? "Completed" : "Mark Complete"}
+                {isCompleted ? t("completed") : t("markComplete")}
               </button>
             </div>
           </div>
@@ -460,7 +525,7 @@ export function ChapterView({
           {/* Description */}
           {chapter.description && (
             <div className="mt-6 rounded-xl border border-border bg-card p-6">
-              <h2 className="mb-2 text-lg font-semibold">About this chapter</h2>
+              <h2 className="mb-2 text-lg font-semibold">{t("aboutChapter")}</h2>
               <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                 {chapter.description}
               </p>
@@ -470,13 +535,13 @@ export function ChapterView({
           {/* Comments */}
           <div className="mt-6 rounded-xl border border-border bg-card p-6">
             <h2 className="mb-4 text-lg font-semibold">
-              Comments ({commentList.length})
+              {tcm("comments")} ({totalComments})
             </h2>
 
             {/* Comment form */}
             <form onSubmit={handleComment} className="mb-6 flex gap-2">
               <Input
-                placeholder="Write a comment..."
+                placeholder={t("writeComment")}
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
                 className="flex-1"
@@ -489,20 +554,33 @@ export function ChapterView({
             {/* Comment list */}
             {commentList.length === 0 ? (
               <p className="py-4 text-center text-sm text-muted-foreground">
-                No comments yet. Be the first to comment!
+                {t("noCommentsYet")}
               </p>
             ) : (
-              <ul className="flex flex-col gap-4">
-                {commentList.map((c) => (
-                  <CommentItem
-                    key={c.id}
-                    comment={c}
-                    chapterId={chapter.id}
-                    actions={actions}
-                    depth={0}
-                  />
-                ))}
-              </ul>
+              <>
+                <ul className="flex flex-col gap-4">
+                  {commentList.map((c) => (
+                    <CommentItem
+                      key={c.id}
+                      comment={c}
+                      chapterId={chapter.id}
+                      actions={actions}
+                      depth={0}
+                    />
+                  ))}
+                </ul>
+                {hasMoreComments && (
+                  <button
+                    onClick={handleLoadMoreComments}
+                    disabled={loadingComments}
+                    className="mt-4 w-full rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground transition hover:bg-muted disabled:opacity-50"
+                  >
+                    {loadingComments
+                      ? tcm("loading")
+                      : `${t("loadMoreComments")} (${t("commentsRemaining", { count: Math.max(0, totalComments - commentList.length) })})`}
+                  </button>
+                )}
+              </>
             )}
           </div>
 
@@ -514,22 +592,30 @@ export function ChapterView({
                 className="flex items-center gap-1 rounded-lg border border-border px-4 py-2 text-sm transition hover:bg-muted"
               >
                 <ChevronLeft className="h-4 w-4" />
-                Previous
+                {tcm("previous")}
               </Link>
             ) : (
               <span />
             )}
-            {nextChapterId ? (
+            {courseComplete ? (
+              <Link
+                href={`/courses/${course.id}`}
+                className="flex items-center gap-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
+              >
+                <Flag className="h-4 w-4" />
+                {tcm("finish")}
+              </Link>
+            ) : nextChapterId ? (
               <Link
                 href={`/courses/${course.id}/chapters/${nextChapterId}`}
-                className="flex items-center gap-1 rounded-lg bg-(--tenant-primary) px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
+                className="flex items-center gap-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
               >
-                Next
+                {tcm("next")}
                 <ChevronRight className="h-4 w-4" />
               </Link>
             ) : (
               <span className="text-sm text-muted-foreground">
-                Course complete!
+                {t("courseComplete")}
               </span>
             )}
           </div>
@@ -538,19 +624,19 @@ export function ChapterView({
         {/* Chapter sidebar — progress timeline */}
         <div className="lg:col-span-1">
           <div className="rounded-xl border border-border bg-card p-4">
-            <h3 className="mb-3 text-sm font-semibold">Course Content</h3>
+            <h3 className="mb-3 text-sm font-semibold">{t("courseContent")}</h3>
 
             {/* Progress percentage */}
             <div className="mb-4">
               <div className="mb-1.5 flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Progress</span>
-                <span className="font-semibold text-(--tenant-primary)">
+                <span className="text-muted-foreground">{tcm("progress")}</span>
+                <span className="font-semibold text-primary">
                   {Math.round(progressPct)}%
                 </span>
               </div>
               <div className="h-2 overflow-hidden rounded-full bg-muted">
                 <div
-                  className="h-full bg-(--tenant-primary) transition-all"
+                  className="h-full bg-primary transition-all"
                   style={{ width: `${progressPct}%` }}
                 />
               </div>
@@ -571,7 +657,7 @@ export function ChapterView({
                         href={`/courses/${course.id}/chapters/${ch.id}`}
                         className={`flex items-center gap-3 rounded-lg py-1.5 pl-0 pr-2 text-sm transition ${
                           isCurrent
-                            ? "text-(--tenant-primary)"
+                            ? "text-primary"
                             : isCompleted
                               ? "text-foreground"
                               : "text-muted-foreground hover:text-foreground"
@@ -583,7 +669,7 @@ export function ChapterView({
                             isCompleted
                               ? "border-green-500 bg-green-500 text-white"
                               : isCurrent
-                                ? "border-(--tenant-primary) bg-(--tenant-primary) text-white"
+                                ? "border-primary bg-primary text-white"
                                 : "border-border bg-card text-muted-foreground"
                           }`}
                         >

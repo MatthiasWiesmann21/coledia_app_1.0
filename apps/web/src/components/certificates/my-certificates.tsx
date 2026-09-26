@@ -96,8 +96,8 @@ export function MyCertificates({
               key={cert.id}
               className="flex flex-col rounded-xl border border-border bg-card p-5"
             >
-              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-(--tenant-primary)/15">
-                <Award className="h-6 w-6 text-(--tenant-primary)" />
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/15">
+                <Award className="h-6 w-6 text-primary" />
               </div>
               <p className="font-semibold">{cert.courseTitle}</p>
               <p className="mt-1 text-xs text-muted-foreground">

@@ -22,7 +22,7 @@ export default async function AdminCertificatesPage() {
         <h1 className="text-2xl font-bold">{t("templatesTitle")}</h1>
         <Link
           href="/admin/certificates/new"
-          className="inline-flex items-center gap-2 rounded-lg bg-(--tenant-primary) px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:opacity-90"
         >
           <Plus className="h-4 w-4" />
           {t("newTemplate")}

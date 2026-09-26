@@ -37,6 +37,7 @@ export function TopNav({
   userId,
   tenantId,
   planFeatures,
+  themeLocked,
 }: {
   userName: string;
   userEmail: string;
@@ -47,6 +48,8 @@ export function TopNav({
   userId: string;
   tenantId: string;
   planFeatures?: PlanFeatures;
+  /** When the tenant locks the theme, hide the per-user toggle. */
+  themeLocked?: boolean;
 }) {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
@@ -128,7 +131,7 @@ export function TopNav({
                   className={cn(
                     "flex w-full items-center gap-2 px-3 py-2 text-sm transition hover:bg-muted",
                     lang === loc
-                      ? "text-(--tenant-primary) font-medium"
+                      ? "text-primary font-medium"
                       : "text-muted-foreground",
                   )}
                 >
@@ -143,18 +146,20 @@ export function TopNav({
         {/* Notifications */}
         <NotificationBell userId={userId} tenantId={tenantId} locale={currentLanguage} />
 
-        {/* Theme toggle */}
-        <button
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          className="rounded-lg p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-          aria-label="Toggle theme"
-        >
-          {mounted && theme === "dark" ? (
-            <Sun className="h-4 w-4" />
-          ) : (
-            <Moon className="h-4 w-4" />
-          )}
-        </button>
+        {/* Theme toggle — hidden when the tenant locks the theme */}
+        {!themeLocked && (
+          <button
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            className="rounded-lg p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+            aria-label="Toggle theme"
+          >
+            {mounted && theme === "dark" ? (
+              <Sun className="h-4 w-4" />
+            ) : (
+              <Moon className="h-4 w-4" />
+            )}
+          </button>
+        )}
 
         {/* Profile dropdown */}
         <div ref={profileRef} className="relative">
@@ -171,7 +176,7 @@ export function TopNav({
                   className="h-8 w-8 rounded-full"
                 />
               ) : (
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-(--tenant-primary) text-sm font-medium text-white">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-sm font-medium text-white">
                   {userName.charAt(0).toUpperCase()}
                 </div>
               )}

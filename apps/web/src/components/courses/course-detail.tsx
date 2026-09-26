@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Layers, Clock, BarChart, Play, CheckCircle2, Lock, Star } from "lucide-react";
+import { Layers, Clock, BarChart, Play, CheckCircle2, Lock, Star, Bookmark } from "lucide-react";
 import { Button } from "@coledia/ui/button";
+import { useTranslations } from "next-intl";
 
 type Chapter = {
   id: string;
@@ -35,20 +36,27 @@ export function CourseDetail({
   progressPct,
   completedChapterIds,
   isLoggedIn,
+  favourited,
   enrollAction,
   purchaseAction,
+  favouriteAction,
 }: {
   course: CourseData;
   enrolled: boolean;
   progressPct: number;
   completedChapterIds: string[];
   isLoggedIn: boolean;
+  favourited?: boolean;
   enrollAction: (courseId: string) => Promise<any>;
   purchaseAction?: (courseId: string) => Promise<{ url: string }>;
+  favouriteAction?: (courseId: string) => Promise<any>;
 }) {
+  const t = useTranslations("courses");
+  const tcm = useTranslations("common");
   const [enrolling, setEnrolling] = useState(false);
   const [purchasing, setPurchasing] = useState(false);
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
+  const [isFav, setIsFav] = useState(favourited ?? false);
 
   async function handleEnroll() {
     if (!isLoggedIn) {
@@ -77,7 +85,7 @@ export function CourseDetail({
       const res = await purchaseAction(course.id);
       window.location.href = res.url;
     } catch (e: any) {
-      setPurchaseError(e.message ?? "Failed to start checkout");
+      setPurchaseError(e.message ?? t("checkoutFailed"));
       setPurchasing(false);
     }
   }
@@ -91,9 +99,9 @@ export function CourseDetail({
       {/* Breadcrumb */}
       <Link
         href="/courses"
-        className="mb-4 inline-block text-sm text-(--tenant-primary) hover:underline"
+        className="mb-4 inline-block text-sm text-primary hover:underline"
       >
-        ← All courses
+        ← {t("allCourses")}
       </Link>
 
       {/* Header */}
@@ -118,7 +126,30 @@ export function CourseDetail({
 
         {/* Info sidebar */}
         <div className="rounded-xl border border-border bg-card p-6">
-          <h1 className="text-xl font-bold">{course.title}</h1>
+          <div className="flex items-start justify-between gap-2">
+            <h1 className="text-xl font-bold">{course.title}</h1>
+            {favouriteAction && (
+              <button
+                onClick={async () => {
+                  if (!isLoggedIn) return;
+                  setIsFav(!isFav);
+                  try {
+                    await favouriteAction(course.id);
+                  } catch {
+                    setIsFav(isFav);
+                  }
+                }}
+                aria-label={t("saveFavourite")}
+                className={`shrink-0 rounded-lg p-1.5 transition ${
+                  isFav
+                    ? "bg-primary/15 text-primary"
+                    : "border border-border text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                <Bookmark className={`h-4 w-4 ${isFav ? "fill-current" : ""}`} />
+              </button>
+            )}
+          </div>
 
           {/* Badges */}
           <div className="mt-3 flex flex-wrap gap-2">
@@ -139,7 +170,7 @@ export function CourseDetail({
               </span>
             )}
             {course.specialStatus && (
-              <span className="flex items-center gap-1 rounded-full bg-(--tenant-primary) px-2 py-0.5 text-xs capitalize text-white">
+              <span className="flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-xs capitalize text-white">
                 <Star className="h-3 w-3" />
                 {course.specialStatus}
               </span>
@@ -150,7 +181,7 @@ export function CourseDetail({
           <div className="mt-4 flex flex-col gap-2 text-sm text-muted-foreground">
             <span className="flex items-center gap-2">
               <Layers className="h-4 w-4" />
-              {course.chapters.length} chapters
+              {t("chaptersLabel", { count: course.chapters.length })}
             </span>
             {course.duration && (
               <span className="flex items-center gap-2">
@@ -169,13 +200,13 @@ export function CourseDetail({
           {/* Price + Enroll */}
           <div className="mt-6 border-t border-border pt-4">
             <p className="text-2xl font-bold">
-              {course.price ? `$${course.price}` : "Free"}
+              {course.price ? `CHF ${course.price}` : t("priceFree")}
             </p>
 
             {enrolled ? (
               <div className="mt-3">
                 <div className="mb-2 flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Progress</span>
+                  <span className="text-muted-foreground">{tcm("progress")}</span>
                   <span className="font-medium">{Math.round(progressPct)}%</span>
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-muted">
@@ -187,10 +218,10 @@ export function CourseDetail({
                 {course.chapters.length > 0 && (
                   <Link
                     href={`/courses/${course.id}/chapters/${course.chapters[0].id}`}
-                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-(--tenant-primary) px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
+                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
                   >
                     <Play className="h-4 w-4" />
-                    {progressPct > 0 ? "Continue Learning" : "Start Course"}
+                    {progressPct > 0 ? t("continueLearning") : t("startCourse")}
                   </Link>
                 )}
               </div>
@@ -205,11 +236,11 @@ export function CourseDetail({
                   className="w-full"
                 >
                   {purchasing
-                    ? "Redirecting..."
-                    : `Buy for CHF ${course.price}`}
+                    ? t("redirecting")
+                    : t("buyFor", { price: `CHF ${course.price}` })}
                 </Button>
                 <p className="text-center text-xs text-muted-foreground">
-                  Secure checkout via Stripe
+                  {t("secureCheckout")}
                 </p>
               </div>
             ) : (
@@ -219,10 +250,10 @@ export function CourseDetail({
                 className="mt-3 w-full"
               >
                 {enrolling
-                  ? "Enrolling..."
+                  ? t("enrolling")
                   : course.price
-                    ? `Enroll for $${course.price}`
-                    : "Enroll for Free"}
+                    ? t("enrollFor", { price: `CHF ${course.price}` })
+                    : t("enrollFree")}
               </Button>
             )}
           </div>
@@ -232,7 +263,7 @@ export function CourseDetail({
       {/* Description */}
       {course.description && (
         <div className="mt-6 rounded-xl border border-border bg-card p-6">
-          <h2 className="mb-3 text-lg font-semibold">About this course</h2>
+          <h2 className="mb-3 text-lg font-semibold">{t("aboutCourse")}</h2>
           <p className="text-sm text-muted-foreground whitespace-pre-wrap">
             {course.description}
           </p>
@@ -243,11 +274,11 @@ export function CourseDetail({
       <div className="mt-6 rounded-xl border border-border bg-card p-6">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">
-            Course Content ({totalChapters} chapters)
+            {t("courseContent")} ({t("chaptersLabel", { count: totalChapters })})
           </h2>
           {enrolled && totalChapters > 0 && (
-            <span className="text-sm font-medium text-(--tenant-primary)">
-              {completedCount}/{totalChapters} completed
+            <span className="text-sm font-medium text-primary">
+              {t("chaptersCompleted", { completed: completedCount, total: totalChapters })}
             </span>
           )}
         </div>
@@ -256,12 +287,12 @@ export function CourseDetail({
         {enrolled && totalChapters > 0 && (
           <div className="mb-6">
             <div className="mb-1.5 flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Overall progress</span>
+              <span className="text-muted-foreground">{t("overallProgress")}</span>
               <span className="font-semibold">{Math.round(progressPct)}%</span>
             </div>
             <div className="h-2.5 overflow-hidden rounded-full bg-muted">
               <div
-                className="h-full bg-(--tenant-primary) transition-all"
+                className="h-full bg-primary transition-all"
                 style={{ width: `${progressPct}%` }}
               />
             </div>
@@ -270,7 +301,7 @@ export function CourseDetail({
 
         {totalChapters === 0 ? (
           <p className="py-4 text-center text-sm text-muted-foreground">
-            No chapters available yet.
+            {t("noChaptersAvailable")}
           </p>
         ) : (
           <div className="relative">
@@ -309,7 +340,7 @@ export function CourseDetail({
                           {isCompleted ? (
                             <CheckCircle2 className="h-4 w-4" />
                           ) : (
-                            <Play className="h-3 w-4 pl-0.5 text-(--tenant-primary)" />
+                            <Play className="h-3 w-4 pl-0.5 text-primary" />
                           )}
                         </span>
 
@@ -328,11 +359,11 @@ export function CourseDetail({
                             {ch.author && <span>· {ch.author}</span>}
                             {ch.accessFree && (
                               <span className="rounded bg-green-500/15 px-1 text-green-500">
-                                Free
+                                {tcm("free")}
                               </span>
                             )}
                             {isCompleted && (
-                              <span className="text-green-500">✓ Done</span>
+                              <span className="text-green-500">✓ {t("done")}</span>
                             )}
                           </div>
                         </div>

@@ -156,32 +156,32 @@ export function GlobalSearch() {
         >
           <div
             ref={containerRef}
-            className="w-full max-w-xl overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-2xl"
+            className="w-full max-w-xl overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
             onKeyDown={handleKeyDown}
           >
             {/* Search input */}
-            <div className="flex items-center gap-3 border-b border-[var(--border)] px-4 py-3">
-              <Search className="h-5 w-5 shrink-0 text-[var(--muted-foreground)]" />
+            <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+              <Search className="h-5 w-5 shrink-0 text-muted-foreground" />
               <input
                 ref={inputRef}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search courses, news, events, chat, documents..."
-                className="flex-1 bg-transparent text-base outline-none placeholder:text-[var(--muted-foreground)]"
+                className="flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground"
                 autoComplete="off"
                 spellCheck={false}
               />
               {loading && (
-                <span className="text-xs text-[var(--muted-foreground)]">
+                <span className="text-xs text-muted-foreground">
                   ...
                 </span>
               )}
               <button
                 onClick={() => setOpen(false)}
-                className="rounded-md p-1 text-[var(--muted-foreground)] transition hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                className="rounded-md p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
                 aria-label="Close search"
               >
-                <kbd className="rounded border border-[var(--border)] bg-[var(--background)] px-1.5 py-0.5 text-[10px] font-medium">
+                <kbd className="rounded border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium">
                   ESC
                 </kbd>
               </button>
@@ -190,11 +190,11 @@ export function GlobalSearch() {
             {/* Results */}
             <div className="max-h-[60vh] overflow-y-auto p-2">
               {query.trim().length === 0 ? (
-                <div className="px-4 py-8 text-center text-sm text-[var(--muted-foreground)]">
+                <div className="px-4 py-8 text-center text-sm text-muted-foreground">
                   Start typing to search across the platform
                 </div>
               ) : results.length === 0 && !loading ? (
-                <div className="px-4 py-8 text-center text-sm text-[var(--muted-foreground)]">
+                <div className="px-4 py-8 text-center text-sm text-muted-foreground">
                   No results for &ldquo;{query}&rdquo;
                 </div>
               ) : (
@@ -211,16 +211,16 @@ export function GlobalSearch() {
                           className={cn(
                             "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition",
                             isActive
-                              ? "bg-[var(--tenant-primary)]/15"
-                              : "hover:bg-[var(--muted)]",
+                              ? "bg-primary/15"
+                              : "hover:bg-muted",
                           )}
                         >
                           <Icon
                             className={cn(
                               "h-4 w-4 shrink-0",
                               isActive
-                                ? "text-[var(--tenant-primary)]"
-                                : "text-[var(--muted-foreground)]",
+                                ? "text-primary"
+                                : "text-muted-foreground",
                             )}
                           />
                           <div className="flex min-w-0 flex-1 flex-col">
@@ -228,16 +228,16 @@ export function GlobalSearch() {
                               {result.title}
                             </span>
                             {result.subtitle && (
-                              <span className="truncate text-xs text-[var(--muted-foreground)]">
+                              <span className="truncate text-xs text-muted-foreground">
                                 {result.subtitle}
                               </span>
                             )}
                           </div>
-                          <span className="shrink-0 rounded-md border border-[var(--border)] px-1.5 py-0.5 text-[10px] font-medium uppercase text-[var(--muted-foreground)]">
+                          <span className="shrink-0 rounded-md border border-border px-1.5 py-0.5 text-[10px] font-medium uppercase text-muted-foreground">
                             {meta.label}
                           </span>
                           {isActive && (
-                            <CornerDownLeft className="h-3.5 w-3.5 shrink-0 text-[var(--muted-foreground)]" />
+                            <CornerDownLeft className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                           )}
                         </button>
                       </li>

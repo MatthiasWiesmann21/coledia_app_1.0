@@ -3,7 +3,7 @@ import { getTenantId } from "@/lib/tenant";
 import { getSession } from "@/lib/session";
 import { notFound } from "next/navigation";
 import { CourseDetail } from "@/components/courses/course-detail";
-import { enrollInCourse } from "@/lib/course-actions";
+import { enrollInCourse, toggleCourseFavourite } from "@/lib/course-actions";
 import { startCoursePurchase } from "@/lib/stripe-actions";
 import { getUserLocale } from "@/i18n/get-locale";
 
@@ -102,6 +102,19 @@ export default async function CourseDetailPage({
     completedChapters = progress.map((p) => p.chapterId);
   }
 
+  let favourited = false;
+  if (session) {
+    favourited = !!(await prisma.favourite.findUnique({
+      where: {
+        userId_targetType_targetId: {
+          userId: session.user.id,
+          targetType: "course",
+          targetId: course.id,
+        },
+      },
+    }));
+  }
+
   return (
     <div className="p-6">
       <CourseDetail
@@ -130,8 +143,10 @@ export default async function CourseDetailPage({
         progressPct={enrollment?.progressPct ?? 0}
         completedChapterIds={completedChapters}
         isLoggedIn={!!session}
+        favourited={favourited}
         enrollAction={enrollInCourse}
         purchaseAction={startCoursePurchase}
+        favouriteAction={toggleCourseFavourite}
       />
     </div>
   );

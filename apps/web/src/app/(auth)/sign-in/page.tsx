@@ -50,7 +50,7 @@ export default function SignInPage() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1 text-center">
         <h1 className="text-2xl font-bold">Welcome back</h1>
-        <p className="text-sm text-[var(--muted-foreground)]">
+        <p className="text-sm text-muted-foreground">
           Sign in to your community
         </p>
       </div>
@@ -74,7 +74,7 @@ export default function SignInPage() {
             <Label htmlFor="password">Password</Label>
             <Link
               href="/forgot-password"
-              className="text-xs text-[var(--tenant-primary)] hover:underline"
+              className="text-xs text-primary hover:underline"
             >
               Forgot password?
             </Link>
@@ -93,7 +93,7 @@ export default function SignInPage() {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-[var(--muted-foreground)] transition hover:text-[var(--foreground)]"
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground transition hover:text-foreground"
               aria-label={showPassword ? "Hide password" : "Show password"}
               tabIndex={-1}
             >
@@ -119,10 +119,10 @@ export default function SignInPage() {
 
       <div className="relative">
         <div className="absolute inset-0 flex items-center">
-          <span className="w-full border-t border-[var(--border)]" />
+          <span className="w-full border-t border-border" />
         </div>
         <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-[var(--card)] px-2 text-[var(--muted-foreground)]">
+          <span className="bg-card px-2 text-muted-foreground">
             or
           </span>
         </div>
@@ -155,11 +155,11 @@ export default function SignInPage() {
         Continue with Google
       </Button>
 
-      <p className="text-center text-sm text-[var(--muted-foreground)]">
+      <p className="text-center text-sm text-muted-foreground">
         Don&apos;t have an account?{" "}
         <Link
           href="/sign-up"
-          className="font-medium text-[var(--tenant-primary)] hover:underline"
+          className="font-medium text-primary hover:underline"
         >
           Sign up
         </Link>

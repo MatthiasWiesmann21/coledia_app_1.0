@@ -66,7 +66,7 @@ export function UserGroupsList({ groups }: { groups: Group[] }) {
       {showCreate && (
         <form
           onSubmit={handleCreate}
-          className="flex items-end gap-3 rounded-lg border border-[var(--border)] bg-[var(--card)] p-4"
+          className="flex items-end gap-3 rounded-lg border border-border bg-card p-4"
         >
           <div className="flex flex-1 flex-col gap-1">
             <Label htmlFor="newName">Usergroup Name</Label>
@@ -92,7 +92,7 @@ export function UserGroupsList({ groups }: { groups: Group[] }) {
       )}
 
       {groups.length === 0 ? (
-        <p className="py-8 text-center text-sm text-[var(--muted-foreground)]">
+        <p className="py-8 text-center text-sm text-muted-foreground">
           No usergroups yet. Create one to organize your members.
         </p>
       ) : (
@@ -100,12 +100,12 @@ export function UserGroupsList({ groups }: { groups: Group[] }) {
           {groups.map((g) => (
             <div
               key={g.id}
-              className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-5"
+              className="rounded-xl border border-border bg-card p-5"
             >
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="font-semibold">{g.name}</h3>
-                  <p className="mt-1 flex items-center gap-1 text-sm text-[var(--muted-foreground)]">
+                  <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
                     <Users className="h-3.5 w-3.5" />
                     {g.memberCount} member{g.memberCount !== 1 ? "s" : ""}
                   </p>

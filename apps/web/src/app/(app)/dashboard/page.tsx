@@ -6,6 +6,7 @@ import { TermsModal } from "@/components/terms-modal";
 import { DashboardContent } from "@/components/dashboard-content";
 import { profileKey } from "@/lib/profile";
 import { onlineSince as getOnlineSince } from "@/lib/presence";
+import { getMyUserGroupIds, groupVisibilityFilter, isAdminRole } from "@/lib/guards";
 
 export default async function DashboardPage() {
   const session = await getSession();
@@ -32,6 +33,7 @@ export default async function DashboardPage() {
     recentComments,
     favourites,
     signedInMembers,
+    membership,
   ] = await Promise.all([
     // Enrollments in this tenant's courses, with course + category info
     prisma.enrollment.findMany({
@@ -104,11 +106,11 @@ export default async function DashboardPage() {
       take: 5,
     }),
 
-    // Favourited course IDs by this user in this tenant
+    // All favourites of this user in this tenant (polymorphic targets)
     prisma.favourite.findMany({
-      where: { userId, tenantId, targetType: "course" },
+      where: { userId, tenantId },
       orderBy: { createdAt: "desc" },
-      take: 5,
+      take: 50,
     }),
 
     // Members of this tenant seen recently (per-tenant presence)
@@ -135,20 +137,64 @@ export default async function DashboardPage() {
       orderBy: { lastSeenAt: "desc" },
       take: 20,
     }),
+
+    prisma.membership.findUnique({
+      where: { userId_tenantId: { userId, tenantId } },
+      select: { role: true },
+    }),
   ]);
 
-  // Fetch the actual course data for favourited courses
-  const favouriteCourseIds = favourites.map((f) => f.targetId);
-  const favouriteCoursesData = favouriteCourseIds.length > 0
-    ? await prisma.course.findMany({
-        where: { id: { in: favouriteCourseIds }, tenantId, published: true },
-        select: {
-          id: true,
-          title: true,
-          category: { select: { name: true, color: true } },
-        },
-      })
-    : [];
+  const isAdmin = isAdminRole(membership?.role);
+  const myGroupIds = isAdmin ? [] : await getMyUserGroupIds(userId, tenantId);
+  const groupVis = groupVisibilityFilter(myGroupIds);
+  const visible = isAdmin ? {} : { published: true, ...groupVis };
+
+  // Resolve favourite targets per type (tenant-scoped, visibility-checked so
+  // unpublished or group-restricted content doesn't leak its title)
+  const favIds = (type: string) =>
+    favourites.filter((f) => f.targetType === type).map((f) => f.targetId);
+  const [favCoursesData, favChaptersData, favPostsData, favEventsData] = await Promise.all([
+    favIds("course").length
+      ? prisma.course.findMany({
+          where: { id: { in: favIds("course") }, tenantId, ...visible },
+          select: { id: true, title: true },
+        })
+      : [],
+    favIds("chapter").length
+      ? prisma.chapter.findMany({
+          where: {
+            id: { in: favIds("chapter") },
+            course: { tenantId, ...visible },
+            ...(isAdmin ? {} : { published: true }),
+          },
+          select: { id: true, title: true, courseId: true },
+        })
+      : [],
+    favIds("post").length
+      ? prisma.post.findMany({
+          where: {
+            id: { in: favIds("post") },
+            tenantId,
+            ...(isAdmin
+              ? {}
+              : {
+                  published: true,
+                  AND: [
+                    { OR: [{ scheduledAt: null }, { scheduledAt: { lte: new Date() } }] },
+                    groupVis,
+                  ],
+                }),
+          },
+          select: { id: true, title: true },
+        })
+      : [],
+    favIds("event").length
+      ? prisma.event.findMany({
+          where: { id: { in: favIds("event") }, tenantId, ...visible },
+          select: { id: true, title: true },
+        })
+      : [],
+  ]);
 
   // Calculate stats from real data
   const inProgress = enrollments.filter(
@@ -192,18 +238,26 @@ export default async function DashboardPage() {
         : "#",
   }));
 
-  // Build favourite courses (preserve the favourite order)
-  const courseMap = new Map(favouriteCoursesData.map((c) => [c.id, c]));
-  const favouriteCourses = favouriteCourseIds
-    .map((id) => {
-      const course = courseMap.get(id);
-      if (!course) return null;
-      return {
-        id: course.id,
-        title: course.title,
-        category: course.category?.name ?? "Uncategorized",
-        categoryColor: course.category?.color ?? "#008080",
-      };
+  // Build grouped favourites (preserve favourite order, drop stale targets)
+  const favMaps = {
+    course: new Map(favCoursesData.map((c) => [c.id, `/courses/${c.id}`] as const)),
+    chapter: new Map(favChaptersData.map((c) => [c.id, `/courses/${c.courseId}/chapters/${c.id}`] as const)),
+    post: new Map(favPostsData.map((p) => [p.id, `/news/${p.id}`] as const)),
+    event: new Map(favEventsData.map((e) => [e.id, `/events/${e.id}`] as const)),
+  };
+  const favTitles = {
+    course: new Map(favCoursesData.map((c) => [c.id, c.title])),
+    chapter: new Map(favChaptersData.map((c) => [c.id, c.title])),
+    post: new Map(favPostsData.map((p) => [p.id, p.title])),
+    event: new Map(favEventsData.map((e) => [e.id, e.title])),
+  };
+  const favouriteItems = favourites
+    .map((f) => {
+      const map = favMaps[f.targetType as keyof typeof favMaps];
+      const title = favTitles[f.targetType as keyof typeof favTitles]?.get(f.targetId);
+      const href = map?.get(f.targetId);
+      if (!title || !href) return null;
+      return { id: f.id, targetType: f.targetType, targetId: f.targetId, title, href };
     })
     .filter((f): f is NonNullable<typeof f> => f !== null);
 
@@ -232,7 +286,7 @@ export default async function DashboardPage() {
         myCourses={myCourses}
         upcomingEvents={events}
         recentActivity={recentActivity}
-        favouriteCourses={favouriteCourses}
+        favouriteItems={favouriteItems}
         onlineMembers={onlineMembersList}
       />
     </>

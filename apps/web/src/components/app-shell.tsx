@@ -80,8 +80,15 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     profile?.language && isLocale(profile.language) ? profile.language : defaultLocale;
   const messages = await getMessages(locale);
 
-  // Resolve tenant theme mode (defaults to "dark" for backwards compat)
+  // Resolve tenant theme mode (defaults to "dark" for backwards compat).
+  // When the tenant locks the theme, it is forced for every user — the
+  // user-facing toggle is hidden and local overrides are ignored.
+  // ("system" can't be a forcedTheme, so a locked system theme just
+  // follows the OS for everyone.)
   const themeMode = tenant.branding?.themeMode ?? "dark";
+  const themeLocked = tenant.branding?.themeLocked ?? false;
+  const forcedTheme =
+    themeLocked && themeMode !== "system" ? themeMode : undefined;
 
   // Build branding object for TenantThemeProvider
   const branding: TenantBranding | null = tenant.branding
@@ -107,7 +114,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   const planFeatures = await getPlanFeatureMap();
 
   return (
-    <ThemeProvider defaultTheme={themeMode}>
+    <ThemeProvider defaultTheme={themeMode} forcedTheme={forcedTheme}>
       <TenantThemeProvider branding={branding}>
         <NextIntlClientProvider locale={locale} messages={messages}>
           <ConfirmProvider>
@@ -130,6 +137,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
                   userId={session.user.id}
                   tenantId={tenantId}
                   planFeatures={planFeatures}
+                  themeLocked={themeLocked}
                 />
                 <main className="flex-1 overflow-y-auto">{children}</main>
               </div>

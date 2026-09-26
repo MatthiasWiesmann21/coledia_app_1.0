@@ -8,11 +8,11 @@ import { Input } from "@coledia/ui/input";
 import { Label } from "@coledia/ui/label";
 import { Select } from "@coledia/ui/select";
 import { updatePost } from "@/lib/content-actions";
-import { saveTranslation } from "@/lib/translation-actions";
+import { saveTranslation, fillEmptyTranslations } from "@/lib/translation-actions";
 import { LanguageToggle } from "@/components/admin/language-toggle";
 import { UploadButton } from "@/components/upload-button";
 import { UserGroupMultiSelect } from "@/components/admin/usergroup-multiselect";
-import { defaultLocale, type Locale } from "@/i18n/config";
+import { defaultLocale, locales, type Locale } from "@/i18n/config";
 
 type PostData = {
   id: string;
@@ -88,6 +88,30 @@ export function PostEditor({
     }
   }
 
+  async function handleFillLanguages() {
+    const fieldValues = { title, description };
+    const res = await fillEmptyTranslations({
+      entityType: "post",
+      entityId: post.id,
+      fieldValues,
+      languages: [...locales],
+    });
+    if (res.filled > 0) {
+      setAllTranslations((prev) => {
+        const next = { ...prev };
+        for (const lang of locales) {
+          if (lang === defaultLocale || lang === activeLanguage) continue;
+          next[lang] = { ...next[lang] };
+          for (const [f, v] of Object.entries(fieldValues)) {
+            if (!next[lang][f] && v.trim()) next[lang][f] = v;
+          }
+        }
+        return next;
+      });
+    }
+    return res.filled;
+  }
+
   async function handleSave() {
     setSaving(true);
     setMsg(null);
@@ -147,6 +171,7 @@ export function PostEditor({
           activeLanguage={activeLanguage}
           onLanguageChange={handleLanguageChange}
           translatedLanguages={translatedLanguages}
+          onFillLanguages={handleFillLanguages}
           className="mb-4 border-b border-border pb-4"
         />
 
@@ -258,7 +283,7 @@ export function PostEditor({
 
       {msg && <p className="text-sm text-muted-foreground">{msg}</p>}
 
-      <Link href="/admin/posts" className="text-sm text-(--tenant-primary) hover:underline">
+      <Link href="/admin/posts" className="text-sm text-primary hover:underline">
         ← Back to posts
       </Link>
     </div>

@@ -48,7 +48,7 @@ export function CourseCatalog({
       {/* Search + filters */}
       <div className="flex flex-col gap-4">
         <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted-foreground)]" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search courses..."
             value={search}
@@ -63,8 +63,8 @@ export function CourseCatalog({
             onClick={() => setSelectedCategory(null)}
             className={`rounded-full px-3 py-1 text-sm transition ${
               !selectedCategory
-                ? "bg-[var(--tenant-primary)] text-white"
-                : "border border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                ? "bg-primary text-white"
+                : "border border-border text-muted-foreground hover:bg-muted"
             }`}
           >
             All
@@ -76,7 +76,7 @@ export function CourseCatalog({
               className={`rounded-full px-3 py-1 text-sm transition ${
                 selectedCategory === cat.id
                   ? "text-white"
-                  : "border border-[var(--border)] hover:bg-[var(--muted)]"
+                  : "border border-border hover:bg-muted"
               }`}
               style={
                 selectedCategory === cat.id
@@ -95,8 +95,8 @@ export function CourseCatalog({
             onClick={() => setSelectedStatus(null)}
             className={`rounded-full px-3 py-1 text-xs transition ${
               !selectedStatus
-                ? "bg-[var(--muted)] text-[var(--foreground)]"
-                : "text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                ? "bg-muted text-foreground"
+                : "text-muted-foreground hover:bg-muted"
             }`}
           >
             All statuses
@@ -109,8 +109,8 @@ export function CourseCatalog({
               }
               className={`rounded-full px-3 py-1 text-xs capitalize transition ${
                 selectedStatus === status
-                  ? "bg-[var(--tenant-primary)]/15 text-[var(--tenant-primary)]"
-                  : "text-[var(--muted-foreground)] hover:bg-[var(--muted)]"
+                  ? "bg-primary/15 text-primary"
+                  : "text-muted-foreground hover:bg-muted"
               }`}
             >
               {status}
@@ -121,7 +121,7 @@ export function CourseCatalog({
 
       {/* Course grid */}
       {filtered.length === 0 ? (
-        <p className="py-12 text-center text-sm text-[var(--muted-foreground)]">
+        <p className="py-12 text-center text-sm text-muted-foreground">
           No courses found. Try adjusting your filters.
         </p>
       ) : (
@@ -130,10 +130,10 @@ export function CourseCatalog({
             <Link
               key={c.id}
               href={`/courses/${c.id}`}
-              className="group overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] transition hover:border-[var(--tenant-primary)]/50 hover:shadow-lg"
+              className="group overflow-hidden rounded-xl border border-border bg-card transition hover:border-primary/50 hover:shadow-lg"
             >
               {/* Thumbnail */}
-              <div className="relative h-40 bg-[var(--muted)]">
+              <div className="relative h-40 bg-muted">
                 {c.thumbnailUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -143,12 +143,12 @@ export function CourseCatalog({
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center">
-                    <Layers className="h-10 w-10 text-[var(--muted-foreground)]" />
+                    <Layers className="h-10 w-10 text-muted-foreground" />
                   </div>
                 )}
                 {/* Special status badge */}
                 {c.specialStatus && (
-                  <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-[var(--tenant-primary)] px-2 py-0.5 text-xs capitalize text-white">
+                  <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-xs capitalize text-white">
                     <Star className="h-3 w-3" />
                     {c.specialStatus}
                   </div>
@@ -172,10 +172,10 @@ export function CourseCatalog({
                     {c.categoryName}
                   </span>
                 )}
-                <h3 className="font-semibold line-clamp-2 group-hover:text-[var(--tenant-primary)]">
+                <h3 className="font-semibold line-clamp-2 group-hover:text-primary">
                   {c.title}
                 </h3>
-                <div className="mt-2 flex items-center gap-3 text-xs text-[var(--muted-foreground)]">
+                <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
                   {c.level && (
                     <span className="capitalize">{c.level}</span>
                   )}

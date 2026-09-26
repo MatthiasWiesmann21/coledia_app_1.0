@@ -43,7 +43,6 @@ export async function sendEmail(message: EmailMessage): Promise<void> {
         `[email] SMTP_HOST not configured — email to ${message.to} ("${message.subject}") was not sent`,
       );
     } else {
-      // eslint-disable-next-line no-console
       console.log(
         `[email:stub] to=${message.to} subject="${message.subject}" (SMTP_HOST not set)`,
       );

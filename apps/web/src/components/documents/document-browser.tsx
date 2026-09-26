@@ -325,7 +325,7 @@ export function DocumentBrowser({ initialFolders, initialDocuments, isAdmin }: P
                       onClick={() => handleFolderClick(folder)}
                       className="flex w-full flex-col items-center gap-2"
                     >
-                      <Folder className="h-8 w-8 text-(--tenant-primary)" />
+                      <Folder className="h-8 w-8 text-primary" />
                       <span className="w-full truncate text-center text-sm font-medium">
                         {folder.name}
                       </span>
@@ -383,7 +383,7 @@ export function DocumentBrowser({ initialFolders, initialDocuments, isAdmin }: P
                 {filteredDocuments.map((doc) => (
                   <div
                     key={doc.id}
-                    className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-4 border-b border-border px-4 py-3 last:border-0 hover:bg-(--muted)/50"
+                    className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-4 border-b border-border px-4 py-3 last:border-0 hover:bg-muted/50"
                   >
                     <div className="flex items-center gap-3">
                       <span className="text-lg">{getFileIcon(doc.mimeType, doc.fileType)}</span>

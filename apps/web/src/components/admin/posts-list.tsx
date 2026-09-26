@@ -66,7 +66,7 @@ export function PostsList({ posts }: { posts: Post[] }) {
       {showCreate && (
         <form
           onSubmit={handleCreate}
-          className="flex items-end gap-3 rounded-lg border border-[var(--border)] bg-[var(--card)] p-4"
+          className="flex items-end gap-3 rounded-lg border border-border bg-card p-4"
         >
           <div className="flex flex-1 flex-col gap-1">
             <Label htmlFor="newTitle">Post Title</Label>
@@ -88,14 +88,14 @@ export function PostsList({ posts }: { posts: Post[] }) {
       )}
 
       {posts.length === 0 ? (
-        <p className="py-8 text-center text-sm text-[var(--muted-foreground)]">
+        <p className="py-8 text-center text-sm text-muted-foreground">
           No posts yet. Create one to share news with your community.
         </p>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-[var(--border)]">
+        <div className="overflow-hidden rounded-lg border border-border">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-[var(--border)] bg-[var(--muted)] text-left text-xs text-[var(--muted-foreground)]">
+              <tr className="border-b border-border bg-muted text-left text-xs text-muted-foreground">
                 <th className="px-4 py-3 font-medium">Title</th>
                 <th className="px-4 py-3 font-medium">Category</th>
                 <th className="px-4 py-3 font-medium">Status</th>
@@ -106,7 +106,7 @@ export function PostsList({ posts }: { posts: Post[] }) {
             </thead>
             <tbody>
               {posts.map((p) => (
-                <tr key={p.id} className="border-b border-[var(--border)] last:border-0">
+                <tr key={p.id} className="border-b border-border last:border-0">
                   <td className="px-4 py-3 text-sm font-medium">{p.title}</td>
                   <td className="px-4 py-3 text-sm">
                     {p.categoryName && (
@@ -133,19 +133,19 @@ export function PostsList({ posts }: { posts: Post[] }) {
                         Scheduled
                       </span>
                     ) : (
-                      <span className="flex items-center gap-1 text-sm text-[var(--muted-foreground)]">
+                      <span className="flex items-center gap-1 text-sm text-muted-foreground">
                         <Circle className="h-4 w-4" />
                         Draft
                       </span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-sm">
-                    <span className="flex items-center gap-1 text-[var(--muted-foreground)]">
+                    <span className="flex items-center gap-1 text-muted-foreground">
                       <MessageSquare className="h-3.5 w-3.5" />
                       {p.commentCount}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-sm text-[var(--muted-foreground)]">
+                  <td className="px-4 py-3 text-sm text-muted-foreground">
                     {new Date(p.createdAt).toLocaleDateString()}
                   </td>
                   <td className="px-4 py-3">

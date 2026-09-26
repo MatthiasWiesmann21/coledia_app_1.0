@@ -73,7 +73,7 @@ export function CoursesList({ courses }: { courses: Course[] }) {
       {showCreate && (
         <form
           onSubmit={handleCreate}
-          className="flex items-end gap-3 rounded-lg border border-[var(--border)] bg-[var(--card)] p-4"
+          className="flex items-end gap-3 rounded-lg border border-border bg-card p-4"
         >
           <div className="flex flex-1 flex-col gap-1">
             <Label htmlFor="newTitle">Course Title</Label>
@@ -99,7 +99,7 @@ export function CoursesList({ courses }: { courses: Course[] }) {
       )}
 
       {courses.length === 0 ? (
-        <p className="py-8 text-center text-sm text-[var(--muted-foreground)]">
+        <p className="py-8 text-center text-sm text-muted-foreground">
           No courses yet. Create one to get started.
         </p>
       ) : (
@@ -107,10 +107,10 @@ export function CoursesList({ courses }: { courses: Course[] }) {
           {courses.map((c) => (
             <div
               key={c.id}
-              className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)]"
+              className="overflow-hidden rounded-xl border border-border bg-card"
             >
               {/* Thumbnail */}
-              <div className="relative h-36 bg-[var(--muted)]">
+              <div className="relative h-36 bg-muted">
                 {c.thumbnailUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -120,7 +120,7 @@ export function CoursesList({ courses }: { courses: Course[] }) {
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center">
-                    <Layers className="h-8 w-8 text-[var(--muted-foreground)]" />
+                    <Layers className="h-8 w-8 text-muted-foreground" />
                   </div>
                 )}
                 {/* Status badge */}
@@ -131,7 +131,7 @@ export function CoursesList({ courses }: { courses: Course[] }) {
                       Published
                     </span>
                   ) : (
-                    <span className="flex items-center gap-1 rounded-full bg-[var(--muted)]/90 px-2 py-0.5 text-xs text-[var(--muted-foreground)]">
+                    <span className="flex items-center gap-1 rounded-full bg-muted/90 px-2 py-0.5 text-xs text-muted-foreground">
                       <Circle className="h-3 w-3" />
                       Draft
                     </span>
@@ -140,7 +140,7 @@ export function CoursesList({ courses }: { courses: Course[] }) {
                 {/* Special status badge */}
                 {c.specialStatus && (
                   <div className="absolute left-2 top-2">
-                    <span className="rounded-full bg-[var(--tenant-primary)] px-2 py-0.5 text-xs capitalize text-white">
+                    <span className="rounded-full bg-primary px-2 py-0.5 text-xs capitalize text-white">
                       {c.specialStatus}
                     </span>
                   </div>
@@ -163,7 +163,7 @@ export function CoursesList({ courses }: { courses: Course[] }) {
                     </span>
                   )}
                   {c.level && (
-                    <span className="rounded-full bg-[var(--muted)] px-2 py-0.5 text-xs capitalize text-[var(--muted-foreground)]">
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs capitalize text-muted-foreground">
                       {c.level}
                     </span>
                   )}
@@ -171,7 +171,7 @@ export function CoursesList({ courses }: { courses: Course[] }) {
                     {c.price ? `$${c.price}` : "Free"}
                   </span>
                 </div>
-                <div className="mt-3 flex items-center justify-between text-xs text-[var(--muted-foreground)]">
+                <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <Layers className="h-3.5 w-3.5" />
                     {c.chapterCount} chapters

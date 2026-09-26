@@ -36,15 +36,15 @@ export function TermsModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-lg rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-2xl">
+      <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-2xl">
         <h2 className="text-xl font-bold">Privacy Policy & Terms of Use</h2>
-        <p className="mt-2 text-sm text-[var(--muted-foreground)]">
+        <p className="mt-2 text-sm text-muted-foreground">
           Before you continue, please review and accept our Privacy Policy and
           Terms of Use. By clicking &quot;Accept&quot;, you agree to these terms.
         </p>
 
-        <div className="mt-4 max-h-48 overflow-y-auto rounded-lg border border-[var(--border)] p-4 text-sm text-[var(--muted-foreground)]">
-          <p className="mb-2 font-medium text-[var(--foreground)]">
+        <div className="mt-4 max-h-48 overflow-y-auto rounded-lg border border-border p-4 text-sm text-muted-foreground">
+          <p className="mb-2 font-medium text-foreground">
             Privacy Policy
           </p>
           <p className="mb-3">
@@ -53,7 +53,7 @@ export function TermsModal({
             and communication. Your profile information is visible to other
             members of your community.
           </p>
-          <p className="mb-2 font-medium text-[var(--foreground)]">
+          <p className="mb-2 font-medium text-foreground">
             Terms of Use
           </p>
           <p>

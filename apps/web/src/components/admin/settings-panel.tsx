@@ -14,6 +14,7 @@ import {
   deleteApiKey,
 } from "@/lib/admin-actions";
 import { useConfirm } from "@/components/confirm-provider";
+import { useTranslations } from "next-intl";
 
 type BrandingData = {
   logoLightUrl: string | null;
@@ -28,6 +29,7 @@ type BrandingData = {
   navBgColorDark: string | null;
   themePreset: string | null;
   themeMode: string | null;
+  themeLocked: boolean;
 };
 
 type ApiKeyData = {
@@ -54,6 +56,7 @@ export function SettingsPanel({
   apiKeys: ApiKeyData[];
   isOwner: boolean;
 }) {
+  const ts = useTranslations("settings");
   const [name, setName] = useState(tenant.name);
   const [savingTenant, setSavingTenant] = useState(false);
   const [tenantMsg, setTenantMsg] = useState<string | null>(null);
@@ -72,6 +75,7 @@ export function SettingsPanel({
     navBgColorDark: branding?.navBgColorDark ?? "",
     themePreset: branding?.themePreset ?? defaultPresetId,
     themeMode: branding?.themeMode ?? "dark",
+    themeLocked: branding?.themeLocked ?? false,
   });
   const [savingBranding, setSavingBranding] = useState(false);
   const [brandingMsg, setBrandingMsg] = useState<string | null>(null);
@@ -113,6 +117,7 @@ export function SettingsPanel({
         navBgColorDark: b.navBgColorDark || null,
         themePreset: b.themePreset,
         themeMode: b.themeMode,
+        themeLocked: b.themeLocked,
       });
       setBrandingMsg("Branding saved");
     } catch {
@@ -214,7 +219,7 @@ export function SettingsPanel({
         {/* Theme Preset */}
         <div className="mb-6">
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-semibold">Theme Preset</h3>
+            <h3 className="text-sm font-semibold">{ts("themePreset")}</h3>
             {!isOwner && (
               <span className="text-xs text-muted-foreground">Owner only</span>
             )}
@@ -230,7 +235,7 @@ export function SettingsPanel({
                   onClick={() => handlePresetSelect(preset.id)}
                   className={`flex flex-col gap-2 rounded-lg border p-3 text-left transition disabled:opacity-50 ${
                     isActive
-                      ? "border-(--tenant-primary) bg-(--tenant-primary)/10"
+                      ? "border-primary bg-primary/10"
                       : "border-border hover:bg-muted"
                   }`}
                 >
@@ -261,9 +266,9 @@ export function SettingsPanel({
         {/* Theme Mode */}
         <div className="mb-6">
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-semibold">Default Theme Mode</h3>
+            <h3 className="text-sm font-semibold">{ts("defaultThemeMode")}</h3>
             {!isOwner && (
-              <span className="text-xs text-muted-foreground">Owner only</span>
+              <span className="text-xs text-muted-foreground">{ts("ownerOnly")}</span>
             )}
           </div>
           <div className="flex flex-wrap gap-2">
@@ -278,7 +283,7 @@ export function SettingsPanel({
                   onClick={() => setB({ ...b, themeMode: mode.value })}
                   className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition disabled:opacity-50 ${
                     isActive
-                      ? "border-(--tenant-primary) bg-(--tenant-primary)/10"
+                      ? "border-primary bg-primary/10"
                       : "border-border hover:bg-muted"
                   }`}
                 >
@@ -288,8 +293,18 @@ export function SettingsPanel({
               );
             })}
           </div>
+          <label className="mt-3 flex items-center gap-3">
+            <input
+              type="checkbox"
+              checked={b.themeLocked}
+              disabled={!isOwner}
+              onChange={(e) => setB({ ...b, themeLocked: e.target.checked })}
+              className="h-4 w-4"
+            />
+            <span className="text-sm">{ts("fixTheme")}</span>
+          </label>
           <p className="mt-2 text-xs text-muted-foreground">
-            This sets the default theme for all users. Users can still switch between light and dark in their profile settings.
+            {b.themeLocked ? ts("themeLockedHint") : ts("themeUnlockedHint")}
           </p>
         </div>
 

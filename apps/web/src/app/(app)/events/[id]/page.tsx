@@ -4,7 +4,7 @@ import { getSession } from "@/lib/session";
 import { requireFeatureOrBack } from "@/lib/plan";
 import { notFound } from "next/navigation";
 import { EventDetail } from "@/components/events/event-detail";
-import { registerForEvent, toggleEventLike } from "@/lib/content-actions";
+import { registerForEvent, toggleEventLike, toggleEventFavourite } from "@/lib/content-actions";
 
 export default async function EventDetailPage({
   params,
@@ -47,10 +47,11 @@ export default async function EventDetailPage({
   // Check if user is registered
   let isRegistered = false;
   let userLike = null;
+  let userFav = null;
   let likeCount = 0;
 
   if (session) {
-    const [reg, like, likes] = await Promise.all([
+    const [reg, like, fav, likes] = await Promise.all([
       prisma.eventRegistration.findUnique({
         where: {
           userId_eventId: {
@@ -68,12 +69,22 @@ export default async function EventDetailPage({
           },
         },
       }),
+      prisma.favourite.findUnique({
+        where: {
+          userId_targetType_targetId: {
+            userId: session.user.id,
+            targetType: "event",
+            targetId: event.id,
+          },
+        },
+      }),
       prisma.like.count({
         where: { tenantId, targetType: "event", targetId: event.id },
       }),
     ]);
     isRegistered = !!reg;
     userLike = like;
+    userFav = fav;
     likeCount = likes;
   }
 
@@ -99,9 +110,11 @@ export default async function EventDetailPage({
         isRegistered={isRegistered}
         liked={!!userLike}
         likeCount={likeCount}
+        favourited={!!userFav}
         isLoggedIn={!!session}
         registerAction={registerForEvent}
         likeAction={toggleEventLike}
+        favouriteAction={toggleEventFavourite}
       />
     </div>
   );

@@ -8,9 +8,9 @@ import { Input } from "@coledia/ui/input";
 import { Label } from "@coledia/ui/label";
 import { Select } from "@coledia/ui/select";
 import { updateChapter } from "@/lib/course-actions";
-import { saveTranslation } from "@/lib/translation-actions";
+import { saveTranslation, fillEmptyTranslations } from "@/lib/translation-actions";
 import { LanguageToggle } from "@/components/admin/language-toggle";
-import { defaultLocale, type Locale } from "@/i18n/config";
+import { defaultLocale, locales, type Locale } from "@/i18n/config";
 
 type ChapterData = {
   id: string;
@@ -80,6 +80,30 @@ export function ChapterEditor({
     }
   }
 
+  async function handleFillLanguages() {
+    const fieldValues = { title, description };
+    const res = await fillEmptyTranslations({
+      entityType: "chapter",
+      entityId: chapter.id,
+      fieldValues,
+      languages: [...locales],
+    });
+    if (res.filled > 0) {
+      setAllTranslations((prev) => {
+        const next = { ...prev };
+        for (const lang of locales) {
+          if (lang === defaultLocale || lang === activeLanguage) continue;
+          next[lang] = { ...next[lang] };
+          for (const [f, v] of Object.entries(fieldValues)) {
+            if (!next[lang][f] && v.trim()) next[lang][f] = v;
+          }
+        }
+        return next;
+      });
+    }
+    return res.filled;
+  }
+
   async function handleSaveDetails() {
     setSaving(true);
     setMsg(null);
@@ -133,14 +157,15 @@ export function ChapterEditor({
   return (
     <div className="flex max-w-2xl flex-col gap-6">
       {/* Details */}
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+      <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="mb-4 text-lg font-semibold">Chapter Details</h2>
 
         <LanguageToggle
           activeLanguage={activeLanguage}
           onLanguageChange={handleLanguageChange}
           translatedLanguages={translatedLanguages}
-          className="mb-4 border-b border-[var(--border)] pb-4"
+          onFillLanguages={handleFillLanguages}
+          className="mb-4 border-b border-border pb-4"
         />
 
         <div className="flex flex-col gap-4">
@@ -160,7 +185,7 @@ export function ChapterEditor({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
-              className="flex w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm placeholder:text-[var(--muted-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+              className="flex w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               placeholder="What does this chapter cover?"
             />
           </div>
@@ -214,7 +239,7 @@ export function ChapterEditor({
       </section>
 
       {/* Video */}
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+      <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="mb-4 text-lg font-semibold">Video</h2>
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
@@ -246,7 +271,7 @@ export function ChapterEditor({
                     : "https://..."
               }
             />
-            <p className="text-xs text-[var(--muted-foreground)]">
+            <p className="text-xs text-muted-foreground">
               Paste the URL of your video. File upload coming soon.
             </p>
           </div>
@@ -263,9 +288,9 @@ export function ChapterEditor({
       </section>
 
       {/* Access Free */}
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+      <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="mb-2 text-lg font-semibold">Access Free</h2>
-        <p className="mb-4 text-sm text-[var(--muted-foreground)]">
+        <p className="mb-4 text-sm text-muted-foreground">
           If enabled, this chapter is accessible to all users, even if they
           haven&apos;t paid for the course. Useful as a teaser.
         </p>
@@ -289,9 +314,9 @@ export function ChapterEditor({
       </section>
 
       {/* Publish */}
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+      <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="mb-2 text-lg font-semibold">{tc("publish")}</h2>
-        <p className="mb-4 text-sm text-[var(--muted-foreground)]">
+        <p className="mb-4 text-sm text-muted-foreground">
           {published
             ? "This chapter is visible to users."
             : "This chapter is a draft and not visible to users."}
@@ -306,12 +331,12 @@ export function ChapterEditor({
       </section>
 
       {msg && (
-        <p className="text-sm text-[var(--muted-foreground)]">{msg}</p>
+        <p className="text-sm text-muted-foreground">{msg}</p>
       )}
 
       <Link
         href={`/admin/courses/${chapter.courseId}`}
-        className="text-sm text-[var(--tenant-primary)] hover:underline"
+        className="text-sm text-primary hover:underline"
       >
         ← Back to course
       </Link>

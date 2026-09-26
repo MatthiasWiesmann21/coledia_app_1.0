@@ -150,12 +150,12 @@ export function NotificationBell({
                   onClick={() => handleOpen(item)}
                   className={cn(
                     "flex w-full flex-col gap-0.5 border-b border-border px-3 py-2.5 text-left text-sm transition hover:bg-muted last:border-b-0",
-                    !item.read && "bg-(--tenant-primary)/5",
+                    !item.read && "bg-primary/5",
                   )}
                 >
                   <span className="flex items-center gap-2">
                     {!item.read && (
-                      <span className="h-2 w-2 shrink-0 rounded-full bg-(--tenant-primary)" />
+                      <span className="h-2 w-2 shrink-0 rounded-full bg-primary" />
                     )}
                     <span className={cn("flex-1 truncate", !item.read && "font-semibold")}>
                       {item.title}
@@ -178,7 +178,7 @@ export function NotificationBell({
           <Link
             href="/notifications"
             onClick={() => setOpen(false)}
-            className="block border-t border-border px-3 py-2 text-center text-xs font-medium text-(--tenant-primary) transition hover:bg-muted"
+            className="block border-t border-border px-3 py-2 text-center text-xs font-medium text-primary transition hover:bg-muted"
           >
             {t("viewAll")}
           </Link>

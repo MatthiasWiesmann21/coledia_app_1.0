@@ -153,9 +153,12 @@ export async function addCommentReply(postId: string, parentId: string, content:
   return { id: comment.id };
 }
 
-export async function getPostComments(postId: string) {
+export async function getPostComments(
+  postId: string,
+  opts?: { skip?: number; take?: number },
+) {
   const ctx = await requireVisiblePost(postId);
-  return buildCommentTree(ctx, { postId, tenantId: ctx.tenantId });
+  return buildCommentTree(ctx, { postId, tenantId: ctx.tenantId }, opts);
 }
 
 /** Delete a comment (and its replies). Allowed for the author or a tenant admin. */
@@ -197,6 +200,43 @@ export async function togglePostLike(postId: string) {
   const { tenantId, userId } = await requireVisiblePost(postId);
   await toggleLike(userId, tenantId, "post", postId);
   revalidatePath(`/news/${postId}`);
+}
+
+async function toggleFavourite(
+  userId: string,
+  tenantId: string,
+  targetType: string,
+  targetId: string,
+) {
+  const where = { userId_targetType_targetId: { userId, targetType, targetId } };
+  const existing = await prisma.favourite.findUnique({ where });
+  if (existing) await prisma.favourite.delete({ where: { id: existing.id } });
+  else await prisma.favourite.create({ data: { userId, tenantId, targetType, targetId } });
+}
+
+export async function togglePostFavourite(postId: string) {
+  const { tenantId, userId } = await requireVisiblePost(postId);
+  await toggleFavourite(userId, tenantId, "post", postId);
+  revalidatePath(`/news/${postId}`);
+  revalidatePath("/dashboard");
+}
+
+const FAVOURITE_TYPES = ["course", "chapter", "post", "event"] as const;
+
+/**
+ * Remove one of the current user's favourites. Only the favourite row itself
+ * needs to exist in this tenant — the target's current visibility does not
+ * matter, so users can clean up favourites whose content was unpublished.
+ */
+export async function removeFavourite(targetType: string, targetId: string) {
+  const { tenantId, userId } = await requireMember();
+  if (!(FAVOURITE_TYPES as readonly string[]).includes(targetType)) {
+    throw new Error("Invalid favourite type");
+  }
+  await prisma.favourite.deleteMany({
+    where: { userId, tenantId, targetType, targetId },
+  });
+  revalidatePath("/dashboard");
 }
 
 export async function toggleCommentLike(commentId: string, postId: string) {
@@ -377,4 +417,12 @@ export async function toggleEventLike(eventId: string) {
   const { tenantId, userId } = await requireVisibleEvent(eventId);
   await toggleLike(userId, tenantId, "event", eventId);
   revalidatePath(`/events/${eventId}`);
+}
+
+export async function toggleEventFavourite(eventId: string) {
+  if (!(await hasFeature("liveEvents"))) throw new Error("plan_required");
+  const { tenantId, userId } = await requireVisibleEvent(eventId);
+  await toggleFavourite(userId, tenantId, "event", eventId);
+  revalidatePath(`/events/${eventId}`);
+  revalidatePath("/dashboard");
 }

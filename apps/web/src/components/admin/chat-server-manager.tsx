@@ -391,7 +391,7 @@ export function ChatServerManager({
                             s.userGroupNames.map((name) => (
                               <span
                                 key={name}
-                                className="rounded-full bg-(--tenant-primary)/15 px-2 py-0.5 text-(--tenant-primary)"
+                                className="rounded-full bg-primary/15 px-2 py-0.5 text-primary"
                               >
                                 {name}
                               </span>
@@ -555,7 +555,7 @@ export function ChatServerManager({
                                           c.userGroupNames.map((name) => (
                                             <span
                                               key={name}
-                                              className="rounded-full bg-(--tenant-primary)/15 px-2 py-0.5 text-(--tenant-primary)"
+                                              className="rounded-full bg-primary/15 px-2 py-0.5 text-primary"
                                             >
                                               {name}
                                             </span>

@@ -37,7 +37,7 @@ export default function CompleteProfilePage() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1 text-center">
         <h1 className="text-2xl font-bold">Complete your profile</h1>
-        <p className="text-sm text-[var(--muted-foreground)]">
+        <p className="text-sm text-muted-foreground">
           Help others find you by filling out your profile
         </p>
       </div>
@@ -62,7 +62,7 @@ export default function CompleteProfilePage() {
             value={bio}
             onChange={(e) => setBio(e.target.value)}
             rows={4}
-            className="flex w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm placeholder:text-[var(--muted-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+            className="flex w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
 
@@ -79,7 +79,7 @@ export default function CompleteProfilePage() {
 
       <button
         onClick={handleSkip}
-        className="w-full text-center text-sm text-[var(--muted-foreground)] hover:underline"
+        className="w-full text-center text-sm text-muted-foreground hover:underline"
       >
         Skip for now
       </button>

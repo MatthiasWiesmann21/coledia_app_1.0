@@ -73,7 +73,7 @@ export function CategoriesList({ categories }: { categories: Category[] }) {
       {showCreate && (
         <form
           onSubmit={handleCreate}
-          className="flex items-end gap-3 rounded-lg border border-[var(--border)] bg-[var(--card)] p-4"
+          className="flex items-end gap-3 rounded-lg border border-border bg-card p-4"
         >
           <div className="flex flex-1 flex-col gap-1">
             <Label htmlFor="newName">Category Name</Label>
@@ -99,14 +99,14 @@ export function CategoriesList({ categories }: { categories: Category[] }) {
       )}
 
       {categories.length === 0 ? (
-        <p className="py-8 text-center text-sm text-[var(--muted-foreground)]">
+        <p className="py-8 text-center text-sm text-muted-foreground">
           No categories yet. Create one to get started.
         </p>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-[var(--border)]">
+        <div className="overflow-hidden rounded-lg border border-border">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-[var(--border)] bg-[var(--muted)] text-left text-xs text-[var(--muted-foreground)]">
+              <tr className="border-b border-border bg-muted text-left text-xs text-muted-foreground">
                 <th className="px-4 py-3 font-medium">Name</th>
                 <th className="px-4 py-3 font-medium">Types</th>
                 <th className="px-4 py-3 font-medium">Color</th>
@@ -118,13 +118,13 @@ export function CategoriesList({ categories }: { categories: Category[] }) {
               {categories.map((cat) => (
                 <tr
                   key={cat.id}
-                  className="border-b border-[var(--border)] last:border-0"
+                  className="border-b border-border last:border-0"
                 >
                   <td className="px-4 py-3 text-sm font-medium">{cat.name}</td>
                   <td className="px-4 py-3 text-sm">
                     <div className="flex gap-1">
                       {cat.isCourse && (
-                        <span className="rounded bg-[var(--tenant-primary)]/15 px-1.5 py-0.5 text-xs text-[var(--tenant-primary)]">
+                        <span className="rounded bg-primary/15 px-1.5 py-0.5 text-xs text-primary">
                           Course
                         </span>
                       )}
@@ -153,7 +153,7 @@ export function CategoriesList({ categories }: { categories: Category[] }) {
                         Published
                       </span>
                     ) : (
-                      <span className="flex items-center gap-1 text-sm text-[var(--muted-foreground)]">
+                      <span className="flex items-center gap-1 text-sm text-muted-foreground">
                         <Circle className="h-4 w-4" />
                         Draft
                       </span>

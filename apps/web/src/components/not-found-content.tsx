@@ -16,7 +16,7 @@ export function NotFoundContent({ fullScreen = false }: { fullScreen?: boolean }
       </div>
       <Link
         href="/dashboard"
-        className="rounded-lg bg-(--tenant-primary) px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
+        className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
       >
         Go to dashboard
       </Link>

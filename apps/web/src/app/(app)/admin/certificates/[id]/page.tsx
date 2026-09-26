@@ -60,7 +60,7 @@ export default async function CertificateTemplatePage({
       />
       <Link
         href="/admin/certificates"
-        className="mt-6 inline-block text-sm text-(--tenant-primary) hover:underline"
+        className="mt-6 inline-block text-sm text-primary hover:underline"
       >
         ← {t("backToTemplates")}
       </Link>

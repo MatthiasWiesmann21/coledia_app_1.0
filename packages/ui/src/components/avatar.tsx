@@ -29,7 +29,7 @@ const Avatar = React.forwardRef<HTMLDivElement, AvatarProps>(
             className="aspect-square h-full w-full object-cover"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-[var(--muted)] text-sm font-medium text-[var(--muted-foreground)]">
+          <div className="flex h-full w-full items-center justify-center bg-muted text-sm font-medium text-muted-foreground">
             {fallback?.slice(0, 2).toUpperCase()}
           </div>
         )}

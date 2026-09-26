@@ -109,7 +109,7 @@ export function BillingPanel({
             return (
               <div
                 key={key}
-                className={`flex flex-col rounded-lg border p-4 ${isCurrent ? "border-(--tenant-primary) bg-(--tenant-primary)/5" : "border-border bg-card"}`}
+                className={`flex flex-col rounded-lg border p-4 ${isCurrent ? "border-primary bg-primary/5" : "border-border bg-card"}`}
               >
                 <h3 className="text-sm font-semibold">{info.name}</h3>
                 <p className="mb-3 text-lg font-bold">{info.price}</p>
@@ -119,7 +119,7 @@ export function BillingPanel({
                   ))}
                 </ul>
                 {isCurrent ? (
-                  <span className="block rounded-md bg-(--tenant-primary)/10 py-1.5 text-center text-xs font-medium text-(--tenant-primary)">
+                  <span className="block rounded-md bg-primary/10 py-1.5 text-center text-xs font-medium text-primary">
                     Current plan
                   </span>
                 ) : (

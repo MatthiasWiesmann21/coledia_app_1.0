@@ -80,6 +80,9 @@ model Branding {
   // Design — theme preset + mode (owner-controlled)
   themePreset  String? @default("coledia") // coledia | ocean | forest | midnight | sunset | rose
   themeMode    String? // light | dark | system (null = dark fallback)
+  // When true, themeMode is forced for every user on this tenant and the
+  // user-facing theme toggle is hidden.
+  themeLocked  Boolean @default(false)
 
   // Design — auth page logos
   authLogoSignUpLight   String?

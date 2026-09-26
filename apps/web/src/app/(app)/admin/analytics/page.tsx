@@ -18,6 +18,9 @@ export default async function AdminAnalyticsPage() {
     categories,
     recentEnrollments,
     courseStats,
+    totalLikes,
+    totalFavourites,
+    totalComments,
   ] = await Promise.all([
     prisma.membership.count({ where: { tenantId } }),
     prisma.course.count({ where: { tenantId } }),
@@ -52,6 +55,9 @@ export default async function AdminAnalyticsPage() {
       orderBy: { createdAt: "desc" },
       take: 10,
     }),
+    prisma.like.count({ where: { tenantId } }),
+    prisma.favourite.count({ where: { tenantId } }),
+    prisma.comment.count({ where: { tenantId } }),
   ]);
 
   return (
@@ -67,6 +73,9 @@ export default async function AdminAnalyticsPage() {
           publishedCourses,
           publishedPosts,
           publishedEvents,
+          totalLikes,
+          totalFavourites,
+          totalComments,
         }}
         categories={categories.map((c) => ({
           name: c.name,

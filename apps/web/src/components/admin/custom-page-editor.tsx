@@ -122,7 +122,7 @@ export function CustomPageEditor({
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setPage((p) => ({ ...p, userGroupIds: [] }))}
-            className={`rounded px-2 py-1 text-xs transition ${page.userGroupIds.length === 0 ? "bg-(--tenant-primary) text-white" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+            className={`rounded px-2 py-1 text-xs transition ${page.userGroupIds.length === 0 ? "bg-primary text-white" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
           >
             All members
           </button>
@@ -130,7 +130,7 @@ export function CustomPageEditor({
             <button
               key={g.id}
               onClick={() => toggleGroup(g.id)}
-              className={`rounded px-2 py-1 text-xs transition ${page.userGroupIds.includes(g.id) ? "bg-(--tenant-primary) text-white" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
+              className={`rounded px-2 py-1 text-xs transition ${page.userGroupIds.includes(g.id) ? "bg-primary text-white" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
             >
               {g.name}
             </button>
@@ -144,7 +144,7 @@ export function CustomPageEditor({
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`px-3 py-1.5 text-sm uppercase transition ${tab === t ? "border-b-2 border-(--tenant-primary) font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            className={`px-3 py-1.5 text-sm uppercase transition ${tab === t ? "border-b-2 border-primary font-medium text-foreground" : "text-muted-foreground hover:text-foreground"}`}
           >
             {t}
           </button>

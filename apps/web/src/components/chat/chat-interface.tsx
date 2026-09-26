@@ -353,7 +353,7 @@ export function ChatInterface({
             onClick={() => setMode("channels")}
             className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-sm transition ${
               mode === "channels"
-                ? "bg-(--tenant-primary)/15 text-(--tenant-primary)"
+                ? "bg-primary/15 text-primary"
                 : "text-muted-foreground hover:bg-muted"
             }`}
           >
@@ -364,7 +364,7 @@ export function ChatInterface({
             onClick={() => setMode("dms")}
             className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-sm transition ${
               mode === "dms"
-                ? "bg-(--tenant-primary)/15 text-(--tenant-primary)"
+                ? "bg-primary/15 text-primary"
                 : "text-muted-foreground hover:bg-muted"
             }`}
           >
@@ -396,7 +396,7 @@ export function ChatInterface({
                           }}
                           className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition ${
                             activeChannelId === channel.id
-                              ? "bg-(--tenant-primary)/15 text-(--tenant-primary)"
+                              ? "bg-primary/15 text-primary"
                               : "text-muted-foreground hover:bg-muted"
                           }`}
                         >
@@ -428,7 +428,7 @@ export function ChatInterface({
                         }}
                         className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition ${
                           activeDMUserId === dm.otherUserId
-                            ? "bg-(--tenant-primary)/15 text-(--tenant-primary)"
+                            ? "bg-primary/15 text-primary"
                             : "text-muted-foreground hover:bg-muted"
                         }`}
                       >
@@ -441,7 +441,7 @@ export function ChatInterface({
                               className="h-6 w-6 rounded-full"
                             />
                           ) : (
-                            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-(--tenant-primary) text-xs font-medium text-white">
+                            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-medium text-white">
                               {dm.otherUserName.charAt(0).toUpperCase()}
                             </div>
                           )}
@@ -474,7 +474,7 @@ export function ChatInterface({
                         }}
                         className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition ${
                           activeDMUserId === m.userId
-                            ? "bg-(--tenant-primary)/15 text-(--tenant-primary)"
+                            ? "bg-primary/15 text-primary"
                             : "text-muted-foreground hover:bg-muted"
                         }`}
                       >
@@ -487,7 +487,7 @@ export function ChatInterface({
                               className="h-6 w-6 rounded-full"
                             />
                           ) : (
-                            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-(--tenant-primary) text-xs font-medium text-white">
+                            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-medium text-white">
                               {m.name.charAt(0).toUpperCase()}
                             </div>
                           )}
@@ -525,7 +525,7 @@ export function ChatInterface({
                     className="h-6 w-6 rounded-full"
                   />
                 ) : (
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-(--tenant-primary) text-xs font-medium text-white">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-medium text-white">
                     {(activeDM?.otherUserName ?? activeDMUser?.name ?? "?").charAt(0).toUpperCase()}
                   </div>
                 )}
@@ -576,15 +576,15 @@ export function ChatInterface({
                 return (
                   <li
                     key={msg.id}
-                    className="group relative flex gap-3 rounded-lg px-2 py-1 hover:bg-(--muted)/50"
+                    className="group relative flex gap-3 rounded-lg px-2 py-1 hover:bg-muted/50"
                   >
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-(--tenant-primary) text-sm font-medium text-white">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-medium text-white">
                       {msg.userName.charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0 flex-1">
                       {/* Reply quote */}
                       {msg.replyTo && (
-                        <div className="mb-1 flex items-center gap-1.5 border-l-2 border-(--tenant-primary)/40 pl-2 text-xs text-muted-foreground">
+                        <div className="mb-1 flex items-center gap-1.5 border-l-2 border-primary/40 pl-2 text-xs text-muted-foreground">
                           <Reply className="h-3 w-3 shrink-0" />
                           <span className="font-medium">
                             {msg.replyTo.userId === currentUserId
@@ -625,8 +625,8 @@ export function ChatInterface({
                                 onClick={() => handleReact(msg.id, emoji)}
                                 className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs transition ${
                                   hasMine
-                                    ? "bg-(--tenant-primary)/20 text-(--tenant-primary) ring-1 ring-(--tenant-primary)/30"
-                                    : "bg-muted text-muted-foreground hover:bg-(--muted)/70"
+                                    ? "bg-primary/20 text-primary ring-1 ring-primary/30"
+                                    : "bg-muted text-muted-foreground hover:bg-muted/70"
                                 }`}
                               >
                                 <span>{emoji}</span>
@@ -704,9 +704,9 @@ export function ChatInterface({
           {replyTo && (
             <div className="mb-2 flex items-center justify-between rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs">
               <div className="flex min-w-0 items-center gap-2">
-                <Reply className="h-3.5 w-3.5 shrink-0 text-(--tenant-primary)" />
+                <Reply className="h-3.5 w-3.5 shrink-0 text-primary" />
                 <div className="min-w-0">
-                  <span className="font-medium text-(--tenant-primary)">
+                  <span className="font-medium text-primary">
                     Replying to{" "}
                     {replyTo.userId === currentUserId ? "yourself" : replyTo.userName}
                   </span>
@@ -741,7 +741,7 @@ export function ChatInterface({
             <button
               type="submit"
               disabled={!input.trim() || (!activeChannelId && !activeDMUserId)}
-              className="flex h-10 w-10 items-center justify-center rounded-lg bg-(--tenant-primary) text-white transition hover:opacity-90 disabled:opacity-50"
+              className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-white transition hover:opacity-90 disabled:opacity-50"
             >
               <Send className="h-4 w-4" />
             </button>
@@ -780,7 +780,7 @@ export function ChatInterface({
                           className="h-6 w-6 rounded-full"
                         />
                       ) : (
-                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-(--tenant-primary) text-xs font-medium text-white">
+                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-medium text-white">
                           {m.name.charAt(0).toUpperCase()}
                         </div>
                       )}

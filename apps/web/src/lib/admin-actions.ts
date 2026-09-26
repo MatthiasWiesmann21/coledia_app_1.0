@@ -157,6 +157,7 @@ export async function updateBranding(data: {
   authLogoForgotDark?: string | null;
   themePreset?: string | null;
   themeMode?: string | null;
+  themeLocked?: boolean;
 }) {
   const { tenantId, membership } = await requireAdminAction();
 
@@ -183,12 +184,14 @@ export async function updateBranding(data: {
     }
   }
 
-  // Only owners can change theme preset or mode
+  // Only owners can change theme preset, mode or lock
   if (
-    (data.themePreset !== undefined || data.themeMode !== undefined) &&
+    (data.themePreset !== undefined ||
+      data.themeMode !== undefined ||
+      data.themeLocked !== undefined) &&
     membership.role !== "owner"
   ) {
-    throw new Error("Only owners can change the theme preset or mode");
+    throw new Error("Only owners can change the theme preset, mode or lock");
   }
 
   await prisma.branding.upsert({

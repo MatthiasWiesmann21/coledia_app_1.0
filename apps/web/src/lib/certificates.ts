@@ -284,6 +284,31 @@ export async function issueCertificateForCourse(
 }
 
 /**
+ * Whether the user has completed every published chapter AND passed every
+ * quiz of the course — the "course finished" condition (also used for
+ * certificates and the completion celebration).
+ */
+export async function isCourseComplete(
+  userId: string,
+  courseId: string,
+): Promise<boolean> {
+  const tenantId = getTenantId();
+  const [totalChapters, completedChapters, quizzes] = await Promise.all([
+    prisma.chapter.count({ where: { courseId, published: true, course: { tenantId } } }),
+    prisma.chapterProgress.count({
+      where: { userId, completed: true, chapter: { courseId, published: true } },
+    }),
+    prisma.quiz.findMany({
+      where: { chapter: { courseId, published: true } },
+      select: { attempts: { where: { userId, passed: true }, select: { id: true }, take: 1 } },
+    }),
+  ]);
+
+  if (totalChapters === 0 || completedChapters < totalChapters) return false;
+  return !quizzes.some((q) => q.attempts.length === 0);
+}
+
+/**
  * Issue the course certificate only when the user has completed every
  * published chapter AND passed every quiz of the course (published chapters).
  * Certificates are a plan feature (quizzesCertificates).
@@ -300,20 +325,7 @@ export async function maybeIssueCertificate(
     select: { id: true },
   });
   if (!course) return { issued: false };
-
-  const [totalChapters, completedChapters, quizzes] = await Promise.all([
-    prisma.chapter.count({ where: { courseId, published: true } }),
-    prisma.chapterProgress.count({
-      where: { userId, completed: true, chapter: { courseId, published: true } },
-    }),
-    prisma.quiz.findMany({
-      where: { chapter: { courseId, published: true } },
-      select: { attempts: { where: { userId, passed: true }, select: { id: true }, take: 1 } },
-    }),
-  ]);
-
-  if (totalChapters === 0 || completedChapters < totalChapters) return { issued: false };
-  if (quizzes.some((q) => q.attempts.length === 0)) return { issued: false };
+  if (!(await isCourseComplete(userId, courseId))) return { issued: false };
 
   return issueCertificateForCourse(userId, courseId);
 }

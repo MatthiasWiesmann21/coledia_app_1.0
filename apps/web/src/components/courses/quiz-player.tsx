@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@coledia/ui/button";
 import { CheckCircle2, XCircle, Award } from "lucide-react";
@@ -33,6 +34,7 @@ export function QuizPlayer({
   };
 }) {
   const t = useTranslations("quiz");
+  const router = useRouter();
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [result, setResult] = useState<{ score: number; passed: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -55,6 +57,9 @@ export function QuizPlayer({
       try {
         const res = await submitQuizAttempt(quiz.id, answers);
         setResult({ score: res.score, passed: res.passed });
+        // A pass may complete the course — refresh so the chapter view can
+        // re-evaluate completion (celebration, Finish button, certificate).
+        if (res.passed) router.refresh();
         if (!res.alreadyPassed) {
           setAttempts((prev) => [
             {
@@ -87,7 +92,7 @@ export function QuizPlayer({
               {t("passedDetail", { score: attempts[0]?.score ?? 0 })}
             </p>
           </div>
-          <Award className="ml-auto h-5 w-5 text-(--tenant-primary)" />
+          <Award className="ml-auto h-5 w-5 text-primary" />
         </div>
       </section>
     );

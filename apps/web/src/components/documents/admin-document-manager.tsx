@@ -357,10 +357,10 @@ export function AdminDocumentManager() {
     >
       {/* Drag & drop overlay */}
       {dragOver && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-(--tenant-primary)/10 backdrop-blur-sm">
-          <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-(--tenant-primary) bg-card p-8">
-            <Upload className="h-12 w-12 text-(--tenant-primary)" />
-            <p className="text-lg font-medium text-(--tenant-primary)">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-primary/10 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-primary bg-card p-8">
+            <Upload className="h-12 w-12 text-primary" />
+            <p className="text-lg font-medium text-primary">
               Drop files to upload
             </p>
           </div>
@@ -481,7 +481,7 @@ export function AdminDocumentManager() {
                         className={cn(
                           "h-8 w-8",
                           folder.visible
-                            ? "text-(--tenant-primary)"
+                            ? "text-primary"
                             : "text-muted-foreground",
                         )}
                       />
@@ -555,7 +555,7 @@ export function AdminDocumentManager() {
                 {filteredDocuments.map((doc) => (
                   <div
                     key={doc.id}
-                    className="group grid grid-cols-[1fr_auto_auto_auto] items-center gap-4 border-b border-border px-4 py-3 last:border-0 hover:bg-(--muted)/50"
+                    className="group grid grid-cols-[1fr_auto_auto_auto] items-center gap-4 border-b border-border px-4 py-3 last:border-0 hover:bg-muted/50"
                   >
                     <div className="flex items-center gap-3">
                       <span className="text-lg">
@@ -716,7 +716,7 @@ export function AdminDocumentManager() {
                   onClick={() => setSettingsVisible(!settingsVisible)}
                   className={cn(
                     "relative h-6 w-11 rounded-full transition",
-                    settingsVisible ? "bg-(--tenant-primary)" : "bg-muted",
+                    settingsVisible ? "bg-primary" : "bg-muted",
                   )}
                 >
                   <span
@@ -733,7 +733,7 @@ export function AdminDocumentManager() {
                   onClick={() => setSettingsPublished(!settingsPublished)}
                   className={cn(
                     "relative h-6 w-11 rounded-full transition",
-                    settingsPublished ? "bg-(--tenant-primary)" : "bg-muted",
+                    settingsPublished ? "bg-primary" : "bg-muted",
                   )}
                 >
                   <span
@@ -781,7 +781,7 @@ export function AdminDocumentManager() {
                   onClick={() => setSettingsDocVisible(!settingsDocVisible)}
                   className={cn(
                     "relative h-6 w-11 rounded-full transition",
-                    settingsDocVisible ? "bg-(--tenant-primary)" : "bg-muted",
+                    settingsDocVisible ? "bg-primary" : "bg-muted",
                   )}
                 >
                   <span
@@ -799,7 +799,7 @@ export function AdminDocumentManager() {
                   onClick={() => setSettingsDocPublished(!settingsDocPublished)}
                   className={cn(
                     "relative h-6 w-11 rounded-full transition",
-                    settingsDocPublished ? "bg-(--tenant-primary)" : "bg-muted",
+                    settingsDocPublished ? "bg-primary" : "bg-muted",
                   )}
                 >
                   <span

@@ -7,7 +7,11 @@ import {
   CalendarDays,
   GraduationCap,
   TrendingUp,
+  Heart,
+  Bookmark,
+  MessageSquare,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 type Stats = {
   totalUsers: number;
@@ -18,6 +22,9 @@ type Stats = {
   publishedCourses: number;
   publishedPosts: number;
   publishedEvents: number;
+  totalLikes: number;
+  totalFavourites: number;
+  totalComments: number;
 };
 
 type Category = {
@@ -55,64 +62,78 @@ export function AnalyticsDashboard({
   recentEnrollments: RecentEnrollment[];
   courseStats: CourseStat[];
 }) {
+  const t = useTranslations("adminStats");
   return (
     <div className="flex flex-col gap-6">
       {/* Overview stats */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
           icon={Users}
-          label="Total Users"
+          label={t("totalUsers")}
           value={stats.totalUsers}
           color="#1f78b4"
         />
         <StatCard
           icon={BookOpen}
-          label="Total Courses"
+          label={t("totalCourses")}
           value={stats.totalCourses}
-          sublabel={`${stats.publishedCourses} published`}
+          sublabel={t("publishedCount", { count: stats.publishedCourses })}
           color="#008080"
         />
         <StatCard
           icon={Newspaper}
-          label="Total Posts"
+          label={t("totalPosts")}
           value={stats.totalPosts}
-          sublabel={`${stats.publishedPosts} published`}
+          sublabel={t("publishedCount", { count: stats.publishedPosts })}
           color="#e6550d"
         />
         <StatCard
           icon={CalendarDays}
-          label="Total Events"
+          label={t("totalEvents")}
           value={stats.totalEvents}
-          sublabel={`${stats.publishedEvents} published`}
+          sublabel={t("publishedCount", { count: stats.publishedEvents })}
           color="#756bb1"
         />
       </div>
 
-      {/* Enrollment stat */}
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-green-500/15">
-            <GraduationCap className="h-6 w-6 text-green-500" />
-          </div>
-          <div>
-            <p className="text-3xl font-bold">{stats.totalEnrollments}</p>
-            <p className="text-sm text-[var(--muted-foreground)]">
-              Total Course Enrollments
-            </p>
-          </div>
-        </div>
+      {/* Engagement stats */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard
+          icon={GraduationCap}
+          label={t("totalEnrollments")}
+          value={stats.totalEnrollments}
+          color="#31a354"
+        />
+        <StatCard
+          icon={Heart}
+          label={t("likes")}
+          value={stats.totalLikes}
+          color="#dc2626"
+        />
+        <StatCard
+          icon={Bookmark}
+          label={t("saves")}
+          value={stats.totalFavourites}
+          color="#756bb1"
+        />
+        <StatCard
+          icon={MessageSquare}
+          label={t("comments")}
+          value={stats.totalComments}
+          color="#e6550d"
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Category distribution */}
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+        <div className="rounded-xl border border-border bg-card p-6">
           <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
             <TrendingUp className="h-5 w-5" />
-            Category Distribution
+            {t("categoryDistribution")}
           </h2>
           {categories.length === 0 ? (
-            <p className="py-4 text-center text-sm text-[var(--muted-foreground)]">
-              No categories yet.
+            <p className="py-4 text-center text-sm text-muted-foreground">
+              {t("noCategories")}
             </p>
           ) : (
             <ul className="flex flex-col gap-3">
@@ -127,18 +148,18 @@ export function AnalyticsDashboard({
                     <span className="flex-1 text-sm font-medium">{cat.name}</span>
                     <div className="flex gap-2 text-xs">
                       {cat.courses > 0 && (
-                        <span className="rounded bg-[var(--muted)] px-1.5 py-0.5">
-                          {cat.courses} courses
+                        <span className="rounded bg-muted px-1.5 py-0.5">
+                          {t("coursesCount", { count: cat.courses })}
                         </span>
                       )}
                       {cat.posts > 0 && (
-                        <span className="rounded bg-[var(--muted)] px-1.5 py-0.5">
-                          {cat.posts} posts
+                        <span className="rounded bg-muted px-1.5 py-0.5">
+                          {t("postsCount", { count: cat.posts })}
                         </span>
                       )}
                       {cat.events > 0 && (
-                        <span className="rounded bg-[var(--muted)] px-1.5 py-0.5">
-                          {cat.events} events
+                        <span className="rounded bg-muted px-1.5 py-0.5">
+                          {t("eventsCount", { count: cat.events })}
                         </span>
                       )}
                     </div>
@@ -151,11 +172,11 @@ export function AnalyticsDashboard({
         </div>
 
         {/* Top courses by enrollment */}
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
-          <h2 className="mb-4 text-lg font-semibold">Courses by Enrollment</h2>
+        <div className="rounded-xl border border-border bg-card p-6">
+          <h2 className="mb-4 text-lg font-semibold">{t("coursesByEnrollment")}</h2>
           {courseStats.length === 0 ? (
-            <p className="py-4 text-center text-sm text-[var(--muted-foreground)]">
-              No courses yet.
+            <p className="py-4 text-center text-sm text-muted-foreground">
+              {t("noCourses")}
             </p>
           ) : (
             <ul className="flex flex-col gap-2">
@@ -165,15 +186,15 @@ export function AnalyticsDashboard({
                 .map((c, i) => (
                   <li
                     key={c.id}
-                    className="flex items-center gap-3 rounded-lg border border-[var(--border)] px-3 py-2"
+                    className="flex items-center gap-3 rounded-lg border border-border px-3 py-2"
                   >
-                    <span className="text-sm font-bold text-[var(--muted-foreground)]">
+                    <span className="text-sm font-bold text-muted-foreground">
                       #{i + 1}
                     </span>
                     <div className="flex-1">
                       <p className="text-sm font-medium line-clamp-1">{c.title}</p>
-                      <p className="text-xs text-[var(--muted-foreground)]">
-                        {c.chapters} chapters · {c.published ? "Published" : "Draft"}
+                      <p className="text-xs text-muted-foreground">
+                        {t("chaptersCount", { count: c.chapters })} · {c.published ? t("publishedLabel") : t("draftLabel")}
                       </p>
                     </div>
                     <span className="text-sm font-bold">{c.enrollments}</span>
@@ -185,43 +206,43 @@ export function AnalyticsDashboard({
       </div>
 
       {/* Recent enrollments */}
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
-        <h2 className="mb-4 text-lg font-semibold">Recent Enrollments</h2>
+      <div className="rounded-xl border border-border bg-card p-6">
+        <h2 className="mb-4 text-lg font-semibold">{t("recentEnrollments")}</h2>
         {recentEnrollments.length === 0 ? (
-          <p className="py-4 text-center text-sm text-[var(--muted-foreground)]">
-            No enrollments yet.
+          <p className="py-4 text-center text-sm text-muted-foreground">
+            {t("noEnrollments")}
           </p>
         ) : (
           <table className="w-full">
             <thead>
-              <tr className="border-b border-[var(--border)] text-left text-xs text-[var(--muted-foreground)]">
-                <th className="pb-2 font-medium">User</th>
-                <th className="pb-2 font-medium">Course</th>
-                <th className="pb-2 font-medium">Progress</th>
-                <th className="pb-2 font-medium">Date</th>
+              <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                <th className="pb-2 font-medium">{t("user")}</th>
+                <th className="pb-2 font-medium">{t("course")}</th>
+                <th className="pb-2 font-medium">{t("progress")}</th>
+                <th className="pb-2 font-medium">{t("date")}</th>
               </tr>
             </thead>
             <tbody>
               {recentEnrollments.map((e) => (
-                <tr key={e.id} className="border-b border-[var(--border)] last:border-0">
+                <tr key={e.id} className="border-b border-border last:border-0">
                   <td className="py-3 text-sm font-medium">{e.userName}</td>
-                  <td className="py-3 text-sm text-[var(--muted-foreground)]">
+                  <td className="py-3 text-sm text-muted-foreground">
                     {e.courseTitle}
                   </td>
                   <td className="py-3">
                     <div className="flex items-center gap-2">
-                      <div className="h-2 w-20 overflow-hidden rounded-full bg-[var(--muted)]">
+                      <div className="h-2 w-20 overflow-hidden rounded-full bg-muted">
                         <div
                           className="h-full progress-brand"
                           style={{ width: `${e.progress}%` }}
                         />
                       </div>
-                      <span className="text-xs text-[var(--muted-foreground)]">
+                      <span className="text-xs text-muted-foreground">
                         {e.progress}%
                       </span>
                     </div>
                   </td>
-                  <td className="py-3 text-sm text-[var(--muted-foreground)]">
+                  <td className="py-3 text-sm text-muted-foreground">
                     {new Date(e.enrolledAt).toLocaleDateString()}
                   </td>
                 </tr>
@@ -248,7 +269,7 @@ function StatCard({
   color: string;
 }) {
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-5">
+    <div className="rounded-xl border border-border bg-card p-5">
       <div
         className="flex h-10 w-10 items-center justify-center rounded-lg"
         style={{ backgroundColor: `${color}20` }}
@@ -256,9 +277,9 @@ function StatCard({
         <Icon className="h-5 w-5" style={{ color }} />
       </div>
       <p className="mt-3 text-2xl font-bold">{value}</p>
-      <p className="text-sm text-[var(--muted-foreground)]">{label}</p>
+      <p className="text-sm text-muted-foreground">{label}</p>
       {sublabel && (
-        <p className="text-xs text-[var(--muted-foreground)]">{sublabel}</p>
+        <p className="text-xs text-muted-foreground">{sublabel}</p>
       )}
     </div>
   );

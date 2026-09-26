@@ -77,7 +77,7 @@ export function UserGroupEditor({
   return (
     <div className="flex max-w-2xl flex-col gap-6">
       {/* Name */}
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+      <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="mb-4 text-lg font-semibold">Usergroup Name</h2>
         <div className="flex items-end gap-3">
           <div className="flex flex-1 flex-col gap-2">
@@ -95,7 +95,7 @@ export function UserGroupEditor({
       </section>
 
       {/* Members */}
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
+      <section className="rounded-xl border border-border bg-card p-6">
         <h2 className="mb-4 text-lg font-semibold">Members ({group.members.length})</h2>
 
         {/* Add member */}
@@ -123,7 +123,7 @@ export function UserGroupEditor({
 
         {/* Member list */}
         {group.members.length === 0 ? (
-          <p className="py-4 text-center text-sm text-[var(--muted-foreground)]">
+          <p className="py-4 text-center text-sm text-muted-foreground">
             No members in this group yet.
           </p>
         ) : (
@@ -131,12 +131,12 @@ export function UserGroupEditor({
             {group.members.map((m) => (
               <li
                 key={m.userId}
-                className="flex items-center justify-between rounded-lg border border-[var(--border)] px-3 py-2"
+                className="flex items-center justify-between rounded-lg border border-border px-3 py-2"
               >
                 <span className="text-sm">
                   {m.name}
                   {m.username ? (
-                    <span className="ml-1 text-[var(--muted-foreground)]">
+                    <span className="ml-1 text-muted-foreground">
                       @{m.username}
                     </span>
                   ) : null}
@@ -156,12 +156,12 @@ export function UserGroupEditor({
       </section>
 
       {msg && (
-        <p className="text-sm text-[var(--muted-foreground)]">{msg}</p>
+        <p className="text-sm text-muted-foreground">{msg}</p>
       )}
 
       <Link
         href="/admin/usergroups"
-        className="text-sm text-[var(--tenant-primary)] hover:underline"
+        className="text-sm text-primary hover:underline"
       >
         ← Back to usergroups
       </Link>

@@ -28,14 +28,14 @@ function Toggle({
       onClick={() => onChange(!checked)}
       className={cn(
         "relative h-6 w-11 rounded-full transition",
-        checked ? "bg-(--tenant-primary)" : "bg-muted",
+        checked ? "bg-primary" : "bg-muted",
         disabled && "cursor-not-allowed opacity-50",
       )}
     >
       <span
         className={cn(
-          "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
-          checked ? "translate-x-5.5" : "translate-x-0.5",
+          "absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
+          checked && "translate-x-5",
         )}
       />
     </button>
@@ -63,9 +63,21 @@ export function NotificationPreferences({
   }
 
   function handleChange(type: string, channel: string, enabled: boolean) {
-    setPrefs((prev) => ({ ...prev, [`${type}:${channel}`]: enabled }));
+    const key = `${type}:${channel}`;
+    const prev = prefs[key];
+    setPrefs((p) => ({ ...p, [key]: enabled }));
     startTransition(async () => {
-      await setNotificationPreference(type, channel, enabled);
+      try {
+        await setNotificationPreference(type, channel, enabled);
+      } catch {
+        // Revert optimistic update so the toggle doesn't lie about state
+        setPrefs((p) => {
+          const next = { ...p };
+          if (prev === undefined) delete next[key];
+          else next[key] = prev;
+          return next;
+        });
+      }
     });
   }
 

@@ -29,10 +29,10 @@ export default async function AdminUsersPage() {
     <div className="p-6">
       <h1 className="mb-2 text-2xl font-bold">Users</h1>
       <div className="mb-6 flex items-center gap-3 text-sm">
-        <span className="flex items-center gap-1.5 text-[var(--muted-foreground)]">
+        <span className="flex items-center gap-1.5 text-muted-foreground">
           <Users className="h-4 w-4" />
           <span>
-            <span className="font-medium text-[var(--foreground)]">
+            <span className="font-medium text-foreground">
               {memberCount}
             </span>
             {" / "}

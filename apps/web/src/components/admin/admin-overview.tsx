@@ -87,20 +87,20 @@ export function AdminOverview({
       </div>
 
       {/* Enrollments banner */}
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-5">
+      <div className="rounded-xl border border-border bg-card p-5">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-green-500/15">
             <GraduationCap className="h-6 w-6 text-green-500" />
           </div>
           <div className="flex-1">
             <p className="text-3xl font-bold">{stats.totalEnrollments}</p>
-            <p className="text-sm text-[var(--muted-foreground)]">
+            <p className="text-sm text-muted-foreground">
               Total Course Enrollments
             </p>
           </div>
           <Link
             href="/admin/analytics"
-            className="flex items-center gap-1 text-sm text-[var(--tenant-primary)] hover:underline"
+            className="flex items-center gap-1 text-sm text-primary hover:underline"
           >
             View analytics <ArrowRight className="h-3.5 w-3.5" />
           </Link>
@@ -214,7 +214,7 @@ function StatCard({
   return (
     <Link
       href={href}
-      className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 transition hover:border-[var(--tenant-primary)]/50 hover:shadow-md"
+      className="rounded-xl border border-border bg-card p-5 transition hover:border-primary/50 hover:shadow-md"
     >
       <div
         className="flex h-10 w-10 items-center justify-center rounded-lg"
@@ -223,9 +223,9 @@ function StatCard({
         <Icon className="h-5 w-5" style={{ color }} />
       </div>
       <p className="mt-3 text-2xl font-bold">{value}</p>
-      <p className="text-sm text-[var(--muted-foreground)]">{label}</p>
+      <p className="text-sm text-muted-foreground">{label}</p>
       {sublabel && (
-        <p className="text-xs text-[var(--muted-foreground)]">{sublabel}</p>
+        <p className="text-xs text-muted-foreground">{sublabel}</p>
       )}
     </Link>
   );
@@ -245,7 +245,7 @@ function QuickAction({
   return (
     <Link
       href={href}
-      className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 transition hover:border-[var(--tenant-primary)]/50 hover:shadow-md"
+      className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition hover:border-primary/50 hover:shadow-md"
     >
       <div
         className="flex h-10 w-10 items-center justify-center rounded-lg"
@@ -254,7 +254,7 @@ function QuickAction({
         <Icon className="h-5 w-5" style={{ color }} />
       </div>
       <span className="font-medium">{label}</span>
-      <ArrowRight className="ml-auto h-4 w-4 text-[var(--muted-foreground)]" />
+      <ArrowRight className="ml-auto h-4 w-4 text-muted-foreground" />
     </Link>
   );
 }
@@ -275,18 +275,18 @@ function RecentList({
   viewAllHref: string;
 }) {
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-5">
+    <div className="rounded-xl border border-border bg-card p-5">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-sm font-semibold">{title}</h2>
         <Link
           href={viewAllHref}
-          className="text-xs text-[var(--tenant-primary)] hover:underline"
+          className="text-xs text-primary hover:underline"
         >
           View all
         </Link>
       </div>
       {items.length === 0 ? (
-        <p className="py-4 text-center text-xs text-[var(--muted-foreground)]">
+        <p className="py-4 text-center text-xs text-muted-foreground">
           Nothing yet.
         </p>
       ) : (
@@ -295,16 +295,16 @@ function RecentList({
             <li key={item.id}>
               <Link
                 href={item.href}
-                className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition hover:bg-[var(--muted)]"
+                className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition hover:bg-muted"
               >
                 <span
                   className={`h-2 w-2 shrink-0 rounded-full ${
-                    item.published ? "bg-green-500" : "bg-[var(--muted-foreground)]"
+                    item.published ? "bg-green-500" : "bg-muted-foreground"
                   }`}
                 />
                 <div className="flex-1 overflow-hidden">
                   <p className="truncate text-sm font-medium">{item.title}</p>
-                  <p className="text-xs text-[var(--muted-foreground)]">
+                  <p className="text-xs text-muted-foreground">
                     {item.subtitle}
                   </p>
                 </div>
@@ -329,9 +329,9 @@ function AdminLink({
   return (
     <Link
       href={href}
-      className="flex flex-col items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 transition hover:border-[var(--tenant-primary)]/50 hover:shadow-md"
+      className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card p-4 transition hover:border-primary/50 hover:shadow-md"
     >
-      <Icon className="h-5 w-5 text-[var(--muted-foreground)]" />
+      <Icon className="h-5 w-5 text-muted-foreground" />
       <span className="text-xs font-medium">{label}</span>
     </Link>
   );

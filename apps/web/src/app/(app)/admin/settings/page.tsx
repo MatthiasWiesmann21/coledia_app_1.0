@@ -52,6 +52,7 @@ export default async function AdminSettingsPage() {
               navBgColorDark: tenant.branding.navBgColorDark,
               themePreset: tenant.branding.themePreset,
               themeMode: tenant.branding.themeMode,
+              themeLocked: tenant.branding.themeLocked,
             }
           : null}
         apiKeys={apiKeys.map((k) => ({

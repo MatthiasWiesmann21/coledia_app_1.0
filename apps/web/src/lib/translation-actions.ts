@@ -3,6 +3,7 @@
 import { prisma } from "@coledia/db";
 import { getSession } from "./session";
 import { getTenantId } from "./tenant";
+import { defaultLocale } from "@/i18n/config";
 
 async function requireAdmin() {
   const session = await getSession();
@@ -148,6 +149,93 @@ export async function saveTranslations(data: {
       },
     });
   }
+}
+
+const TRANSLATABLE_ENTITY_TYPES = ["course", "chapter", "post", "event", "category"] as const;
+
+/** Verify the referenced entity exists in the current tenant. */
+async function assertTranslatableEntity(
+  entityType: string,
+  entityId: string,
+  tenantId: string,
+) {
+  const found = await (async () => {
+    switch (entityType) {
+      case "course":
+        return prisma.course.findFirst({ where: { id: entityId, tenantId }, select: { id: true } });
+      case "chapter":
+        return prisma.chapter.findFirst({ where: { id: entityId, course: { tenantId } }, select: { id: true } });
+      case "post":
+        return prisma.post.findFirst({ where: { id: entityId, tenantId }, select: { id: true } });
+      case "event":
+        return prisma.event.findFirst({ where: { id: entityId, tenantId }, select: { id: true } });
+      case "category":
+        return prisma.category.findFirst({ where: { id: entityId, tenantId }, select: { id: true } });
+      default:
+        return null;
+    }
+  })();
+  if (!found) throw new Error("Entity not found");
+}
+
+/**
+ * Copy the given field values into every language that has no translation
+ * yet ("fill empty languages" button in admin editors). Existing
+ * translations are never overwritten. The default locale is skipped — its
+ * values live on the entity itself.
+ */
+export async function fillEmptyTranslations(data: {
+  entityType: string;
+  entityId: string;
+  fieldValues: Record<string, string>;
+  languages: string[];
+}) {
+  const { tenantId } = await requireAdmin();
+  if (!(TRANSLATABLE_ENTITY_TYPES as readonly string[]).includes(data.entityType)) {
+    throw new Error("Invalid entity type");
+  }
+  await assertTranslatableEntity(data.entityType, data.entityId, tenantId);
+
+  const fields = Object.keys(data.fieldValues);
+  if (fields.length === 0) return { filled: 0 };
+
+  const existing = await prisma.translation.findMany({
+    where: {
+      entityType: data.entityType,
+      entityId: data.entityId,
+      tenantId,
+      field: { in: fields },
+    },
+    select: { field: true, language: true },
+  });
+  const taken = new Set(existing.map((t) => `${t.field}:${t.language}`));
+
+  const rows: {
+    tenantId: string;
+    entityType: string;
+    entityId: string;
+    field: string;
+    language: string;
+    value: string;
+  }[] = [];
+  for (const language of data.languages) {
+    if (language === defaultLocale) continue;
+    for (const [field, value] of Object.entries(data.fieldValues)) {
+      const trimmed = value.trim();
+      if (!trimmed || taken.has(`${field}:${language}`)) continue;
+      rows.push({
+        tenantId,
+        entityType: data.entityType,
+        entityId: data.entityId,
+        field,
+        language,
+        value: trimmed,
+      });
+    }
+  }
+
+  if (rows.length > 0) await prisma.translation.createMany({ data: rows });
+  return { filled: rows.length };
 }
 
 /**

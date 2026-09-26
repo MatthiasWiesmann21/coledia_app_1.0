@@ -49,7 +49,7 @@ export default async function AdminPage() {
   return (
     <div className="p-6">
       <h1 className="mb-2 text-2xl font-bold">Admin Dashboard</h1>
-      <p className="mb-6 text-sm text-[var(--muted-foreground)]">
+      <p className="mb-6 text-sm text-muted-foreground">
         Manage your platform content and users
       </p>
       <AdminOverview

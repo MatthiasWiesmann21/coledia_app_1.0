@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Heart, Send, ArrowLeft, Reply, MessageCircle, Trash2 } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { Heart, Send, ArrowLeft, Reply, MessageCircle, Trash2, Bookmark } from "lucide-react";
 import { Button } from "@coledia/ui/button";
 import { Input } from "@coledia/ui/input";
 import { useConfirm } from "@/components/confirm-provider";
@@ -33,10 +34,15 @@ type Comment = {
 
 type Actions = {
   toggleLike: (id: string) => Promise<any>;
+  toggleFavourite?: (id: string) => Promise<any>;
   addComment: (id: string, content: string) => Promise<any>;
   addReply: (postId: string, parentId: string, content: string) => Promise<any>;
   toggleCommentLike: (commentId: string, postId: string) => Promise<any>;
-  getComments: (postId: string) => Promise<Comment[]>;
+  getComments: (postId: string, opts?: { skip?: number; take?: number }) => Promise<{
+    comments: Comment[];
+    hasMore: boolean;
+    total: number;
+  }>;
   deleteComment?: (commentId: string) => Promise<any>;
 };
 
@@ -62,7 +68,7 @@ function Avatar({
   const [box, text] = size.split(" ");
   return (
     <div
-      className={`${box} shrink-0 items-center justify-center rounded-full bg-(--tenant-primary) ${text} font-medium text-white flex`}
+      className={`${box} shrink-0 items-center justify-center rounded-full bg-primary ${text} font-medium text-white flex`}
     >
       {name.charAt(0).toUpperCase()}
     </div>
@@ -93,13 +99,15 @@ function CommentItem({
   const [removed, setRemoved] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const confirm = useConfirm();
+  const tp = useTranslations("posts");
+  const tcm = useTranslations("common");
 
   async function handleDelete() {
     if (!actions.deleteComment) return;
     const ok = await confirm({
-      title: "Delete comment?",
-      description: "This also deletes all replies. This action cannot be undone.",
-      confirmLabel: "Delete",
+      title: tp("deleteCommentTitle"),
+      description: tp("deleteCommentBody"),
+      confirmLabel: tp("delete"),
       destructive: true,
     });
     if (!ok) return;
@@ -139,7 +147,7 @@ function CommentItem({
         {
           id: created?.id ?? Date.now().toString(),
           content: replyText,
-          authorName: "You",
+          authorName: tcm("you"),
           authorUsername: null,
           authorAvatarUrl: currentUserAvatarUrl,
           createdAt: new Date().toISOString(),
@@ -197,7 +205,7 @@ function CommentItem({
               className="flex items-center gap-1 text-xs text-muted-foreground transition hover:text-foreground"
             >
               <Reply className="h-3.5 w-3.5" />
-              Reply
+              {tp("reply")}
             </button>
           )}
           {comment.canDelete && actions.deleteComment && (
@@ -205,10 +213,10 @@ function CommentItem({
               onClick={handleDelete}
               disabled={deleting}
               className="flex items-center gap-1 text-xs text-muted-foreground transition hover:text-red-500 disabled:opacity-50"
-              aria-label="Delete comment"
+              aria-label={tp("deleteCommentTitle")}
             >
               <Trash2 className="h-3.5 w-3.5" />
-              Delete
+              {tp("delete")}
             </button>
           )}
         </div>
@@ -217,7 +225,7 @@ function CommentItem({
         {showReplyForm && isLoggedIn && (
           <form onSubmit={handleReply} className="mt-3 flex gap-2">
             <Input
-              placeholder={`Reply to ${comment.authorName}...`}
+              placeholder={tp("replyTo", { name: comment.authorName })}
               value={replyText}
               onChange={(e) => setReplyText(e.target.value)}
               className="flex-1"
@@ -249,10 +257,14 @@ function CommentItem({
   );
 }
 
+const INITIAL_COMMENTS = 3;
+const COMMENTS_PAGE = 10;
+
 export function NewsDetail({
   post,
   liked,
   likeCount,
+  favourited,
   commentCount,
   isLoggedIn,
   currentUserAvatarUrl,
@@ -261,15 +273,21 @@ export function NewsDetail({
   post: Post;
   liked: boolean;
   likeCount: number;
+  favourited?: boolean;
   commentCount: number;
   isLoggedIn: boolean;
   currentUserAvatarUrl: string | null;
   actions: Actions;
 }) {
+  const tp = useTranslations("posts");
+  const tcm = useTranslations("common");
   const [isLiked, setIsLiked] = useState(liked);
+  const [isFav, setIsFav] = useState(favourited ?? false);
   const [likes, setLikes] = useState(likeCount);
   const [commentText, setCommentText] = useState("");
   const [commentList, setCommentList] = useState<Comment[]>([]);
+  const [commentsTotal, setCommentsTotal] = useState(commentCount);
+  const [hasMoreComments, setHasMoreComments] = useState(false);
   const [posting, setPosting] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [loadingComments, setLoadingComments] = useState(false);
@@ -290,12 +308,24 @@ export function NewsDetail({
     }
   }
 
+  async function handleFavourite() {
+    if (!isLoggedIn || !actions.toggleFavourite) return;
+    setIsFav(!isFav);
+    try {
+      await actions.toggleFavourite(post.id);
+    } catch {
+      setIsFav(isFav);
+    }
+  }
+
   async function handleToggleComments() {
     if (!showComments && !commentsLoaded) {
       setLoadingComments(true);
       try {
-        const comments = await actions.getComments(post.id);
-        setCommentList(comments);
+        const res = await actions.getComments(post.id, { take: INITIAL_COMMENTS });
+        setCommentList(res.comments);
+        setCommentsTotal(res.total);
+        setHasMoreComments(res.hasMore);
         setCommentsLoaded(true);
       } catch (e) {
         console.error(e);
@@ -303,6 +333,21 @@ export function NewsDetail({
       setLoadingComments(false);
     }
     setShowComments(!showComments);
+  }
+
+  async function handleLoadMoreComments() {
+    setLoadingComments(true);
+    try {
+      const res = await actions.getComments(post.id, {
+        skip: commentList.length,
+        take: COMMENTS_PAGE,
+      });
+      setCommentList((prev) => [...prev, ...res.comments]);
+      setHasMoreComments(res.hasMore);
+    } catch (e) {
+      console.error(e);
+    }
+    setLoadingComments(false);
   }
 
   async function handleComment(e: React.FormEvent) {
@@ -315,7 +360,7 @@ export function NewsDetail({
         {
           id: created?.id ?? Date.now().toString(),
           content: commentText,
-          authorName: "You",
+          authorName: tcm("you"),
           authorUsername: null,
           authorAvatarUrl: currentUserAvatarUrl,
           createdAt: new Date().toISOString(),
@@ -337,10 +382,10 @@ export function NewsDetail({
     <div className="mx-auto max-w-3xl">
       <Link
         href="/news"
-        className="mb-4 inline-flex items-center gap-1 text-sm text-(--tenant-primary) hover:underline"
+        className="mb-4 inline-flex items-center gap-1 text-sm text-primary hover:underline"
       >
         <ArrowLeft className="h-4 w-4" />
-        All news
+        {tp("allNews")}
       </Link>
 
       {/* Title */}
@@ -364,11 +409,15 @@ export function NewsDetail({
         )}
       </div>
 
-      {/* Image */}
+      {/* Image — bounded height so tall/portrait images don't fill the screen */}
       {post.imageUrl && (
         <div className="mt-6 overflow-hidden rounded-xl">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={post.imageUrl} alt={post.title} className="w-full" />
+          <img
+            src={post.imageUrl}
+            alt={post.title}
+            className="max-h-[480px] w-full object-cover"
+          />
         </div>
       )}
 
@@ -396,13 +445,26 @@ export function NewsDetail({
           onClick={handleToggleComments}
           className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition ${
             showComments
-              ? "bg-(--tenant-primary)/15 text-(--tenant-primary)"
+              ? "bg-primary/15 text-primary"
               : "border border-border text-muted-foreground hover:bg-muted"
           }`}
         >
           <MessageCircle className={`h-4 w-4 ${showComments ? "fill-current" : ""}`} />
           {commentCount}
         </button>
+        {actions.toggleFavourite && (
+          <button
+            onClick={handleFavourite}
+            aria-label={tp("saveFavourite")}
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition ${
+              isFav
+                ? "bg-primary/15 text-primary"
+                : "border border-border text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            <Bookmark className={`h-4 w-4 ${isFav ? "fill-current" : ""}`} />
+          </button>
+        )}
       </div>
 
       {/* Comments (lazy-loaded) */}
@@ -410,14 +472,14 @@ export function NewsDetail({
         <div className="mt-6">
           {loadingComments ? (
             <p className="py-4 text-center text-sm text-muted-foreground">
-              Loading comments...
+              {tp("loadingComments")}
             </p>
           ) : (
             <>
               {isLoggedIn ? (
                 <form onSubmit={handleComment} className="mb-6 flex gap-2">
                   <Input
-                    placeholder="Write a comment..."
+                    placeholder={tp("writeComment")}
                     value={commentText}
                     onChange={(e) => setCommentText(e.target.value)}
                     className="flex-1"
@@ -434,32 +496,45 @@ export function NewsDetail({
                 <p className="mb-6 text-sm text-muted-foreground">
                   <Link
                     href="/sign-in"
-                    className="text-(--tenant-primary) hover:underline"
+                    className="text-primary hover:underline"
                   >
-                    Sign in
+                    {tp("signIn")}
                   </Link>{" "}
-                  to comment.
+                  {tp("signInToComment")}
                 </p>
               )}
 
               {commentList.length === 0 ? (
                 <p className="py-4 text-center text-sm text-muted-foreground">
-                  No comments yet.
+                  {tp("noCommentsYet")}
                 </p>
               ) : (
-                <ul className="flex flex-col gap-4">
-                  {commentList.map((c) => (
-                    <CommentItem
-                      key={c.id}
-                      comment={c}
-                      postId={post.id}
-                      isLoggedIn={isLoggedIn}
-                      currentUserAvatarUrl={currentUserAvatarUrl}
-                      actions={actions}
-                      depth={0}
-                    />
-                  ))}
-                </ul>
+                <>
+                  <ul className="flex flex-col gap-4">
+                    {commentList.map((c) => (
+                      <CommentItem
+                        key={c.id}
+                        comment={c}
+                        postId={post.id}
+                        isLoggedIn={isLoggedIn}
+                        currentUserAvatarUrl={currentUserAvatarUrl}
+                        actions={actions}
+                        depth={0}
+                      />
+                    ))}
+                  </ul>
+                  {hasMoreComments && (
+                    <button
+                      onClick={handleLoadMoreComments}
+                      disabled={loadingComments}
+                      className="mt-4 w-full rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground transition hover:bg-muted disabled:opacity-50"
+                    >
+                      {loadingComments
+                        ? tcm("loading")
+                        : `${tp("loadMoreComments")} (${tp("commentsRemaining", { count: Math.max(0, commentsTotal - commentList.length) })})`}
+                    </button>
+                  )}
+                </>
               )}
             </>
           )}

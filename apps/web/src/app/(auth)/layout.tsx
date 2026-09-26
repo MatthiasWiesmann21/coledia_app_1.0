@@ -26,6 +26,7 @@ export default async function AuthLayout({
   // Fetch tenant branding to apply the correct theme on auth pages
   let branding: TenantBranding | null = null;
   let themeMode = "dark";
+  let themeLocked = false;
   try {
     const tenantId = getTenantId();
     const tenant = await prisma.tenant.findUnique({
@@ -48,21 +49,25 @@ export default async function AuthLayout({
         themeMode: tenant.branding.themeMode,
       };
       themeMode = tenant.branding.themeMode ?? "dark";
+      themeLocked = tenant.branding.themeLocked;
     }
   } catch {
     // Ignore — fall back to defaults
   }
+  const forcedTheme = themeLocked && themeMode !== "system" ? themeMode : undefined;
 
   return (
-    <ThemeProvider defaultTheme={themeMode}>
+    <ThemeProvider defaultTheme={themeMode} forcedTheme={forcedTheme}>
       <TenantThemeProvider branding={branding}>
         <NextIntlClientProvider locale={defaultLocale} messages={messages}>
           <div className={`${inter.variable} min-h-screen`}>
             <div className="relative flex min-h-screen flex-col items-center justify-center bg-background p-4">
-              {/* Theme toggle — top-right corner */}
-              <div className="absolute right-4 top-4">
-                <ThemeToggle />
-              </div>
+              {/* Theme toggle — top-right corner, hidden when the tenant locks the theme */}
+              {!themeLocked && (
+                <div className="absolute right-4 top-4">
+                  <ThemeToggle />
+                </div>
+              )}
 
               {/* Custom logo placeholder */}
               {/* In production this will be replaced with the tenant's custom logo
@@ -87,7 +92,7 @@ export default async function AuthLayout({
                 Made by{" "}
                 <a
                   href="https://coledia.com"
-                  className="font-medium text-(--tenant-primary) hover:underline"
+                  className="font-medium text-primary hover:underline"
                 >
                   Coledia
                 </a>

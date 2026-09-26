@@ -14,6 +14,7 @@ import {
 } from "@/lib/course-actions";
 import { deleteComment } from "@/lib/content-actions";
 import { getQuizForChapter } from "@/lib/quiz-actions";
+import { isCourseComplete } from "@/lib/certificates";
 import { buildCommentTree } from "@/lib/comments";
 import {
   isAdminRole,
@@ -74,7 +75,7 @@ export default async function ChapterPage({
   const viewer = { userId: session.user.id, isAdmin, tenantId };
 
   // Get chapter progress, likes, favourites, comments
-  const [progress, userLike, userFav, topLevelComments, likeCount] = await Promise.all([
+  const [progress, userLike, userFav, commentsPage, likeCount] = await Promise.all([
     prisma.chapterProgress.findUnique({
       where: {
         userId_chapterId: {
@@ -101,7 +102,7 @@ export default async function ChapterPage({
         },
       },
     }),
-    buildCommentTree(viewer, { chapterId: chapter.id, tenantId }),
+    buildCommentTree(viewer, { chapterId: chapter.id, tenantId }, { take: 3 }),
     prisma.like.count({
       where: { tenantId, targetType: "chapter", targetId: chapter.id },
     }),
@@ -133,6 +134,9 @@ export default async function ChapterPage({
   // Quiz for this chapter (Club+ feature; returns null when locked or absent)
   const quiz = await getQuizForChapter(chapter.id).catch(() => null);
 
+  // Course finished = all published chapters complete + all quizzes passed
+  const courseComplete = await isCourseComplete(session.user.id, course.id);
+
   return (
     <div className="p-6">
       <ChapterView
@@ -157,11 +161,14 @@ export default async function ChapterPage({
         liked={!!userLike}
         favourited={!!userFav}
         likeCount={likeCount}
-        comments={topLevelComments}
+        comments={commentsPage.comments}
+        commentsTotal={commentsPage.total}
+        commentsHasMore={commentsPage.hasMore}
         completedChapterIds={completedChapterIds}
         progressPct={progressPct}
         prevChapterId={prevChapter?.id ?? null}
         nextChapterId={nextChapter?.id ?? null}
+        courseComplete={courseComplete}
         actions={{
           toggleLike: toggleChapterLike,
           toggleFavourite: toggleChapterFavourite,

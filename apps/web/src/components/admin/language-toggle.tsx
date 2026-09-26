@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { Languages } from "lucide-react";
 import { locales, localeNames, localeFlags, type Locale } from "@/i18n/config";
 import { cn } from "@coledia/ui/lib/utils";
 
@@ -14,23 +16,58 @@ export function LanguageToggle({
   onLanguageChange,
   translatedLanguages,
   className,
+  onFillLanguages,
 }: {
   activeLanguage: Locale;
   onLanguageChange: (lang: Locale) => void;
   translatedLanguages?: Set<string>;
   className?: string;
+  /**
+   * Optional "copy current content to all empty languages" handler.
+   * Receives nothing; the editor decides which fields to fill.
+   */
+  onFillLanguages?: () => Promise<number | void> | void;
 }) {
   const t = useTranslations("languageToggle");
+  const [filling, setFilling] = useState(false);
+  const [fillMsg, setFillMsg] = useState<string | null>(null);
 
   return (
     <div className={cn("flex flex-col gap-2", className)}>
       <div className="flex items-center justify-between">
-        <label className="text-sm font-medium text-[var(--foreground)]">
+        <label className="text-sm font-medium text-foreground">
           {t("language")}
         </label>
-        <span className="text-xs text-[var(--muted-foreground)]">
-          {t("translateContent")}
-        </span>
+        <div className="flex items-center gap-3">
+          {onFillLanguages && (
+            <button
+              type="button"
+              disabled={filling}
+              onClick={async () => {
+                setFilling(true);
+                setFillMsg(null);
+                try {
+                  const filled = await onFillLanguages();
+                  setFillMsg(
+                    typeof filled === "number" && filled > 0
+                      ? t("fillDone", { count: filled })
+                      : t("fillNone"),
+                  );
+                } catch {
+                  setFillMsg(t("fillFailed"));
+                }
+                setFilling(false);
+              }}
+              className="flex items-center gap-1 text-xs text-primary transition hover:underline disabled:opacity-50"
+            >
+              <Languages className="h-3.5 w-3.5" />
+              {filling ? t("filling") : t("fillEmpty")}
+            </button>
+          )}
+          <span className="text-xs text-muted-foreground">
+            {t("translateContent")}
+          </span>
+        </div>
       </div>
       <div className="flex flex-wrap gap-2">
         {locales.map((loc) => {
@@ -44,8 +81,8 @@ export function LanguageToggle({
               className={cn(
                 "relative flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition",
                 isActive
-                  ? "border-[var(--tenant-primary)] bg-[var(--tenant-primary)]/10 font-medium"
-                  : "border-[var(--border)] hover:bg-[var(--muted)]",
+                  ? "border-primary bg-primary/10 font-medium"
+                  : "border-border hover:bg-muted",
               )}
             >
               <span>{localeFlags[loc]}</span>
@@ -58,9 +95,12 @@ export function LanguageToggle({
         })}
       </div>
       {!translatedLanguages?.has(activeLanguage) && activeLanguage !== "en" && (
-        <p className="text-xs text-[var(--muted-foreground)]">
+        <p className="text-xs text-muted-foreground">
           {t("notTranslated")}
         </p>
+      )}
+      {fillMsg && (
+        <p className="text-xs text-muted-foreground">{fillMsg}</p>
       )}
     </div>
   );

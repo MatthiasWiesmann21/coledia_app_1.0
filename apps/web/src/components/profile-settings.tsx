@@ -18,12 +18,15 @@ export function ProfileSettings({
   initialAvatarUrl,
   initialStatus,
   initialLanguage,
+  themeLocked = false,
 }: {
   initialUsername: string | null;
   initialBio: string | null;
   initialAvatarUrl: string | null;
   initialStatus: string;
   initialLanguage: string;
+  /** Tenant-locked theme — hides the appearance section. */
+  themeLocked?: boolean;
 }) {
   const t = useTranslations("profile");
   const { theme, setTheme } = useTheme();
@@ -192,7 +195,7 @@ export function ProfileSettings({
               onClick={() => handleStatusChange(s.value)}
               className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${
                 status === s.value
-                  ? "border-(--tenant-primary) bg-(--tenant-primary)/10"
+                  ? "border-primary bg-primary/10"
                   : "border-border hover:bg-muted"
               }`}
             >
@@ -220,7 +223,7 @@ export function ProfileSettings({
               disabled={loadingLang}
               className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${
                 language === loc
-                  ? "border-(--tenant-primary) bg-(--tenant-primary)/10"
+                  ? "border-primary bg-primary/10"
                   : "border-border hover:bg-muted"
               }`}
             >
@@ -234,37 +237,39 @@ export function ProfileSettings({
         )}
       </section>
 
-      {/* Appearance — theme mode */}
+      {/* Appearance — theme mode (hidden when the tenant locks the theme) */}
+      {!themeLocked && (
       <section className="flex flex-col gap-4">
-        <h2 className="text-lg font-semibold">Appearance</h2>
+        <h2 className="text-lg font-semibold">{t("appearance")}</h2>
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setTheme("light")}
             className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${
               mounted && theme === "light"
-                ? "border-(--tenant-primary) bg-(--tenant-primary)/10"
+                ? "border-primary bg-primary/10"
                 : "border-border hover:bg-muted"
             }`}
           >
             <Sun className="h-4 w-4" />
-            Light
+            {t("light")}
           </button>
           <button
             onClick={() => setTheme("dark")}
             className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${
               mounted && theme === "dark"
-                ? "border-(--tenant-primary) bg-(--tenant-primary)/10"
+                ? "border-primary bg-primary/10"
                 : "border-border hover:bg-muted"
             }`}
           >
             <Moon className="h-4 w-4" />
-            Dark
+            {t("dark")}
           </button>
         </div>
         <p className="text-xs text-muted-foreground">
-          Overrides the organization default theme mode. Set by the owner in admin settings.
+          {t("themeOverride")}
         </p>
       </section>
+      )}
 
       {/* Change password */}
       <section className="flex flex-col gap-4">

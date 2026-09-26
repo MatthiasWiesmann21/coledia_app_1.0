@@ -153,7 +153,7 @@ export function Sidebar({
                     locked
                       ? "text-muted-foreground/60 hover:bg-muted"
                       : active
-                        ? "bg-(--tenant-primary)/15 text-(--tenant-primary)"
+                        ? "bg-primary/15 text-primary"
                         : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                 >

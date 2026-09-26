@@ -158,7 +158,12 @@
     "unpublish": "Dépublier",
     "user": "Utilisateur",
     "viewAll": "Tout voir",
-    "you": "Vous"
+    "you": "Vous",
+    "uncategorized": "Sans catégorie",
+    "general": "Général",
+    "unknown": "Inconnu",
+    "paid": "Payant",
+    "nothingYet": "Rien pour le moment."
   },
   "courses": {
     "aboutChapter": "À propos de ce chapitre",
@@ -223,7 +228,10 @@
     "trending": "Tendance",
     "unpublishCourse": "Dépublier le cours",
     "userGroup": "Groupe d'utilisateurs",
-    "writeComment": "Écrire un commentaire..."
+    "writeComment": "Écrire un commentaire...",
+    "searchCourses": "Rechercher des cours...",
+    "allStatuses": "Tous les statuts",
+    "noCoursesFound": "Aucun cours trouvé. Ajustez vos filtres."
   },
   "dashboard": {
     "activeAgo": "Actif {time}",

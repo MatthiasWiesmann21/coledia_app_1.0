@@ -12,7 +12,19 @@ export {
 
 import { sanitizeFilename } from "./file-utils";
 
-const STORAGE_PATH = (process.env.STORAGE_PATH || "./uploads").replace(/^\.\//, "");
+/**
+ * Base directory for uploaded files. Set STORAGE_PATH to an ABSOLUTE path
+ * backed by a persistent volume in production (e.g. a Dokploy mount at
+ * /data/uploads) — the container filesystem is wiped on every redeploy.
+ * Relative paths resolve against process.cwd().
+ */
+const STORAGE_PATH = process.env.STORAGE_PATH || "./uploads";
+
+function storageBase(): string {
+  return path.isAbsolute(STORAGE_PATH)
+    ? STORAGE_PATH
+    : path.join(process.cwd(), STORAGE_PATH.replace(/^\.\//, ""));
+}
 
 export async function ensureStorageDirectory(basePath: string) {
   try {
@@ -23,9 +35,9 @@ export async function ensureStorageDirectory(basePath: string) {
 }
 
 /** Resolve a storage-relative path (e.g. "tenantId/documents/file.pdf") to an
- *  absolute disk path by prefixing the project working directory + STORAGE_PATH. */
+ *  absolute disk path inside the storage base directory. */
 export function resolveStoragePath(storagePath: string): string {
-  return path.join(process.cwd(), STORAGE_PATH, storagePath);
+  return path.join(storageBase(), storagePath);
 }
 
 /** Save a file to tenant-scoped storage. Returns a forward-slash relative path
@@ -44,7 +56,7 @@ export async function saveFile(
     | "event-thumbnails",
   filename: string,
 ): Promise<string> {
-  const dir = path.join(STORAGE_PATH, tenantId, category);
+  const dir = path.join(storageBase(), tenantId, category);
   await ensureStorageDirectory(dir);
 
   const uniqueFilename = generateUniqueFilename(filename);

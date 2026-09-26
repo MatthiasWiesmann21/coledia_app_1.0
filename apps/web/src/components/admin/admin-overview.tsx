@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import {
   BookOpen,
   Newspaper,
@@ -274,6 +275,7 @@ function RecentList({
   }[];
   viewAllHref: string;
 }) {
+  const tc = useTranslations("common");
   return (
     <div className="rounded-xl border border-border bg-card p-5">
       <div className="mb-3 flex items-center justify-between">
@@ -282,12 +284,12 @@ function RecentList({
           href={viewAllHref}
           className="text-xs text-primary hover:underline"
         >
-          View all
+          {tc("viewAll")}
         </Link>
       </div>
       {items.length === 0 ? (
         <p className="py-4 text-center text-xs text-muted-foreground">
-          Nothing yet.
+          {tc("nothingYet")}
         </p>
       ) : (
         <ul className="flex flex-col gap-2">

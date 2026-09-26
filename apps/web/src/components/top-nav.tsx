@@ -10,7 +10,7 @@ import { cn } from "@coledia/ui/lib/utils";
 import { GlobalSearch } from "@/components/global-search";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { setUserLanguage } from "@/lib/actions";
-import { locales, localeNames, localeFlags, type Locale } from "@/i18n/config";
+import { locales, localeNames, localeCodes, type Locale } from "@/i18n/config";
 import type { PlanFeatures } from "@/components/sidebar";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -120,7 +120,9 @@ export function TopNav({
             aria-label="Language"
           >
             <Globe className="h-4 w-4" />
-            <span className="text-lg font-medium">{localeFlags[lang]}</span>
+            <span className="text-xs font-semibold uppercase tracking-wide">
+              {localeCodes[lang]}
+            </span>
           </button>
           {langOpen && (
             <div className="absolute right-0 top-full mt-1 w-40 rounded-lg border border-border bg-card py-1 shadow-lg">
@@ -135,7 +137,9 @@ export function TopNav({
                       : "text-muted-foreground",
                   )}
                 >
-                  <span className="text-lg">{localeFlags[loc]}</span>
+                  <span className="w-6 text-xs font-semibold uppercase">
+                    {localeCodes[loc]}
+                  </span>
                   {localeNames[loc]}
                 </button>
               ))}

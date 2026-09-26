@@ -67,6 +67,11 @@ pnpm db:seed          # Seed dev tenant + admin user
   `[userId, tenantId]` (`src/lib/profile.ts`), presence is `Membership.lastSeenAt`.
 - Tenant plan/status are changed only by the Controlcenter internal API; the app's
   Stripe webhook handles Connect course sales only.
+- **Uploaded files**: stored under `STORAGE_PATH` (`./uploads` relative to cwd by
+  default; `src/lib/storage.ts`). The container filesystem is ephemeral — in
+  Dokploy create a persistent volume/mount (e.g. `coledia-uploads` → `/data/uploads`)
+  for the web app and set `STORAGE_PATH=/data/uploads`, or uploads are lost on
+  every redeploy.
 - Use `pnpm db:generate` / `pnpm db:migrate` (not `npx prisma …` from the root).
 
 ## Key Decisions

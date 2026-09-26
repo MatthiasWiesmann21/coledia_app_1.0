@@ -158,7 +158,12 @@
     "unpublish": "Veröffentlichung aufheben",
     "user": "Benutzer",
     "viewAll": "Alle ansehen",
-    "you": "Du"
+    "you": "Du",
+    "uncategorized": "Ohne Kategorie",
+    "general": "Allgemein",
+    "unknown": "Unbekannt",
+    "paid": "Kostenpflichtig",
+    "nothingYet": "Noch nichts vorhanden."
   },
   "courses": {
     "aboutChapter": "Über dieses Kapitel",
@@ -223,7 +228,10 @@
     "trending": "Trend",
     "unpublishCourse": "Veröffentlichung aufheben",
     "userGroup": "Benutzergruppe",
-    "writeComment": "Kommentar schreiben..."
+    "writeComment": "Kommentar schreiben...",
+    "searchCourses": "Kurse suchen...",
+    "allStatuses": "Alle Status",
+    "noCoursesFound": "Keine Kurse gefunden. Passe die Filter an."
   },
   "dashboard": {
     "activeAgo": "Aktiv {time}",

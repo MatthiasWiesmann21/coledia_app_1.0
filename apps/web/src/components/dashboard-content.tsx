@@ -82,6 +82,7 @@ export function DashboardContent({
   onlineMembers?: OnlineMember[];
 }) {
   const t = useTranslations("dashboard");
+  const tc = useTranslations("common");
   const notStarted = myCourses.length - stats.inProgress - stats.completed;
   const donutData = [
     { label: t("statNotStarted"), value: Math.max(0, notStarted), color: "#1f78b4" },
@@ -142,7 +143,7 @@ export function DashboardContent({
               href="/events"
               className="text-sm text-primary hover:underline"
             >
-              {t("viewAll")}
+              {tc("viewAll")}
             </Link>
           </div>
           {upcomingEvents.length === 0 ? (
@@ -272,7 +273,7 @@ export function DashboardContent({
               href="/courses"
               className="text-sm text-primary hover:underline"
             >
-              {t("viewAll")}
+              {tc("viewAll")}
             </Link>
           </div>
           {myCourses.length === 0 ? (
@@ -293,9 +294,9 @@ export function DashboardContent({
                 <thead className="sticky top-0 bg-card">
                   <tr className="border-b border-border text-left text-xs text-muted-foreground">
                     <th className="pb-2 font-medium">{t("courseName")}</th>
-                    <th className="pb-2 font-medium">{t("category")}</th>
+                    <th className="pb-2 font-medium">{tc("category")}</th>
                     <th className="pb-2 font-medium">{t("payment")}</th>
-                    <th className="pb-2 font-medium">{t("progress")}</th>
+                    <th className="pb-2 font-medium">{tc("progress")}</th>
                   </tr>
                 </thead>
                 <tbody>

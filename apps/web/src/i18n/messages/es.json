@@ -158,7 +158,12 @@
     "unpublish": "Despublicar",
     "user": "Usuario",
     "viewAll": "Ver todo",
-    "you": "Tú"
+    "you": "Tú",
+    "uncategorized": "Sin categoría",
+    "general": "General",
+    "unknown": "Desconocido",
+    "paid": "De pago",
+    "nothingYet": "Nada por ahora."
   },
   "courses": {
     "aboutChapter": "Sobre este capítulo",
@@ -223,7 +228,10 @@
     "trending": "Tendencia",
     "unpublishCourse": "Despublicar curso",
     "userGroup": "Grupo de usuarios",
-    "writeComment": "Escribe un comentario..."
+    "writeComment": "Escribe un comentario...",
+    "searchCourses": "Buscar cursos...",
+    "allStatuses": "Todos los estados",
+    "noCoursesFound": "No se encontraron cursos. Ajusta los filtros."
   },
   "dashboard": {
     "activeAgo": "Activo {time}",

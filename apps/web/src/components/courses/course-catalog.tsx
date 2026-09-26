@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Search, Layers, Star } from "lucide-react";
 import { Input } from "@coledia/ui/input";
 
@@ -26,6 +27,8 @@ export function CourseCatalog({
   courses: Course[];
   categories: Category[];
 }) {
+  const t = useTranslations("courses");
+  const tc = useTranslations("common");
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
@@ -50,7 +53,7 @@ export function CourseCatalog({
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search courses..."
+            placeholder={t("searchCourses")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10"
@@ -67,7 +70,7 @@ export function CourseCatalog({
                 : "border border-border text-muted-foreground hover:bg-muted"
             }`}
           >
-            All
+            {tc("all")}
           </button>
           {categories.map((cat) => (
             <button
@@ -99,21 +102,21 @@ export function CourseCatalog({
                 : "text-muted-foreground hover:bg-muted"
             }`}
           >
-            All statuses
+            {t("allStatuses")}
           </button>
-          {["featured", "trending", "exclusive"].map((status) => (
+          {(["featured", "trending", "exclusive"] as const).map((status) => (
             <button
               key={status}
               onClick={() =>
                 setSelectedStatus(selectedStatus === status ? null : status)
               }
-              className={`rounded-full px-3 py-1 text-xs capitalize transition ${
+              className={`rounded-full px-3 py-1 text-xs transition ${
                 selectedStatus === status
                   ? "bg-primary/15 text-primary"
                   : "text-muted-foreground hover:bg-muted"
               }`}
             >
-              {status}
+              {t(status)}
             </button>
           ))}
         </div>
@@ -122,7 +125,7 @@ export function CourseCatalog({
       {/* Course grid */}
       {filtered.length === 0 ? (
         <p className="py-12 text-center text-sm text-muted-foreground">
-          No courses found. Try adjusting your filters.
+          {t("noCoursesFound")}
         </p>
       ) : (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -148,14 +151,14 @@ export function CourseCatalog({
                 )}
                 {/* Special status badge */}
                 {c.specialStatus && (
-                  <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-xs capitalize text-white">
+                  <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-xs text-white">
                     <Star className="h-3 w-3" />
-                    {c.specialStatus}
+                    {statusLabel(c.specialStatus, t)}
                   </div>
                 )}
                 {/* Price badge */}
                 <div className="absolute right-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-xs font-medium text-white">
-                  {c.price ? `$${c.price}` : "Free"}
+                  {c.price ? `CHF ${c.price}` : tc("free")}
                 </div>
               </div>
 
@@ -177,11 +180,11 @@ export function CourseCatalog({
                 </h3>
                 <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
                   {c.level && (
-                    <span className="capitalize">{c.level}</span>
+                    <span>{levelLabel(c.level, t)}</span>
                   )}
                   <span className="flex items-center gap-1">
                     <Layers className="h-3 w-3" />
-                    {c.chapterCount} chapters
+                    {t("chaptersLabel", { count: c.chapterCount })}
                   </span>
                 </div>
               </div>
@@ -191,4 +194,17 @@ export function CourseCatalog({
       )}
     </div>
   );
+}
+
+const STATUS_KEYS = ["featured", "trending", "exclusive"];
+const LEVEL_KEYS = ["beginner", "intermediate", "advanced"];
+
+/** Translate a stored enum value; fall back to the raw string for
+ *  free-text values entered before the fixed sets existed. */
+function statusLabel(value: string, t: ReturnType<typeof useTranslations>) {
+  return STATUS_KEYS.includes(value) ? t(value as "featured" | "trending" | "exclusive") : value;
+}
+
+function levelLabel(value: string, t: ReturnType<typeof useTranslations>) {
+  return LEVEL_KEYS.includes(value) ? t(value as "beginner" | "intermediate" | "advanced") : value;
 }

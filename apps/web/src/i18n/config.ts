@@ -10,11 +10,12 @@ export const localeNames: Record<Locale, string> = {
   es: "Español",
 };
 
-export const localeFlags: Record<Locale, string> = {
-  en: "🇬🇧",
-  de: "🇩🇪",
-  fr: "🇫🇷",
-  es: "🇪🇸",
+// Text codes — flag emojis don't render on Windows (they show as "GB"/"DE").
+export const localeCodes: Record<Locale, string> = {
+  en: "EN",
+  de: "DE",
+  fr: "FR",
+  es: "ES",
 };
 
 export function isLocale(value: string): value is Locale {

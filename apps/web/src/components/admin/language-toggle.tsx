@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Languages } from "lucide-react";
-import { locales, localeNames, localeFlags, type Locale } from "@/i18n/config";
+import { locales, localeNames, localeCodes, type Locale } from "@/i18n/config";
 import { cn } from "@coledia/ui/lib/utils";
 
 /**
@@ -85,7 +85,7 @@ export function LanguageToggle({
                   : "border-border hover:bg-muted",
               )}
             >
-              <span>{localeFlags[loc]}</span>
+              <span>{localeCodes[loc]}</span>
               {localeNames[loc]}
               {hasTranslation && (
                 <span className="ml-0.5 h-1.5 w-1.5 rounded-full bg-green-500" />

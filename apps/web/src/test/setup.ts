@@ -29,6 +29,9 @@ vi.mock("@/lib/session", async () => {
 });
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn() }));
+vi.mock("next-intl/server", () => ({
+  getTranslations: vi.fn(async () => (key: string) => key),
+}));
 vi.mock("@/lib/audit", () => ({ logAuditAsync: vi.fn(), logAudit: vi.fn() }));
 vi.mock("@/lib/webhooks", () => ({
   dispatchWebhookAsync: vi.fn(),

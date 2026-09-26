@@ -10,7 +10,7 @@ import { Label } from "@coledia/ui/label";
 import { authClient } from "@/lib/auth-client";
 import { updateProfile, setActivityStatus, setUserLanguage } from "@/lib/actions";
 import { UploadButton } from "@/components/upload-button";
-import { locales, localeNames, localeFlags, type Locale } from "@/i18n/config";
+import { locales, localeNames, localeCodes, type Locale } from "@/i18n/config";
 
 export function ProfileSettings({
   initialUsername,
@@ -227,7 +227,7 @@ export function ProfileSettings({
                   : "border-border hover:bg-muted"
               }`}
             >
-              <span>{localeFlags[loc]}</span>
+              <span>{localeCodes[loc]}</span>
               {localeNames[loc]}
             </button>
           ))}

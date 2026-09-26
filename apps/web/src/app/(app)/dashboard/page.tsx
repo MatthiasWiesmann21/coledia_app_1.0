@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { getSession } from "@/lib/session";
 import { prisma } from "@coledia/db";
 import { getTenantId } from "@/lib/tenant";
@@ -14,6 +15,7 @@ export default async function DashboardPage() {
 
   const tenantId = getTenantId();
   const userId = session.user.id;
+  const tc = await getTranslations("common");
 
   // Everything below is scoped to THIS tenant — the same account may belong to
   // several containers, and nothing from another container may show up here.
@@ -209,10 +211,11 @@ export default async function DashboardPage() {
     .map((e) => ({
       id: e.course.id,
       title: e.course.title,
-      category: e.course.category?.name ?? "Uncategorized",
+      category: e.course.category?.name ?? tc("uncategorized"),
       categoryColor: e.course.category?.color ?? "#008080",
       progress: Math.round(e.progressPct),
-      paymentStatus: e.course.price && Number(e.course.price) > 0 ? "Paid" : "Free",
+      paymentStatus:
+        e.course.price && Number(e.course.price) > 0 ? tc("paid") : tc("free"),
     }));
 
   // Build upcoming events list
@@ -220,7 +223,7 @@ export default async function DashboardPage() {
     id: reg.event.id,
     title: reg.event.title,
     startAt: reg.event.startAt.toISOString(),
-    category: reg.event.category?.name ?? "General",
+    category: reg.event.category?.name ?? tc("general"),
     categoryColor: reg.event.category?.color ?? "#008080",
   }));
 
@@ -230,7 +233,7 @@ export default async function DashboardPage() {
     type: "comment" as const,
     content: c.content.slice(0, 100),
     createdAt: c.createdAt.toISOString(),
-    targetTitle: c.post?.title ?? c.chapter?.title ?? "Unknown",
+    targetTitle: c.post?.title ?? c.chapter?.title ?? tc("unknown"),
     targetHref: c.post
       ? `/news/${c.post.id}`
       : c.chapter

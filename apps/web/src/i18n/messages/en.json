@@ -158,7 +158,12 @@
     "unpublish": "Unpublish",
     "user": "User",
     "viewAll": "View all",
-    "you": "You"
+    "you": "You",
+    "uncategorized": "Uncategorized",
+    "general": "General",
+    "unknown": "Unknown",
+    "paid": "Paid",
+    "nothingYet": "Nothing yet."
   },
   "courses": {
     "aboutChapter": "About this chapter",
@@ -223,7 +228,10 @@
     "trending": "Trending",
     "unpublishCourse": "Unpublish Course",
     "userGroup": "User Group",
-    "writeComment": "Write a comment..."
+    "writeComment": "Write a comment...",
+    "searchCourses": "Search courses...",
+    "allStatuses": "All statuses",
+    "noCoursesFound": "No courses found. Try adjusting your filters."
   },
   "dashboard": {
     "activeAgo": "Active {time}",

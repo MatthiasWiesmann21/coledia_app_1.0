@@ -125,7 +125,7 @@ export function TopNav({
             </span>
           </button>
           {langOpen && (
-            <div className="absolute right-0 top-full mt-1 w-40 rounded-lg border border-border bg-card py-1 shadow-lg">
+            <div className="absolute right-0 top-full z-50 mt-1 w-40 rounded-lg border border-border bg-card py-1 shadow-lg">
               {locales.map((loc) => (
                 <button
                   key={loc}
@@ -193,7 +193,7 @@ export function TopNav({
           </button>
 
           {profileOpen && (
-            <div className="absolute right-0 top-full mt-1 w-56 rounded-lg border border-border bg-card py-1 shadow-lg">
+            <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded-lg border border-border bg-card py-1 shadow-lg">
               {/* User info */}
               <div className="border-b border-border px-3 py-2">
                 <p className="text-sm font-medium">{userName}</p>

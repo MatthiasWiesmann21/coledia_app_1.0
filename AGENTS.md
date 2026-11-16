@@ -9,7 +9,7 @@ It's the successor to Clubyte, rebuilt with a modern TypeScript stack.
 - **Frontend**: Next.js 16 (App Router, Turbopack), React 19, Tailwind v4
 - **Backend**: Next.js Server Components + Server Actions + Route Handlers, Better-Auth
 - **Database**: MySQL via Prisma ORM (single shared DB, `tenantId` on all tenant-scoped tables)
-- **Realtime**: Socket.io (text channels + DMs only)
+- **Realtime**: Server-Sent Events from the web app itself (`/api/chat/stream`) — chat + notifications
 - **Payments**: Stripe (subscriptions + one-time course sales)
 - **Deploy**: Dokploy — each client gets its own container, all share the same MySQL DB
 
@@ -17,7 +17,6 @@ It's the successor to Clubyte, rebuilt with a modern TypeScript stack.
 ```
 apps/
   web/          — Next.js full-stack app
-  realtime/     — Socket.io service
 packages/
   config/       — Shared tsconfig presets
   db/           — Prisma schema + client + tenant-scoped extension
@@ -29,7 +28,7 @@ packages/
 ```bash
 pnpm install          # Install all dependencies
 pnpm build            # Build all packages
-pnpm dev              # Start dev servers (web + realtime)
+pnpm dev              # Start the dev server
 pnpm typecheck        # TypeScript check all packages
 pnpm lint             # ESLint all packages
 pnpm test             # Vitest authz suite (apps/web/src/**/__tests__, Prisma is mocked)
@@ -102,3 +101,20 @@ container once it is deployed.
 
 ## Plan
 The detailed rebuild plan is at `C:\Users\Matth\.devin\plans\plan-5ed63b6055023764.md`.
+
+## Chat
+- Text channels (ChatServer → Channel, visibility via server + channel user groups;
+  tenant admins see all) and 1:1 DMs (`DirectConversation`, ordered user pair).
+- Writes go through server actions in `src/lib/chat-message-actions.ts`; access rules
+  live in `src/lib/chat/access.ts` (rooms are `channel:<id>` / `dm:<id>`).
+  `Message.tenantId` is always set; deletes are soft (`deletedAt`, content cleared);
+  only authors edit, authors or admins delete. `ChatReadState` stores each user's
+  read position (unread counts, DM ✓✓, channel "seen by").
+- Live delivery: `src/lib/chat/bus.ts` (in-process EventEmitter) → SSE stream
+  `GET /api/chat/stream`; the browser shares one EventSource
+  (`src/lib/chat/stream-client.ts`) for chat and the notification bell. This
+  assumes ONE Node process per tenant container — running several replicas of a
+  tenant would need Redis pub/sub instead.
+- Attachments: `POST /api/chat/attachments` → `{tenantId}/chat/…` (path embeds the
+  uploader id); served only via `GET /api/chat/attachments/[messageId]/[index]` with
+  room access checks (`/api/uploads` refuses the `chat` segment).

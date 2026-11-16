@@ -1,802 +1,769 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { ArrowLeft, Hash, MessageCircle, Search } from "lucide-react";
+import { cn } from "@coledia/ui/lib/utils";
+import { useConfirm } from "@/components/confirm-provider";
+import { onStreamEvent } from "@/lib/chat/stream-client";
 import {
-  Hash,
-  Send,
-  Users,
-  MessageCircle,
-  Plus,
-  ChevronDown,
-  Smile,
-  Reply,
-  X,
-} from "lucide-react";
-import { getSocket, disconnectSocket } from "@/lib/socket";
+  deleteMessage,
+  editMessage,
+  getMessages,
+  getUnreadCounts,
+  markRead,
+  openDirectConversation,
+  sendMessage,
+  toggleReaction,
+} from "@/lib/chat-message-actions";
+import { ChatAvatar } from "./chat-avatar";
+import { Composer } from "./composer";
+import { MessageList } from "./message-list";
+import type { ChatMember, MessageDTO, ReactionGroup, SendInput, UIMessage } from "./chat-types";
 
-type Channel = { id: string; name: string; type: string };
-type ChatServer = {
-  id: string;
-  name: string;
-  channels: Channel[];
-  members: {
-    userId: string;
-    name: string;
-    username: string | null;
-    avatarUrl: string | null;
-    role: string;
-  }[];
+type Server = { id: string; name: string; channels: { id: string; name: string }[] };
+type Conversation = { room: string; otherUserId: string };
+
+type RoomState = {
+  messages: UIMessage[];
+  hasMore: boolean;
+  loaded: boolean;
+  loadingOlder: boolean;
+  readStates: Record<string, string>;
+  firstUnreadAt: string | null;
 };
 
-type TenantMember = {
-  userId: string;
-  name: string;
-  username: string | null;
-  avatarUrl: string | null;
+const EMPTY_ROOM: RoomState = {
+  messages: [],
+  hasMore: false,
+  loaded: false,
+  loadingOlder: false,
+  readStates: {},
+  firstUnreadAt: null,
 };
 
-type DMConversation = {
-  id: string;
-  otherUserId: string;
-  otherUserName: string;
-  otherUserUsername: string | null;
-  otherUserAvatarUrl: string | null;
-};
+function withMine(reactions: ReactionGroup[], meId: string): ReactionGroup[] {
+  return reactions.map((r) => ({ ...r, mine: r.userIds.includes(meId) }));
+}
 
-type Reaction = { userId: string; emoji: string };
+function normalize(m: MessageDTO, meId: string): UIMessage {
+  return { ...m, reactions: withMine(m.reactions, meId) };
+}
 
-type ReplyData = {
-  id: string;
-  content: string;
-  userId: string;
-  userName: string;
-};
-
-type Message = {
-  id: string;
-  userId: string;
-  userName: string;
-  content: string;
-  createdAt: string;
-  replyTo?: ReplyData | null;
-  reactions?: Reaction[];
-};
-
-const QUICK_REACTIONS = ["👍", "❤️", "😂", "🎉", "👀", "🔥"];
+/** Insert or replace by id, keeping chronological order. */
+function upsert(list: UIMessage[], msg: UIMessage): UIMessage[] {
+  const idx = list.findIndex((m) => m.id === msg.id);
+  if (idx >= 0) {
+    const next = list.slice();
+    next[idx] = msg;
+    return next;
+  }
+  const next = [...list, msg];
+  next.sort((a, b) => (a.status && !b.status ? 1 : !a.status && b.status ? -1 : a.createdAt.localeCompare(b.createdAt)));
+  return next;
+}
 
 export function ChatInterface({
-  currentUserId,
-  currentUserName,
-  chatServers,
-  tenantMembers,
-  dmConversations,
-  tenantId,
+  me,
+  isAdmin,
+  servers,
+  members,
+  conversations: initialConversations,
+  initialUnread,
+  initialRoom,
 }: {
-  currentUserId: string;
-  currentUserName: string;
-  chatServers: ChatServer[];
-  tenantMembers: TenantMember[];
-  dmConversations: DMConversation[];
-  tenantId: string;
+  me: ChatMember;
+  isAdmin: boolean;
+  servers: Server[];
+  members: ChatMember[];
+  conversations: Conversation[];
+  initialUnread: Record<string, number>;
+  initialRoom: string | null;
 }) {
-  const [mode, setMode] = useState<"channels" | "dms">("channels");
-  const [activeChannelId, setActiveChannelId] = useState<string | null>(
-    chatServers[0]?.channels[0]?.id ?? null,
-  );
-  const [activeDMUserId, setActiveDMUserId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
-  const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
-  const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
-  const [socket, setSocket] = useState<ReturnType<typeof getSocket> | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const t = useTranslations("chat");
+  const router = useRouter();
+  const confirm = useConfirm();
 
-  // Reply state
-  const [replyTo, setReplyTo] = useState<Message | null>(null);
+  const firstChannel = servers[0]?.channels[0] ? `channel:${servers[0].channels[0].id}` : null;
+  const [activeRoom, setActiveRoom] = useState<string | null>(initialRoom ?? firstChannel);
+  const [mode, setMode] = useState<"channels" | "dms">(initialRoom?.startsWith("dm:") ? "dms" : "channels");
+  const [mobileView, setMobileView] = useState<"list" | "room">(initialRoom ? "room" : "list");
+  const [rooms, setRooms] = useState<Record<string, RoomState>>({});
+  const [conversations, setConversations] = useState(initialConversations);
+  const [unread, setUnread] = useState(initialUnread);
+  const [online, setOnline] = useState<Set<string>>(new Set());
+  const [typing, setTyping] = useState<Record<string, Record<string, { name: string; at: number }>>>({});
+  const [replyTo, setReplyTo] = useState<UIMessage | null>(null);
+  const [editing, setEditing] = useState<UIMessage | null>(null);
+  const [memberSearch, setMemberSearch] = useState("");
+  const [atBottom, setAtBottom] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Reaction picker state: which message id is showing the picker
-  const [reactionPickerFor, setReactionPickerFor] = useState<string | null>(
-    null,
-  );
-
-  // Initialize socket connection
+  // Latest values for stream handlers registered once
+  const activeRoomRef = useRef(activeRoom);
+  const roomsRef = useRef(rooms);
   useEffect(() => {
-    const s = getSocket(currentUserId, tenantId);
-    setSocket(s);
-
-    s.on("presence:online", ({ userId }: { userId: string }) => {
-      setOnlineUsers((prev) => new Set([...prev, userId]));
-    });
-
-    s.on("presence:offline", ({ userId }: { userId: string }) => {
-      setOnlineUsers((prev) => {
-        const next = new Set(prev);
-        next.delete(userId);
-        return next;
-      });
-    });
-
-    s.on("presence:list", ({ online }: { online: string[] }) => {
-      setOnlineUsers(new Set(online));
-    });
-
-    s.emit("presence:request");
-
-    return () => {
-      disconnectSocket();
-    };
-  }, [currentUserId, tenantId]);
-
-  // Join channel when active channel changes
+    activeRoomRef.current = activeRoom;
+  }, [activeRoom]);
   useEffect(() => {
-    if (!socket || !activeChannelId) return;
+    roomsRef.current = rooms;
+  }, [rooms]);
+  const lastMarked = useRef<Record<string, string>>({});
 
-    let cancelled = false;
-    setMessages([]);
-    setTypingUsers(new Set());
+  const memberMap = useMemo(() => new Map(members.map((m) => [m.id, m])), [members]);
+  const channelNames = useMemo(
+    () => new Map<string, string>(servers.flatMap((s) => s.channels.map((c) => [`channel:${c.id}`, c.name]))),
+    [servers],
+  );
 
-    // Fetch message history from the database
-    fetch(`/api/chat/channels/${activeChannelId}/messages`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (!cancelled && data.messages) {
-          setMessages(data.messages);
-        }
-      })
-      .catch(() => {});
+  const updateRoom = useCallback((key: string, fn: (r: RoomState) => RoomState) => {
+    setRooms((prev) => ({ ...prev, [key]: fn(prev[key] ?? EMPTY_ROOM) }));
+  }, []);
 
-    socket.emit("channel:join", activeChannelId);
-
-    const handleMessage = (msg: Message & { channelId: string }) => {
-      if (msg.channelId === activeChannelId) {
-        setMessages((prev) => [...prev, msg]);
+  const loadRoom = useCallback(
+    async (key: string) => {
+      try {
+        const page = await getMessages(key);
+        updateRoom(key, (r) => {
+          const pending = r.messages.filter((m) => m.status);
+          return {
+            ...r,
+            messages: [...page.messages.map((m) => normalize(m, me.id)), ...pending],
+            hasMore: page.hasMore,
+            loaded: true,
+            readStates: Object.fromEntries(page.readStates.map((s) => [s.userId, s.lastReadAt])),
+            firstUnreadAt: r.loaded
+              ? r.firstUnreadAt
+              : (page.readStates.find((s) => s.userId === me.id)?.lastReadAt ?? "1970-01-01T00:00:00.000Z"),
+          };
+        });
+      } catch {
+        setError(t("loadFailed"));
+        updateRoom(key, (r) => ({ ...r, loaded: true }));
       }
-    };
+    },
+    [me.id, t, updateRoom],
+  );
 
-    const handleTyping = ({
-      userId,
-      isTyping,
-    }: {
-      userId: string;
-      channelId: string;
-      isTyping: boolean;
-    }) => {
-      setTypingUsers((prev) => {
-        const next = new Set(prev);
-        if (isTyping && userId !== currentUserId) {
-          next.add(userId);
-        } else {
-          next.delete(userId);
-        }
-        return next;
-      });
-    };
-
-    socket.on("channel:message", handleMessage);
-    socket.on("channel:typing", handleTyping);
-
-    const handleReaction = ({
-      messageId,
-      reactions,
-    }: {
-      messageId: string;
-      reactions: Reaction[];
-    }) => {
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === messageId ? { ...m, reactions } : m,
-        ),
-      );
-    };
-
-    socket.on("channel:reaction", handleReaction);
-
-    return () => {
-      cancelled = true;
-      socket.off("channel:message", handleMessage);
-      socket.off("channel:typing", handleTyping);
-      socket.off("channel:reaction", handleReaction);
-      socket.emit("channel:leave", activeChannelId);
-    };
-  }, [socket, activeChannelId, currentUserId]);
-
-  // Join DM room when active DM changes
+  // Load the active room on first open
   useEffect(() => {
-    if (!socket || !activeDMUserId) return;
+    if (activeRoom && !roomsRef.current[activeRoom]?.loaded) void loadRoom(activeRoom);
+  }, [activeRoom, loadRoom]);
 
-    let cancelled = false;
-    setMessages([]);
-    setTypingUsers(new Set());
-
-    // Fetch message history from the database
-    fetch(`/api/chat/dms/${activeDMUserId}/messages`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (!cancelled && data.messages) {
-          setMessages(data.messages);
-        }
-      })
-      .catch(() => {});
-
-    socket.emit("dm:join", activeDMUserId);
-
-    const handleMessage = (msg: Message & { conversationId: string }) => {
-      setMessages((prev) => [...prev, msg]);
-    };
-
-    const handleTyping = ({ userId, isTyping }: { userId: string; isTyping: boolean }) => {
-      setTypingUsers((prev) => {
-        const next = new Set(prev);
-        if (isTyping && userId !== currentUserId) {
-          next.add(userId);
-        } else {
-          next.delete(userId);
-        }
-        return next;
-      });
-    };
-
-    socket.on("dm:message", handleMessage);
-    socket.on("dm:typing", handleTyping);
-
-    const handleReaction = ({
-      messageId,
-      reactions,
-    }: {
-      messageId: string;
-      reactions: Reaction[];
-    }) => {
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === messageId ? { ...m, reactions } : m,
-        ),
-      );
-    };
-
-    socket.on("dm:reaction", handleReaction);
-
-    return () => {
-      cancelled = true;
-      socket.off("dm:message", handleMessage);
-      socket.off("dm:typing", handleTyping);
-      socket.off("dm:reaction", handleReaction);
-    };
-  }, [socket, activeDMUserId, currentUserId]);
-
-  // Auto-scroll to bottom
+  // ─── Live events ──────────────────────────────────────────────
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    const offs = [
+      onStreamEvent("ready", ({ online: ids }: { online: string[] }) => setOnline(new Set(ids))),
+      onStreamEvent("presence", ({ userId, online: isOnline }: { userId: string; online: boolean }) =>
+        setOnline((prev) => {
+          const next = new Set(prev);
+          if (isOnline) next.add(userId);
+          else next.delete(userId);
+          return next;
+        }),
+      ),
+      onStreamEvent("message:new", (dto: MessageDTO) => {
+        const msg = normalize(dto, me.id);
+        if (roomsRef.current[dto.room]?.loaded) {
+          updateRoom(dto.room, (r) => {
+            let list = r.messages;
+            // Drop the matching optimistic copy of my own message
+            if (dto.author.id === me.id && !list.some((m) => m.id === dto.id)) {
+              const tmp = list.find((m) => m.status === "pending" && m.sendInput?.content === dto.content);
+              if (tmp) list = list.filter((m) => m.id !== tmp.id);
+            }
+            return { ...r, messages: upsert(list, msg) };
+          });
+        }
+        if (dto.author.id !== me.id) {
+          setTyping((prev) => {
+            if (!prev[dto.room]?.[dto.author.id]) return prev;
+            const roomTyping = { ...prev[dto.room] };
+            delete roomTyping[dto.author.id];
+            return { ...prev, [dto.room]: roomTyping };
+          });
+          if (dto.room !== activeRoomRef.current || document.hidden) {
+            setUnread((u) => ({ ...u, [dto.room]: (u[dto.room] ?? 0) + 1 }));
+          }
+          if (dto.room.startsWith("dm:")) {
+            setConversations((list) =>
+              list.some((c) => c.room === dto.room) ? list : [{ room: dto.room, otherUserId: dto.author.id }, ...list],
+            );
+          }
+        }
+      }),
+      onStreamEvent("message:updated", (dto: MessageDTO) => {
+        const msg = normalize(dto, me.id);
+        updateRoom(dto.room, (r) => ({
+          ...r,
+          messages: r.messages.map((m) => {
+            if (m.id === dto.id) return msg;
+            if (m.replyTo?.id === dto.id) {
+              return {
+                ...m,
+                replyTo: {
+                  ...m.replyTo,
+                  deleted: dto.deleted,
+                  excerpt: dto.deleted ? null : (dto.content ?? "").slice(0, 140),
+                },
+              };
+            }
+            return m;
+          }),
+        }));
+        setEditing((e) => (e?.id === dto.id && dto.deleted ? null : e));
+        setReplyTo((r) => (r?.id === dto.id && dto.deleted ? null : r));
+      }),
+      onStreamEvent(
+        "reaction:updated",
+        ({ room, messageId, reactions }: { room: string; messageId: string; reactions: ReactionGroup[] }) =>
+          updateRoom(room, (r) => ({
+            ...r,
+            messages: r.messages.map((m) => (m.id === messageId ? { ...m, reactions: withMine(reactions, me.id) } : m)),
+          })),
+      ),
+      onStreamEvent("read:updated", ({ room, userId, lastReadAt }: { room: string; userId: string; lastReadAt: string }) => {
+        updateRoom(room, (r) =>
+          (r.readStates[userId] ?? "") >= lastReadAt ? r : { ...r, readStates: { ...r.readStates, [userId]: lastReadAt } },
+        );
+        if (userId === me.id) setUnread((u) => ({ ...u, [room]: 0 }));
+      }),
+      onStreamEvent("typing", ({ room, userId, name, typing: isTyping }: { room: string; userId: string; name: string; typing: boolean }) => {
+        if (userId === me.id) return;
+        setTyping((prev) => {
+          const roomTyping = { ...(prev[room] ?? {}) };
+          if (isTyping) roomTyping[userId] = { name, at: Date.now() };
+          else delete roomTyping[userId];
+          return { ...prev, [room]: roomTyping };
+        });
+      }),
+      onStreamEvent("conversation:new", ({ room, otherUserId }: { room: string; otherUserId: string }) =>
+        setConversations((list) => (list.some((c) => c.room === room) ? list : [{ room, otherUserId }, ...list])),
+      ),
+      onStreamEvent("rooms:changed", () => router.refresh()),
+      onStreamEvent("reconnected", () => {
+        // Fill gaps: drop cached rooms and reload the open one
+        setRooms((prev) => {
+          const keep: Record<string, RoomState> = {};
+          const active = activeRoomRef.current;
+          if (active && prev[active]) keep[active] = prev[active];
+          return keep;
+        });
+        if (activeRoomRef.current) void loadRoom(activeRoomRef.current);
+        void getUnreadCounts().then(setUnread).catch(() => {});
+      }),
+    ];
+    return () => offs.forEach((off) => off());
+  }, [me.id, updateRoom, loadRoom, router]);
 
-  function handleSend(e: React.FormEvent) {
-    e.preventDefault();
-    if (!input.trim() || !socket) return;
+  // Expire stale typing indicators
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const cutoff = Date.now() - 7000;
+      setTyping((prev) => {
+        let changed = false;
+        const next: typeof prev = {};
+        for (const [room, users] of Object.entries(prev)) {
+          next[room] = {};
+          for (const [id, v] of Object.entries(users)) {
+            if (v.at >= cutoff) next[room][id] = v;
+            else changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    }, 2000);
+    return () => clearInterval(timer);
+  }, []);
 
-    if (mode === "channels" && activeChannelId) {
-      socket.emit("channel:message", {
-        channelId: activeChannelId,
-        content: input,
-        replyToId: replyTo?.id,
+  // ─── Mark read when the latest message is visible ─────────────
+  const active = activeRoom ? (rooms[activeRoom] ?? EMPTY_ROOM) : EMPTY_ROOM;
+  const lastConfirmed = useMemo(() => {
+    for (let i = active.messages.length - 1; i >= 0; i--) if (!active.messages[i].status) return active.messages[i];
+    return null;
+  }, [active.messages]);
+
+  useEffect(() => {
+    if (!activeRoom || !lastConfirmed || !atBottom) return;
+    const tryMark = () => {
+      if (document.hidden || lastMarked.current[activeRoom] === lastConfirmed.id) return;
+      const mine = active.readStates[me.id];
+      lastMarked.current[activeRoom] = lastConfirmed.id;
+      setUnread((u) => (u[activeRoom] ? { ...u, [activeRoom]: 0 } : u));
+      if (mine && mine >= lastConfirmed.createdAt) return;
+      void markRead(activeRoom, lastConfirmed.id).catch(() => {
+        delete lastMarked.current[activeRoom];
       });
-    } else if (mode === "dms" && activeDMUserId) {
-      socket.emit("dm:message", {
-        otherUserId: activeDMUserId,
-        content: input,
-        replyToId: replyTo?.id,
-      });
+    };
+    tryMark();
+    document.addEventListener("visibilitychange", tryMark);
+    return () => document.removeEventListener("visibilitychange", tryMark);
+  }, [activeRoom, lastConfirmed, atBottom, active.readStates, me.id]);
+
+  // ─── Actions ──────────────────────────────────────────────────
+  const loadOlder = useCallback(async () => {
+    const key = activeRoomRef.current;
+    const r = key ? roomsRef.current[key] : undefined;
+    if (!key || !r || r.loadingOlder || !r.hasMore) return;
+    const oldest = r.messages.find((m) => !m.status);
+    if (!oldest) return;
+    updateRoom(key, (s) => ({ ...s, loadingOlder: true }));
+    try {
+      const page = await getMessages(key, { before: oldest.id });
+      updateRoom(key, (s) => ({
+        ...s,
+        loadingOlder: false,
+        hasMore: page.hasMore,
+        messages: [...page.messages.map((m) => normalize(m, me.id)).filter((m) => !s.messages.some((x) => x.id === m.id)), ...s.messages],
+      }));
+    } catch {
+      updateRoom(key, (s) => ({ ...s, loadingOlder: false }));
+      setError(t("loadFailed"));
     }
+  }, [me.id, t, updateRoom]);
 
-    setInput("");
+  const doSend = useCallback(
+    async (room: string, input: SendInput, tempId: string) => {
+      try {
+        const dto = await sendMessage(room, input);
+        updateRoom(room, (r) => ({
+          ...r,
+          messages: upsert(
+            r.messages.filter((m) => m.id !== tempId),
+            normalize(dto, me.id),
+          ),
+        }));
+      } catch {
+        updateRoom(room, (r) => ({
+          ...r,
+          messages: r.messages.map((m) => (m.id === tempId ? { ...m, status: "failed" } : m)),
+        }));
+      }
+    },
+    [me.id, updateRoom],
+  );
+
+  function handleSend(input: SendInput) {
+    if (!activeRoom) return;
+    const room = activeRoom;
+    const tempId = `tmp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const reply = replyTo;
+    const temp: UIMessage = {
+      id: tempId,
+      room,
+      author: me,
+      content: input.content,
+      createdAt: new Date().toISOString(),
+      editedAt: null,
+      deleted: false,
+      replyTo: reply
+        ? { id: reply.id, authorName: reply.author.name, excerpt: reply.content, deleted: false }
+        : null,
+      reactions: [],
+      attachments: input.attachments.map((a, index) => ({ index, name: a.name, mimeType: a.mimeType, size: a.size, url: "" })),
+      mentions: [...input.content.matchAll(/<@([A-Za-z0-9_-]{1,64})>/g)].map((m) => ({
+        id: m[1],
+        name: memberMap.get(m[1])?.name ?? t("unknownUser"),
+      })),
+      status: "pending",
+      sendInput: input,
+    };
+    updateRoom(room, (r) => ({ ...r, messages: [...r.messages, temp] }));
     setReplyTo(null);
+    void doSend(room, input, tempId);
   }
 
-  function handleReact(messageId: string, emoji: string) {
-    if (!socket) return;
-    setReactionPickerFor(null);
+  function handleRetry(m: UIMessage) {
+    if (!m.sendInput) return;
+    updateRoom(m.room, (r) => ({
+      ...r,
+      messages: r.messages.map((x) => (x.id === m.id ? { ...x, status: "pending" } : x)),
+    }));
+    void doSend(m.room, m.sendInput, m.id);
+  }
 
-    if (mode === "channels" && activeChannelId) {
-      socket.emit("channel:react", {
-        channelId: activeChannelId,
-        messageId,
-        emoji,
-      });
-    } else if (mode === "dms" && activeDMUserId) {
-      socket.emit("dm:react", {
-        otherUserId: activeDMUserId,
-        messageId,
-        emoji,
-      });
+  function handleDiscard(m: UIMessage) {
+    updateRoom(m.room, (r) => ({ ...r, messages: r.messages.filter((x) => x.id !== m.id) }));
+  }
+
+  async function handleSaveEdit(m: UIMessage, content: string) {
+    setEditing(null);
+    if (content === m.content) return;
+    try {
+      const dto = await editMessage(m.id, content);
+      updateRoom(m.room, (r) => ({ ...r, messages: upsert(r.messages, normalize(dto, me.id)) }));
+    } catch {
+      setError(t("editFailed"));
     }
   }
 
-  function handleReply(msg: Message) {
-    setReplyTo(msg);
-    // Focus the input
-    const inputEl = document.querySelector<HTMLInputElement>(
-      'input[placeholder^="Message"], input[placeholder^="Type"]',
-    );
-    inputEl?.focus();
-  }
-
-  function handleTypingChange(value: string) {
-    setInput(value);
-    if (!socket) return;
-
-    if (mode === "channels" && activeChannelId) {
-      socket.emit("channel:typing", {
-        channelId: activeChannelId,
-        isTyping: value.length > 0,
-      });
-    } else if (mode === "dms" && activeDMUserId) {
-      socket.emit("dm:typing", {
-        otherUserId: activeDMUserId,
-        isTyping: value.length > 0,
-      });
+  async function handleDelete(m: UIMessage) {
+    const ok = await confirm({
+      title: t("deleteTitle"),
+      description: m.author.id === me.id ? t("deleteDescription") : t("deleteModerateDescription"),
+      confirmLabel: t("delete"),
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      const dto = await deleteMessage(m.id);
+      updateRoom(m.room, (r) => ({ ...r, messages: upsert(r.messages, normalize(dto, me.id)) }));
+    } catch {
+      setError(t("deleteFailed"));
     }
   }
 
-  // Find active channel or DM info
-  const activeChannel = chatServers
-    .flatMap((s) => s.channels)
-    .find((c) => c.id === activeChannelId);
+  async function handleReact(m: UIMessage, emoji: string) {
+    // Optimistic toggle
+    const apply = (reactions: ReactionGroup[]) =>
+      updateRoom(m.room, (r) => ({
+        ...r,
+        messages: r.messages.map((x) => (x.id === m.id ? { ...x, reactions } : x)),
+      }));
+    const existing = m.reactions.find((r) => r.emoji === emoji);
+    const optimistic = existing
+      ? m.reactions
+          .map((r) =>
+            r.emoji !== emoji
+              ? r
+              : r.mine
+                ? { ...r, count: r.count - 1, mine: false, userIds: r.userIds.filter((id) => id !== me.id) }
+                : { ...r, count: r.count + 1, mine: true, userIds: [...r.userIds, me.id] },
+          )
+          .filter((r) => r.count > 0)
+      : [...m.reactions, { emoji, count: 1, mine: true, userIds: [me.id] }];
+    apply(optimistic);
+    try {
+      const res = await toggleReaction(m.id, emoji);
+      apply(withMine(res.reactions, me.id));
+    } catch {
+      apply(m.reactions);
+      setError(t("reactFailed"));
+    }
+  }
 
-  const activeDM = dmConversations.find((d) => d.otherUserId === activeDMUserId);
-  const activeDMUser = tenantMembers.find((m) => m.userId === activeDMUserId);
+  function handleEditLast() {
+    const own = [...active.messages].reverse().find((m) => m.author.id === me.id && !m.status && !m.deleted && m.content);
+    if (own) {
+      setReplyTo(null);
+      setEditing(own);
+    }
+  }
+
+  async function openDm(userId: string) {
+    const existing = conversations.find((c) => c.otherUserId === userId);
+    try {
+      const room = existing?.room ?? (await openDirectConversation(userId));
+      if (!existing) setConversations((list) => (list.some((c) => c.room === room) ? list : [{ room, otherUserId: userId }, ...list]));
+      selectRoom(room);
+      setMemberSearch("");
+    } catch {
+      setError(t("openDmFailed"));
+    }
+  }
+
+  function selectRoom(room: string) {
+    if (room !== activeRoom) {
+      setReplyTo(null);
+      setEditing(null);
+      setError(null);
+      setAtBottom(true);
+    }
+    setActiveRoom(room);
+    setMobileView("room");
+    const url = new URL(window.location.href);
+    url.searchParams.set("room", room);
+    window.history.replaceState(null, "", url);
+  }
+
+  // ─── Derived view data ────────────────────────────────────────
+  const activeDm = activeRoom?.startsWith("dm:") ? conversations.find((c) => c.room === activeRoom) : undefined;
+  const dmUser = activeDm ? memberMap.get(activeDm.otherUserId) : undefined;
+  const title = activeDm ? (dmUser?.name ?? t("unknownUser")) : activeRoom ? (channelNames.get(activeRoom) ?? "") : "";
+  const typingNames = Object.values((activeRoom && typing[activeRoom]) || {}).map((v) => v.name);
+
+  const filteredMembers = members
+    .filter((m) => m.id !== me.id)
+    .filter((m) => {
+      const q = memberSearch.trim().toLowerCase();
+      return !q || m.name.toLowerCase().includes(q) || m.username?.toLowerCase().includes(q);
+    });
+  const channelUnread = Object.entries(unread).filter(([k, v]) => k.startsWith("channel:") && v > 0).length;
+  const dmUnread = Object.entries(unread).filter(([k, v]) => k.startsWith("dm:") && v > 0).length;
 
   return (
     <div className="flex h-full overflow-hidden">
-      {/* Sidebar — server/channel list */}
-      <div className="flex w-60 flex-col border-r border-border bg-card">
-        {/* Mode toggle */}
-        <div className="flex border-b border-border p-2">
-          <button
-            onClick={() => setMode("channels")}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-sm transition ${
-              mode === "channels"
-                ? "bg-primary/15 text-primary"
-                : "text-muted-foreground hover:bg-muted"
-            }`}
-          >
-            <Hash className="h-4 w-4" />
-            Channels
-          </button>
-          <button
-            onClick={() => setMode("dms")}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-sm transition ${
-              mode === "dms"
-                ? "bg-primary/15 text-primary"
-                : "text-muted-foreground hover:bg-muted"
-            }`}
-          >
-            <MessageCircle className="h-4 w-4" />
-            DMs
-          </button>
+      {/* Sidebar */}
+      <aside
+        className={cn(
+          "flex w-full flex-col border-r border-border bg-card md:w-64",
+          mobileView === "room" ? "hidden md:flex" : "flex",
+        )}
+      >
+        <div className="flex gap-1 border-b border-border p-2">
+          {(["channels", "dms"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMode(m)}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-sm transition",
+                mode === m ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted",
+              )}
+            >
+              {m === "channels" ? <Hash className="h-4 w-4" /> : <MessageCircle className="h-4 w-4" />}
+              {m === "channels" ? t("channels") : t("directMessages")}
+              {(m === "channels" ? channelUnread : dmUnread) > 0 && <span className="h-2 w-2 rounded-full bg-red-500" />}
+            </button>
+          ))}
         </div>
 
-        {/* Channel list */}
-        {mode === "channels" ? (
-          <div className="flex-1 overflow-y-auto p-2">
-            {chatServers.length === 0 ? (
-              <p className="py-4 text-center text-xs text-muted-foreground">
-                No chat servers yet. Ask an admin to create one.
-              </p>
+        <div className="flex-1 overflow-y-auto p-2">
+          {mode === "channels" ? (
+            servers.length === 0 ? (
+              <p className="px-2 py-6 text-center text-xs text-muted-foreground">{t("noServers")}</p>
             ) : (
-              chatServers.map((server) => (
+              servers.map((server) => (
                 <div key={server.id} className="mb-4">
-                  <p className="mb-1 px-2 text-xs font-semibold uppercase text-muted-foreground">
+                  <p className="mb-1 truncate px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     {server.name}
                   </p>
+                  {server.channels.length === 0 && (
+                    <p className="px-2 text-xs text-muted-foreground">{t("noChannels")}</p>
+                  )}
                   <ul className="flex flex-col gap-0.5">
-                    {server.channels.map((channel) => (
-                      <li key={channel.id}>
-                        <button
-                          onClick={() => {
-                            setActiveChannelId(channel.id);
-                            setActiveDMUserId(null);
-                          }}
-                          className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition ${
-                            activeChannelId === channel.id
-                              ? "bg-primary/15 text-primary"
-                              : "text-muted-foreground hover:bg-muted"
-                          }`}
-                        >
-                          <Hash className="h-3.5 w-3.5" />
-                          {channel.name}
-                        </button>
-                      </li>
-                    ))}
+                    {server.channels.map((c) => {
+                      const key = `channel:${c.id}`;
+                      return (
+                        <li key={c.id}>
+                          <RoomButton
+                            active={activeRoom === key}
+                            unread={unread[key] ?? 0}
+                            onClick={() => selectRoom(key)}
+                            icon={<Hash className="h-4 w-4 shrink-0" />}
+                            label={c.name}
+                          />
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               ))
-            )}
-          </div>
-        ) : (
-          <div className="flex-1 overflow-y-auto p-2">
-            {/* Existing DMs */}
-            {dmConversations.length > 0 && (
-              <div className="mb-4">
-                <p className="mb-1 px-2 text-xs font-semibold uppercase text-muted-foreground">
-                  Conversations
-                </p>
-                <ul className="flex flex-col gap-0.5">
-                  {dmConversations.map((dm) => (
-                    <li key={dm.id}>
-                      <button
-                        onClick={() => {
-                          setActiveDMUserId(dm.otherUserId);
-                          setActiveChannelId(null);
-                        }}
-                        className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition ${
-                          activeDMUserId === dm.otherUserId
-                            ? "bg-primary/15 text-primary"
-                            : "text-muted-foreground hover:bg-muted"
-                        }`}
-                      >
-                        <div className="relative">
-                          {dm.otherUserAvatarUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={dm.otherUserAvatarUrl}
-                              alt=""
-                              className="h-6 w-6 rounded-full"
-                            />
-                          ) : (
-                            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-medium text-white">
-                              {dm.otherUserName.charAt(0).toUpperCase()}
-                            </div>
-                          )}
-                          {onlineUsers.has(dm.otherUserId) && (
-                            <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full border border-card bg-green-500" />
-                          )}
-                        </div>
-                        <span className="truncate">{dm.otherUserName}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+            )
+          ) : (
+            <>
+              <div className="relative mb-3">
+                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  value={memberSearch}
+                  onChange={(e) => setMemberSearch(e.target.value)}
+                  placeholder={t("searchMembers")}
+                  className="w-full rounded-lg border border-border bg-background py-1.5 pl-8 pr-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                />
               </div>
-            )}
 
-            {/* All members */}
-            <div>
-              <p className="mb-1 px-2 text-xs font-semibold uppercase text-muted-foreground">
-                Members
+              {!memberSearch && conversations.length > 0 && (
+                <div className="mb-4">
+                  <p className="mb-1 px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {t("conversations")}
+                  </p>
+                  <ul className="flex flex-col gap-0.5">
+                    {conversations.map((c) => {
+                      const user = memberMap.get(c.otherUserId);
+                      return (
+                        <li key={c.room}>
+                          <RoomButton
+                            active={activeRoom === c.room}
+                            unread={unread[c.room] ?? 0}
+                            onClick={() => selectRoom(c.room)}
+                            icon={
+                              <ChatAvatar
+                                name={user?.name ?? "?"}
+                                avatarUrl={user?.avatarUrl ?? null}
+                                size="sm"
+                                online={online.has(c.otherUserId)}
+                              />
+                            }
+                            label={user?.name ?? t("unknownUser")}
+                          />
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+
+              <p className="mb-1 px-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {t("members")}
               </p>
               <ul className="flex flex-col gap-0.5">
-                {tenantMembers
-                  .filter((m) => m.userId !== currentUserId)
-                  .map((m) => (
-                    <li key={m.userId}>
-                      <button
-                        onClick={() => {
-                          setActiveDMUserId(m.userId);
-                          setActiveChannelId(null);
-                        }}
-                        className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition ${
-                          activeDMUserId === m.userId
-                            ? "bg-primary/15 text-primary"
-                            : "text-muted-foreground hover:bg-muted"
-                        }`}
-                      >
-                        <div className="relative">
-                          {m.avatarUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={m.avatarUrl}
-                              alt=""
-                              className="h-6 w-6 rounded-full"
-                            />
-                          ) : (
-                            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-medium text-white">
-                              {m.name.charAt(0).toUpperCase()}
-                            </div>
-                          )}
-                          {onlineUsers.has(m.userId) && (
-                            <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full border border-card bg-green-500" />
-                          )}
-                        </div>
-                        <span className="truncate">{m.name}</span>
-                      </button>
-                    </li>
-                  ))}
-              </ul>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Main chat area */}
-      <div className="flex flex-1 flex-col">
-        {/* Header */}
-        <div className="flex h-12 items-center gap-2 border-b border-border px-4">
-          {mode === "channels" && activeChannel ? (
-            <>
-              <Hash className="h-4 w-4 text-muted-foreground" />
-              <span className="font-semibold">{activeChannel.name}</span>
-            </>
-          ) : mode === "dms" && (activeDM || activeDMUser) ? (
-            <>
-              <div className="relative">
-                {(activeDM?.otherUserAvatarUrl ?? activeDMUser?.avatarUrl) ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={activeDM?.otherUserAvatarUrl ?? activeDMUser?.avatarUrl ?? ""}
-                    alt=""
-                    className="h-6 w-6 rounded-full"
-                  />
-                ) : (
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-medium text-white">
-                    {(activeDM?.otherUserName ?? activeDMUser?.name ?? "?").charAt(0).toUpperCase()}
-                  </div>
-                )}
-                {activeDMUserId && onlineUsers.has(activeDMUserId) && (
-                  <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full border border-card bg-green-500" />
-                )}
-              </div>
-              <span className="font-semibold">
-                {activeDM?.otherUserName ?? activeDMUser?.name}
-              </span>
-            </>
-          ) : (
-            <span className="text-sm text-muted-foreground">
-              Select a channel or DM to start chatting
-            </span>
-          )}
-        </div>
-
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4">
-          {messages.length === 0 ? (
-            <div className="flex h-full items-center justify-center">
-              <p className="text-sm text-muted-foreground">
-                {mode === "channels" && activeChannel
-                  ? `This is the beginning of #${activeChannel.name}`
-                  : mode === "dms" && activeDMUserId
-                    ? "Start your conversation!"
-                    : "Select a channel or DM to start chatting"}
-              </p>
-            </div>
-          ) : (
-            <ul className="flex flex-col gap-3">
-              {messages.map((msg) => {
-                // Group reactions by emoji
-                const reactionGroups: Record<
-                  string,
-                  { userIds: string[]; count: number }
-                > = {};
-                for (const r of msg.reactions ?? []) {
-                  if (!reactionGroups[r.emoji]) {
-                    reactionGroups[r.emoji] = { userIds: [], count: 0 };
-                  }
-                  reactionGroups[r.emoji].userIds.push(r.userId);
-                  reactionGroups[r.emoji].count++;
-                }
-                const reactionEntries = Object.entries(reactionGroups);
-
-                return (
-                  <li
-                    key={msg.id}
-                    className="group relative flex gap-3 rounded-lg px-2 py-1 hover:bg-muted/50"
-                  >
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-medium text-white">
-                      {msg.userName.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      {/* Reply quote */}
-                      {msg.replyTo && (
-                        <div className="mb-1 flex items-center gap-1.5 border-l-2 border-primary/40 pl-2 text-xs text-muted-foreground">
-                          <Reply className="h-3 w-3 shrink-0" />
-                          <span className="font-medium">
-                            {msg.replyTo.userId === currentUserId
-                              ? "You"
-                              : msg.replyTo.userName}
-                          </span>
-                          <span className="truncate">
-                            {msg.replyTo.content}
-                          </span>
-                        </div>
-                      )}
-
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-sm font-medium">
-                          {msg.userId === currentUserId ? "You" : msg.userName}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(msg.createdAt).toLocaleTimeString("en", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
-                      </div>
-                      <p className="text-sm text-foreground">
-                        {msg.content}
-                      </p>
-
-                      {/* Reactions */}
-                      {reactionEntries.length > 0 && (
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {reactionEntries.map(([emoji, info]) => {
-                            const hasMine = info.userIds.includes(
-                              currentUserId,
-                            );
-                            return (
-                              <button
-                                key={emoji}
-                                onClick={() => handleReact(msg.id, emoji)}
-                                className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs transition ${
-                                  hasMine
-                                    ? "bg-primary/20 text-primary ring-1 ring-primary/30"
-                                    : "bg-muted text-muted-foreground hover:bg-muted/70"
-                                }`}
-                              >
-                                <span>{emoji}</span>
-                                <span>{info.count}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Hover actions */}
-                    <div className="absolute -top-3 right-2 flex items-center gap-0.5 rounded-lg border border-border bg-card p-0.5 opacity-0 shadow-sm transition group-hover:opacity-100">
-                      {/* Quick reactions */}
-                      {QUICK_REACTIONS.slice(0, 3).map((emoji) => (
-                        <button
-                          key={emoji}
-                          onClick={() => handleReact(msg.id, emoji)}
-                          className="flex h-7 w-7 items-center justify-center rounded text-base transition hover:bg-muted"
-                        >
-                          {emoji}
-                        </button>
-                      ))}
-                      {/* More reactions */}
-                      <div className="relative">
-                        <button
-                          onClick={() =>
-                            setReactionPickerFor(
-                              reactionPickerFor === msg.id ? null : msg.id,
-                            )
-                          }
-                          className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground transition hover:bg-muted"
-                        >
-                          <Smile className="h-4 w-4" />
-                        </button>
-                        {reactionPickerFor === msg.id && (
-                          <div className="absolute right-0 top-8 z-10 flex gap-1 rounded-lg border border-border bg-card p-2 shadow-md">
-                            {QUICK_REACTIONS.map((emoji) => (
-                              <button
-                                key={emoji}
-                                onClick={() => handleReact(msg.id, emoji)}
-                                className="flex h-8 w-8 items-center justify-center rounded text-lg transition hover:bg-muted"
-                              >
-                                {emoji}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      {/* Reply */}
-                      <button
-                        onClick={() => handleReply(msg)}
-                        className="flex h-7 w-7 items-center justify-center rounded text-muted-foreground transition hover:bg-muted"
-                        title="Reply"
-                      >
-                        <Reply className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </li>
-                );
-              })}
-              {typingUsers.size > 0 && (
-                <li className="text-xs text-muted-foreground">
-                  {typingUsers.size} {typingUsers.size === 1 ? "person is" : "people are"} typing...
-                </li>
-              )}
-            </ul>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Input */}
-        <div className="border-t border-border p-4">
-          {/* Reply preview */}
-          {replyTo && (
-            <div className="mb-2 flex items-center justify-between rounded-lg border border-border bg-muted/50 px-3 py-2 text-xs">
-              <div className="flex min-w-0 items-center gap-2">
-                <Reply className="h-3.5 w-3.5 shrink-0 text-primary" />
-                <div className="min-w-0">
-                  <span className="font-medium text-primary">
-                    Replying to{" "}
-                    {replyTo.userId === currentUserId ? "yourself" : replyTo.userName}
-                  </span>
-                  <p className="truncate text-muted-foreground">
-                    {replyTo.content}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setReplyTo(null)}
-                className="shrink-0 rounded p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          )}
-          <form onSubmit={handleSend} className="flex items-center gap-2">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => handleTypingChange(e.target.value)}
-              placeholder={
-                mode === "channels" && activeChannel
-                  ? `Message #${activeChannel.name}`
-                  : mode === "dms" && activeDMUserId
-                    ? "Type a message..."
-                    : "Select a channel or DM first"
-              }
-              disabled={!activeChannelId && !activeDMUserId}
-              className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-            />
-            <button
-              type="submit"
-              disabled={!input.trim() || (!activeChannelId && !activeDMUserId)}
-              className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-white transition hover:opacity-90 disabled:opacity-50"
-            >
-              <Send className="h-4 w-4" />
-            </button>
-          </form>
-        </div>
-      </div>
-
-      {/* Members sidebar (channel mode only) */}
-      {mode === "channels" && activeChannel && (
-        <div className="hidden w-48 flex-col border-l border-border bg-card lg:flex">
-          <div className="border-b border-border p-3">
-            <p className="flex items-center gap-1.5 text-xs font-semibold uppercase text-muted-foreground">
-              <Users className="h-3.5 w-3.5" />
-              Members
-            </p>
-          </div>
-          <div className="flex-1 overflow-y-auto p-2">
-            <ul className="flex flex-col gap-1">
-              {chatServers
-                .flatMap((s) => s.members)
-                .filter(
-                  (m, i, arr) =>
-                    arr.findIndex((x) => x.userId === m.userId) === i,
-                )
-                .map((m) => (
-                  <li
-                    key={m.userId}
-                    className="flex items-center gap-2 rounded-lg px-2 py-1 text-sm"
-                  >
-                    <div className="relative">
-                      {m.avatarUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={m.avatarUrl}
-                          alt=""
-                          className="h-6 w-6 rounded-full"
-                        />
-                      ) : (
-                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-medium text-white">
-                          {m.name.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      {onlineUsers.has(m.userId) && (
-                        <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full border border-card bg-green-500" />
-                      )}
-                    </div>
-                    <span className="truncate text-muted-foreground">
-                      {m.userId === currentUserId ? "You" : m.name}
-                    </span>
+                {filteredMembers.map((m) => (
+                  <li key={m.id}>
+                    <RoomButton
+                      active={activeDm?.otherUserId === m.id}
+                      unread={0}
+                      onClick={() => void openDm(m.id)}
+                      icon={<ChatAvatar name={m.name} avatarUrl={m.avatarUrl} size="sm" online={online.has(m.id)} />}
+                      label={m.name}
+                      sublabel={m.username ? `@${m.username}` : undefined}
+                    />
                   </li>
                 ))}
-            </ul>
-          </div>
+                {filteredMembers.length === 0 && (
+                  <li className="px-2 py-2 text-xs text-muted-foreground">{t("noMembersFound")}</li>
+                )}
+              </ul>
+            </>
+          )}
         </div>
-      )}
+      </aside>
+
+      {/* Conversation */}
+      <section className={cn("min-w-0 flex-1 flex-col", mobileView === "list" ? "hidden md:flex" : "flex")}>
+        <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-3">
+          <button
+            type="button"
+            aria-label={t("back")}
+            onClick={() => setMobileView("list")}
+            className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted md:hidden"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          {activeRoom ? (
+            activeDm ? (
+              <>
+                <ChatAvatar
+                  name={title}
+                  avatarUrl={dmUser?.avatarUrl ?? null}
+                  size="sm"
+                  online={online.has(activeDm.otherUserId)}
+                />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">{title}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {online.has(activeDm.otherUserId) ? t("online") : t("offline")}
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                <Hash className="h-4 w-4 text-muted-foreground" />
+                <p className="truncate text-sm font-semibold">{title}</p>
+              </>
+            )
+          ) : (
+            <p className="text-sm text-muted-foreground">{t("selectConversation")}</p>
+          )}
+        </header>
+
+        {error && (
+          <div className="flex items-center justify-between border-b border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs text-red-700 dark:text-red-300">
+            <span>{error}</span>
+            <button type="button" onClick={() => setError(null)} className="underline">
+              {t("dismiss")}
+            </button>
+          </div>
+        )}
+
+        {activeRoom ? (
+          <>
+            <MessageList
+              roomKey={activeRoom}
+              isDm={!!activeDm}
+              messages={active.messages}
+              hasMore={active.hasMore}
+              loadingOlder={active.loadingOlder}
+              loaded={active.loaded}
+              readStates={active.readStates}
+              firstUnreadAt={active.firstUnreadAt}
+              me={me}
+              isAdmin={isAdmin}
+              members={memberMap}
+              emptyText={activeDm ? t("emptyDm", { name: title }) : t("emptyChannel", { name: title })}
+              onLoadOlder={loadOlder}
+              onAtBottomChange={setAtBottom}
+              onReply={(m) => {
+                setEditing(null);
+                setReplyTo(m);
+              }}
+              onEdit={(m) => {
+                setReplyTo(null);
+                setEditing(m);
+              }}
+              onDelete={handleDelete}
+              onReact={handleReact}
+              onRetry={handleRetry}
+              onDiscard={handleDiscard}
+            />
+            <div className="h-5 shrink-0 px-4 text-[11px] text-muted-foreground" aria-live="polite">
+              {typingNames.length === 1
+                ? t("typingOne", { name: typingNames[0] })
+                : typingNames.length === 2
+                  ? t("typingTwo", { a: typingNames[0], b: typingNames[1] })
+                  : typingNames.length > 2
+                    ? t("typingMany")
+                    : ""}
+            </div>
+            <Composer
+              key={activeRoom}
+              roomKey={activeRoom}
+              members={members}
+              meId={me.id}
+              placeholder={activeDm ? t("messagePerson", { name: title }) : t("messageChannel", { name: title })}
+              replyTo={replyTo}
+              editing={editing}
+              onCancelReply={() => setReplyTo(null)}
+              onCancelEdit={() => setEditing(null)}
+              onSend={handleSend}
+              onSaveEdit={handleSaveEdit}
+              onEditLast={handleEditLast}
+            />
+          </>
+        ) : (
+          <div className="flex flex-1 items-center justify-center p-6 text-center text-sm text-muted-foreground">
+            {servers.length === 0 && members.length <= 1 ? t("noServers") : t("selectConversation")}
+          </div>
+        )}
+      </section>
     </div>
+  );
+}
+
+function RoomButton({
+  active,
+  unread,
+  onClick,
+  icon,
+  label,
+  sublabel,
+}: {
+  active: boolean;
+  unread: number;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+  sublabel?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition",
+        active ? "bg-primary/15 text-primary" : unread > 0 ? "font-semibold text-foreground hover:bg-muted" : "text-muted-foreground hover:bg-muted",
+      )}
+    >
+      {icon}
+      <span className="min-w-0 flex-1">
+        <span className="block truncate">{label}</span>
+        {sublabel && <span className="block truncate text-[11px] font-normal text-muted-foreground">{sublabel}</span>}
+      </span>
+      {unread > 0 && !active && (
+        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+          {unread > 99 ? "99+" : unread}
+        </span>
+      )}
+    </button>
   );
 }

@@ -1,6 +1,7 @@
 import { prisma } from "@coledia/db";
 import { NOTIFICATION_CHANNELS, type NotificationType } from "@coledia/shared";
 import { sendEmail } from "./email";
+import { publish } from "./chat/bus";
 
 /**
  * Notification service — create in-app notifications (honoring user
@@ -68,25 +69,9 @@ async function resolveRecipients(input: NotifyInput): Promise<string[]> {
   return members.map((m) => m.userId);
 }
 
-/** Push a realtime event to connected users via the realtime service. */
-async function pushRealtime(tenantId: string, userIds: string[]) {
-  const url = process.env.REALTIME_INTERNAL_URL ?? "http://localhost:3001";
-  const secret = process.env.REALTIME_INTERNAL_SECRET;
-  if (!secret || userIds.length === 0) return;
-
-  try {
-    await fetch(`${url}/emit`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-internal-secret": secret,
-      },
-      body: JSON.stringify({ tenantId, userIds, event: "notification:new" }),
-      signal: AbortSignal.timeout(3000),
-    });
-  } catch {
-    // Realtime service down — the bell refetches on focus/open, so users recover.
-  }
+/** Push a live event to the recipients' open chat/notification streams. */
+function pushRealtime(userIds: string[]) {
+  for (const userId of userIds) publish(`user:${userId}`, "notification:new", {});
 }
 
 /**
@@ -128,7 +113,7 @@ export async function notify(input: NotifyInput): Promise<void> {
           link: input.link ?? null,
         })),
       });
-      void pushRealtime(input.tenantId, inAppRecipients);
+      pushRealtime(inAppRecipients);
     }
 
     const emailRecipients = recipients.filter((id) => emailEnabled.has(id));

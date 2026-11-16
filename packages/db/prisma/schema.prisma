@@ -123,6 +123,7 @@ model User {
   favourites    Favourite[]
   messages      Message[]
   messageReactions MessageReaction[]
+  chatReadStates   ChatReadState[]
   directConversations1 DirectConversation[] @relation("directUser1")
   directConversations2 DirectConversation[] @relation("directUser2")
   notifications Notification[]
@@ -570,6 +571,7 @@ model Channel {
   userGroups   UserGroup[]
   members      ChannelMember[]
   messages     Message[]
+  readStates   ChatReadState[]
 
   @@index([chatServerId])
 }
@@ -598,12 +600,17 @@ model ChannelMember {
 
 model Message {
   id           String   @id @default(cuid())
+  tenantId     String
   channelId    String?
   directConversationId String?
   userId       String
   content      String   @db.Text
   replyToId    String?
-  attachments  Json?    // array of {name, url, type}
+  attachments  Json?    // array of {id, name, mimeType, size, storagePath}
+  mentions     Json?    // array of mentioned userIds
+  editedAt     DateTime?
+  deletedAt    DateTime?
+  deletedById  String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   channel      Channel? @relation(fields: [channelId], references: [id], onDelete: Cascade)
@@ -613,6 +620,7 @@ model Message {
   replies      Message[] @relation("MessageReply")
   reactions    MessageReaction[]
 
+  @@index([tenantId])
   @@index([channelId, createdAt])
   @@index([directConversationId, createdAt])
   @@index([replyToId])
@@ -640,9 +648,29 @@ model DirectConversation {
   user1   User     @relation("directUser1", fields: [user1Id], references: [id], onDelete: Cascade)
   user2   User     @relation("directUser2", fields: [user2Id], references: [id], onDelete: Cascade)
   messages Message[]
+  readStates ChatReadState[]
 
   @@unique([tenantId, user1Id, user2Id])
   @@index([user1Id])
+}
+
+/// Per-user read position in a channel or DM (drives unread counts and "seen").
+model ChatReadState {
+  id                   String   @id @default(cuid())
+  tenantId             String
+  userId               String
+  channelId            String?
+  directConversationId String?
+  lastReadAt           DateTime
+  updatedAt            DateTime @updatedAt
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel              Channel? @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  directConversation   DirectConversation? @relation(fields: [directConversationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, channelId])
+  @@unique([userId, directConversationId])
+  @@index([channelId])
+  @@index([directConversationId])
 }
 
 // ─── Notifications ───────────────────────────────────────────────

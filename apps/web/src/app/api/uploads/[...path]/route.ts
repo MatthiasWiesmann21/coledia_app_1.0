@@ -54,8 +54,8 @@ export async function GET(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // Documents must go through the access-checked download route
-  if (segments[1] === "documents") {
+  // Documents and chat attachments must go through their access-checked routes
+  if (segments[1] === "documents" || segments[1] === "chat") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

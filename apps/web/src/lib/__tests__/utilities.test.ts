@@ -1,29 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { createRealtimeToken, verifyRealtimeToken } from "@/lib/realtime-token";
 import { buildIcsEvent, escapeIcsText, formatIcsDate } from "@/lib/ics";
-
-describe("realtime token", () => {
-  const secret = "test-secret";
-
-  it("round-trips user and tenant", () => {
-    const token = createRealtimeToken("u1", "t1", secret);
-    expect(verifyRealtimeToken(token, secret)).toMatchObject({ userId: "u1", tenantId: "t1" });
-  });
-
-  it("rejects a tampered payload (impersonation attempt)", () => {
-    const token = createRealtimeToken("u1", "t1", secret);
-    const [, sig] = token.split(".");
-    const forged = Buffer.from(JSON.stringify({ userId: "victim", tenantId: "t1", exp: 9999999999 })).toString("base64url");
-    expect(verifyRealtimeToken(`${forged}.${sig}`, secret)).toBeNull();
-  });
-
-  it("rejects a wrong secret and expired tokens", () => {
-    const token = createRealtimeToken("u1", "t1", secret);
-    expect(verifyRealtimeToken(token, "other")).toBeNull();
-    const old = createRealtimeToken("u1", "t1", secret, Date.now() - 10 * 60 * 1000);
-    expect(verifyRealtimeToken(old, secret)).toBeNull();
-  });
-});
 
 describe("ics", () => {
   it("formats UTC dates and escapes text", () => {

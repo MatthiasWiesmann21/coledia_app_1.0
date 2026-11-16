@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Bell, Check, CheckCheck } from "lucide-react";
 import { cn } from "@coledia/ui/lib/utils";
-import { getSocket } from "@/lib/socket";
+import { onStreamEvent } from "@/lib/chat/stream-client";
 import {
   getMyNotifications,
   getUnreadNotificationCount,
@@ -66,15 +66,15 @@ export function NotificationBell({
   useEffect(() => {
     refresh();
 
-    const socket = getSocket(userId, tenantId);
-    const onNew = () => refresh();
-    socket.on("notification:new", onNew);
+    const offNew = onStreamEvent("notification:new", () => refresh());
+    const offReconnect = onStreamEvent("reconnected", () => refresh());
 
     const onFocus = () => refresh();
     window.addEventListener("focus", onFocus);
 
     return () => {
-      socket.off("notification:new", onNew);
+      offNew();
+      offReconnect();
       window.removeEventListener("focus", onFocus);
     };
   }, [userId, tenantId, refresh]);

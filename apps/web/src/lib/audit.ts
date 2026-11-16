@@ -45,7 +45,8 @@ export type AuditEntityType =
   | "webhook"
   | "certificate"
   | "custom_page"
-  | "notification";
+  | "notification"
+  | "message";
 
 /** Write an audit log entry for the current tenant + session user. */
 export async function logAudit(opts: {

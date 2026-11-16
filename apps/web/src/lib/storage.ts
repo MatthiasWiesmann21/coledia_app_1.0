@@ -75,7 +75,8 @@ export async function saveFile(
     | "certificates"
     | "course-thumbnails"
     | "post-images"
-    | "event-thumbnails",
+    | "event-thumbnails"
+    | "chat",
   filename: string,
 ): Promise<string> {
   warnIfEphemeral();

@@ -46,7 +46,13 @@ export async function GET(
   try {
     fileBuffer = await readFile(document.storagePath);
   } catch {
-    return NextResponse.json({ error: "File not found" }, { status: 404 });
+    // The DB row exists but the file is gone from disk — almost always uploads
+    // stored on the ephemeral container filesystem and wiped by a redeploy.
+    console.error(`[storage] document ${document.id} missing on disk: ${document.storagePath}`);
+    return NextResponse.json(
+      { error: "The file is missing from storage. Please re-upload it." },
+      { status: 404 },
+    );
   }
   const contentType = document.mimeType ?? getMimeType(document.name);
 

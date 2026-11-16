@@ -26,6 +26,28 @@ function storageBase(): string {
     : path.join(process.cwd(), STORAGE_PATH.replace(/^\.\//, ""));
 }
 
+/** Whether STORAGE_PATH is an absolute path (expected to be a mounted volume). */
+export function isStoragePathAbsolute(): boolean {
+  return path.isAbsolute(STORAGE_PATH);
+}
+
+let warnedEphemeral = false;
+/** Log once in production when uploads would land on the ephemeral container FS. */
+function warnIfEphemeral() {
+  if (warnedEphemeral || process.env.NODE_ENV !== "production") return;
+  warnedEphemeral = true;
+  if (!isStoragePathAbsolute()) {
+    console.error(
+      `[storage] STORAGE_PATH is not absolute — files are written to ${storageBase()} inside the container and WILL BE LOST on redeploy. Mount a persistent volume and set STORAGE_PATH to its absolute path.`,
+    );
+  }
+}
+
+/** Absolute storage base directory (for diagnostics). */
+export function getStorageBase(): string {
+  return storageBase();
+}
+
 export async function ensureStorageDirectory(basePath: string) {
   try {
     await fs.access(basePath);
@@ -56,6 +78,7 @@ export async function saveFile(
     | "event-thumbnails",
   filename: string,
 ): Promise<string> {
+  warnIfEphemeral();
   const dir = path.join(storageBase(), tenantId, category);
   await ensureStorageDirectory(dir);
 

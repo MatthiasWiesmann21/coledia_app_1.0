@@ -23,7 +23,8 @@ const STORAGE_PATH = process.env.STORAGE_PATH || "./uploads";
 function storageBase(): string {
   return path.isAbsolute(STORAGE_PATH)
     ? STORAGE_PATH
-    : path.join(process.cwd(), STORAGE_PATH.replace(/^\.\//, ""));
+    : // Runtime upload directory — keep it out of the build trace
+      path.join(/*turbopackIgnore: true*/ process.cwd(), STORAGE_PATH.replace(/^\.\//, ""));
 }
 
 /** Whether STORAGE_PATH is an absolute path (expected to be a mounted volume). */

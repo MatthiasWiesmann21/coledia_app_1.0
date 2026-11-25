@@ -1,5 +1,6 @@
 import { prisma } from "@coledia/db";
 import { getMyUserGroupIds, isAdminRole, requireMember } from "../guards";
+import { requireModule } from "../navigation";
 
 /**
  * Chat access rules — the single source of truth for channels and DMs.
@@ -73,6 +74,7 @@ export async function checkRoomAccess(
 /** Signed-in member + verified access to the room. Throws "Not found" otherwise. */
 export async function requireRoomAccess(roomKey: unknown) {
   const ctx = await requireMember();
+  await requireModule("chat", ctx);
   const room = parseRoomKey(roomKey);
   if (!room) throw new Error("Not found");
   const access = await checkRoomAccess(ctx, room);

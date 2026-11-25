@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@coledia/db";
-import { getSession } from "@/lib/session";
-import { getTenantId } from "@/lib/tenant";
+import { routeMember } from "@/lib/guards";
 import { saveFile, storagePathToUrl, sanitizeFilename } from "@/lib/storage";
 import { validateImageFile } from "@/lib/file-security";
 import { assertStorageQuota } from "@/lib/storage-quota";
@@ -33,12 +31,9 @@ const ALLOWED_CATEGORIES: ImageCategory[] = [
  *   category — one of: avatars, logo, course-thumbnails, post-images, event-thumbnails (required)
  */
 export async function POST(request: NextRequest) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const tenantId = getTenantId();
+  const member = await routeMember();
+  if (member instanceof Response) return member;
+  const { tenantId } = member;
   const formData = await request.formData();
   const file = formData.get("file") as File | null;
   const rawCategory = formData.get("category") as string | null;
@@ -52,20 +47,9 @@ export async function POST(request: NextRequest) {
   }
   const category = rawCategory as ImageCategory;
 
-  // Category-specific validation
-  if (category === "avatars") {
-    // Any user can upload their own avatar — no admin check needed
-  } else {
-    // Other categories require admin
-    const membership = await prisma.membership.findUnique({
-      where: { userId_tenantId: { userId: session.user.id, tenantId } },
-    });
-    if (
-      !membership ||
-      !["owner", "admin", "operator"].includes(membership.role)
-    ) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+  // Any member can upload their own avatar; other categories require admin
+  if (category !== "avatars" && !member.isAdmin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   // Read buffer + validate
@@ -93,7 +77,3 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({ url: fileUrl }, { status: 201 });
 }
-
-export const config = {
-  api: { bodyParser: false },
-};

@@ -14,6 +14,7 @@ import {
   CornerDownLeft,
 } from "lucide-react";
 import { cn } from "@coledia/ui/lib/utils";
+import { Shortcut, useMetaModifier } from "@/components/platform-provider";
 
 type SearchResult = {
   type:
@@ -56,10 +57,11 @@ export function GlobalSearch() {
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Open with Cmd/Ctrl+K
+  // Open with ⌘K on Apple devices, Ctrl+K everywhere else
+  const metaModifier = useMetaModifier();
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      if ((metaModifier ? e.metaKey : e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setOpen(true);
       }
@@ -69,7 +71,7 @@ export function GlobalSearch() {
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [metaModifier]);
 
   // Focus input when opened
   useEffect(() => {
@@ -141,9 +143,10 @@ export function GlobalSearch() {
       >
         <Search className="h-4 w-4 shrink-0" />
         <span className="flex-1 text-left">Search...</span>
-        <kbd className="hidden shrink-0 rounded border border-border bg-card px-1.5 py-1 text-[12px] font-medium sm:inline">
-          ⌘K
-        </kbd>
+        <Shortcut
+          keyName="k"
+          className="hidden shrink-0 rounded border border-border bg-card px-1.5 py-1 text-[12px] font-medium sm:inline"
+        />
       </button>
 
       {/* Modal overlay */}

@@ -4,13 +4,15 @@ import { prisma } from "@coledia/db";
 import { ProfileSettings } from "@/components/profile-settings";
 import { profileKey } from "@/lib/profile";
 import { getTenantId } from "@/lib/tenant";
+import { ActiveDevices } from "@/components/active-devices";
+import { listMyDevices } from "@/lib/device-actions";
 
 export default async function ProfileSettingsPage() {
   const session = await getSession();
   if (!session) redirect("/sign-in");
 
   // Profile of this community only (profiles are per tenant)
-  const [profile, branding] = await Promise.all([
+  const [profile, branding, devices] = await Promise.all([
     prisma.userProfile.findUnique({
       where: profileKey(session.user.id),
     }),
@@ -18,6 +20,7 @@ export default async function ProfileSettingsPage() {
       where: { tenantId: getTenantId() },
       select: { themeLocked: true },
     }),
+    listMyDevices().catch(() => []),
   ]);
 
   return (
@@ -31,6 +34,9 @@ export default async function ProfileSettingsPage() {
         initialLanguage={profile?.language ?? "en"}
         themeLocked={branding?.themeLocked ?? false}
       />
+      <div className="mt-10 border-t border-border pt-8">
+        <ActiveDevices devices={devices} />
+      </div>
     </main>
   );
 }

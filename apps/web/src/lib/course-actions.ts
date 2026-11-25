@@ -17,6 +17,7 @@ import {
   validateCommentContent,
 } from "./guards";
 import { buildCommentTree } from "./comments";
+import { requireModule } from "./navigation";
 import { maybeIssueCertificate } from "./certificates";
 
 /** Load a course of the current tenant or throw. */
@@ -407,7 +408,9 @@ export async function deleteChapter(id: string) {
  * Stripe checkout (the webhook creates the enrollment after payment).
  */
 export async function enrollInCourse(courseId: string) {
-  const { userId, tenantId, isAdmin } = await requireMember();
+  const member = await requireMember();
+  await requireModule("courses", member);
+  const { userId, tenantId, isAdmin } = member;
 
   const course = await prisma.course.findFirst({
     where: { id: courseId, tenantId, ...(isAdmin ? {} : { published: true }) },
@@ -530,7 +533,9 @@ export async function toggleChapterFavourite(chapterId: string) {
 }
 
 export async function toggleCourseFavourite(courseId: string) {
-  const { userId, tenantId, isAdmin } = await requireMember();
+  const member = await requireMember();
+  await requireModule("courses", member);
+  const { userId, tenantId, isAdmin } = member;
   const groupIds = isAdmin ? [] : await getMyUserGroupIds(userId, tenantId);
   const course = await prisma.course.findFirst({
     where: {

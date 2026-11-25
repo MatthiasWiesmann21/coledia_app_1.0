@@ -603,5 +603,66 @@
     "unknownUser": "Unbekanntes Mitglied",
     "uploadFailed": "Upload fehlgeschlagen",
     "you": "Du"
+  },
+  "settingsTabs": {
+    "general": "Allgemein",
+    "navigation": "Navigation",
+    "signup": "Registrierung & Verifizierung",
+    "api": "API & Webhooks"
+  },
+  "navigationSettings": {
+    "title": "Navigation",
+    "description": "Lege die Reihenfolge der linken Navigation für Mitglieder fest und blende Funktionen oder eigene Seiten aus. Ausgeblendete Einträge sind für Mitglieder nicht erreichbar – weder über die URL noch über die API.",
+    "save": "Navigation speichern",
+    "saving": "Speichern...",
+    "saved": "Navigation gespeichert",
+    "saveError": "Navigation konnte nicht gespeichert werden",
+    "moveUp": "Nach oben",
+    "moveDown": "Nach unten",
+    "enabled": "Sichtbar",
+    "hidden": "Ausgeblendet",
+    "alwaysOn": "Startseite – immer sichtbar",
+    "restricted": "Nur Benutzergruppen",
+    "pagesHint": "Veröffentlichte eigene Seiten erscheinen hier automatisch.",
+    "disabledHint": "Admins können ausgeblendete Funktionen im Adminbereich weiterhin öffnen und verwalten.",
+    "disabledForMembers": "Diese Funktion ist für Mitglieder ausgeblendet (Einstellungen → Navigation). Nur Admins sehen diese Seite."
+  },
+  "authSettings": {
+    "title": "Registrierung & Verifizierung",
+    "description": "Was passiert, nachdem jemand in dieser Community ein Konto erstellt hat.",
+    "directLabel": "Direkt in die App",
+    "directHint": "Neue Mitglieder werden angemeldet und landen sofort auf dem Dashboard (Standard).",
+    "verifyLabel": "E-Mail-Verifizierung verlangen",
+    "verifyHint": "Neue Mitglieder erhalten eine E-Mail mit einem Bestätigungslink und können die App erst nach der Bestätigung nutzen.",
+    "smtpMissing": "Für diesen Container ist kein Mailserver (SMTP) konfiguriert – Bestätigungs-E-Mails können nicht versendet werden.",
+    "adminsExempt": "Inhaber und Admins werden nie durch die Verifizierung blockiert. Bestehende unbestätigte Mitglieder werden beim nächsten Besuch zur Bestätigung aufgefordert.",
+    "save": "Speichern",
+    "saving": "Speichern...",
+    "saved": "Einstellungen gespeichert",
+    "saveError": "Einstellungen konnten nicht gespeichert werden"
+  },
+  "storageStatus": {
+    "title": "Dateispeicher",
+    "mountOk": "Auf einem persistenten Mount gespeichert ({path})",
+    "mountMissing": "Kein persistenter Mount – Uploads gehen beim Redeploy verloren",
+    "mountUnknown": "Mount-Status unbekannt (läuft nicht unter Linux)",
+    "writable": "Speicher ist beschreibbar",
+    "notWritable": "Speicher ist NICHT beschreibbar",
+    "allFilesPresent": "Alle {count} referenzierten Dateien sind vorhanden",
+    "filesMissing": "{missing} von {count} referenzierten Dateien fehlen auf dem Datenträger",
+    "hint": "Verwende in Dokploy einen Bind Mount (Host-Pfad) für STORAGE_PATH – benannte Docker-Volumes können durch Docker-Bereinigungen gelöscht werden. Stelle fehlende Dateien aus dem Backup wieder her."
+  },
+  "devices": {
+    "title": "Aktive Geräte",
+    "description": "Geräte, auf denen dein Konto aktuell angemeldet ist.",
+    "thisDevice": "Dieses Gerät",
+    "lastActive": "Zuletzt aktiv {date}",
+    "signOut": "Gerät abmelden",
+    "signOutOthers": "Alle anderen Geräte abmelden",
+    "revokeTitle": "Dieses Gerät abmelden?",
+    "revokeDescription": "{device} wird abgemeldet und muss sich erneut anmelden.",
+    "revokeOthersTitle": "Alle anderen Geräte abmelden?",
+    "revokeOthersDescription": "Alle Geräte ausser diesem werden abgemeldet.",
+    "error": "Gerät konnte nicht abgemeldet werden"
   }
 }

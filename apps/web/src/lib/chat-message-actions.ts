@@ -3,6 +3,7 @@
 import fs from "fs/promises";
 import { prisma } from "@coledia/db";
 import { requireMember } from "./guards";
+import { requireModule } from "./navigation";
 import { notify } from "./notifications";
 import { logAuditAsync } from "./audit";
 import { deleteFile, resolveStoragePath } from "./storage";
@@ -18,6 +19,13 @@ import {
   type MemberCtx,
   type Room,
 } from "./chat/access";
+
+/** Member of this tenant with the chat module enabled (admins always pass). */
+async function chatMember() {
+  const ctx = await requireMember();
+  await requireModule("chat", ctx);
+  return ctx;
+}
 import {
   displayName,
   extractMentionIds,
@@ -78,7 +86,7 @@ async function loadDTO(messageId: string, ctx: MemberCtx): Promise<MessageDTO> {
 /** Load a message of this tenant and verify the caller can access its room. */
 async function requireMessage(messageId: unknown) {
   if (typeof messageId !== "string") throw new Error("Not found");
-  const ctx = await requireMember();
+  const ctx = await chatMember();
   const message = await prisma.message.findFirst({
     where: { id: messageId, tenantId: ctx.tenantId },
     select: {
@@ -209,7 +217,7 @@ export async function getMessages(
 
 /** Unread message counts per accessible room (rooms without unread are omitted). */
 export async function getUnreadCounts(): Promise<Record<string, number>> {
-  const ctx = await requireMember();
+  const ctx = await chatMember();
   const keys = await accessibleRoomKeys(ctx);
   const states = await prisma.chatReadState.findMany({
     where: { tenantId: ctx.tenantId, userId: ctx.userId },
@@ -402,7 +410,7 @@ export async function markRead(roomKey: string, messageId: string): Promise<void
 
 /** Find or create the DM with another member of this tenant; returns its room key. */
 export async function openDirectConversation(otherUserId: string): Promise<string> {
-  const ctx = await requireMember();
+  const ctx = await chatMember();
   if (typeof otherUserId !== "string" || otherUserId === ctx.userId) throw new Error("Invalid member");
   const other = await prisma.membership.findUnique({
     where: { userId_tenantId: { userId: otherUserId, tenantId: ctx.tenantId } },

@@ -26,24 +26,27 @@ import {
 } from "lucide-react";
 import { cn } from "@coledia/ui/lib/utils";
 import { minPlanForFeature, PLAN_DETAILS, type FeatureKey } from "@coledia/shared";
+import type { ModuleKey, NavEntry } from "@/lib/navigation-config";
 
 export type PlanFeatures = Record<FeatureKey, boolean>;
 
 type NavItem = {
-  labelKey: string;
+  labelKey?: string;
+  /** Literal label (custom pages) — used instead of labelKey. */
+  label?: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   feature?: FeatureKey;
 };
 
-const USER_NAV: NavItem[] = [
-  { labelKey: "nav.courses", href: "/courses", icon: BookOpen },
-  { labelKey: "nav.dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { labelKey: "nav.news", href: "/news", icon: Newspaper },
-  { labelKey: "nav.liveEvents", href: "/events", icon: CalendarDays, feature: "liveEvents" },
-  { labelKey: "nav.chat", href: "/chat", icon: MessageSquare },
-  { labelKey: "nav.documents", href: "/documents", icon: FileText },
-];
+const MODULE_ICONS: Record<ModuleKey, NavItem["icon"]> = {
+  courses: BookOpen,
+  dashboard: LayoutDashboard,
+  news: Newspaper,
+  events: CalendarDays,
+  chat: MessageSquare,
+  documents: FileText,
+};
 
 const ADMIN_NAV: NavItem[] = [
   { labelKey: "admin.overview", href: "/admin", icon: LayoutDashboard },
@@ -68,26 +71,29 @@ export function Sidebar({
   tenantLogoUrl,
   logoClickUrl,
   planFeatures,
+  userNav,
 }: {
   isAdmin: boolean;
   tenantName: string;
   tenantLogoUrl?: string | null;
   logoClickUrl?: string | null;
   planFeatures?: PlanFeatures;
+  /** Ordered, already filtered user navigation (Settings → Navigation). */
+  userNav: NavEntry[];
 }) {
   const pathname = usePathname();
   const t = useTranslations();
   const [adminView, setAdminView] = useState(pathname.startsWith("/admin"));
 
-  // In the user view, unsupported plan features are hidden entirely.
-  // In the admin view they stay visible (locked) so admins see the upsell.
-  const nav = adminView
+  // The user view is resolved on the server (order, disabled modules, plan
+  // features, page groups). In the admin view plan-locked entries stay
+  // visible (locked) so admins see the upsell.
+  const nav: NavItem[] = adminView
     ? ADMIN_NAV
-    : USER_NAV.filter(
-        (item) =>
-          item.feature == null ||
-          planFeatures == null ||
-          planFeatures[item.feature],
+    : userNav.map((e) =>
+        e.kind === "module"
+          ? { labelKey: e.labelKey, href: e.href, icon: MODULE_ICONS[e.key] }
+          : { label: e.title, href: e.href, icon: FileCode },
       );
 
   return (
@@ -159,7 +165,7 @@ export function Sidebar({
                 >
                   <item.icon className="h-4 w-4 shrink-0" />
                   <span className={locked ? "line-through decoration-muted-foreground/40" : ""}>
-                    {t(item.labelKey)}
+                    {item.label ?? t(item.labelKey!)}
                   </span>
                   {locked && (
                     <span className="ml-auto flex items-center gap-1">

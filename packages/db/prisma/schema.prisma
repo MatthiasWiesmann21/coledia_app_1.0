@@ -29,6 +29,9 @@ model Tenant {
   // Stripe Connect (course sales by the tenant owner)
   stripeConnectedAccountId String?
   stripeChargesEnabled     Boolean @default(false)
+  // When true, members must verify their email before using the app.
+  // Default: sign-up goes straight into the app.
+  requireEmailVerification Boolean @default(false)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -50,6 +53,7 @@ model Tenant {
   payments       Payment[]
   certificateTemplates CertificateTemplate[]
   customPages    CustomPage[]
+  navigationItems NavigationItem[]
   userProfiles   UserProfile[]
   notificationPreferences NotificationPreference[]
 
@@ -860,9 +864,31 @@ model CustomPage {
   updatedAt   DateTime @updatedAt
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   userGroups  UserGroup[]
+  navigationItem NavigationItem?
 
   @@unique([tenantId, slug])
   @@index([tenantId, published])
+}
+
+// ─── Navigation (order + visibility of the user sidebar) ─────────
+// Rows only exist once an admin saved the Navigation tab; modules/pages
+// without a row fall back to the code defaults (see lib/navigation.ts).
+
+model NavigationItem {
+  id           String      @id @default(cuid())
+  tenantId     String
+  kind         String      // module | page
+  moduleKey    String?     // courses | dashboard | news | events | chat | documents
+  customPageId String?     @unique
+  position     Int         @default(0)
+  enabled      Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  tenant       Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customPage   CustomPage? @relation(fields: [customPageId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, moduleKey])
+  @@index([tenantId])
 }
 
 // ─── Translations (i18n content) ─────────────────────────────────

@@ -47,13 +47,14 @@ async function mediaBytes(tenantId: string): Promise<number> {
   ];
 
   for (const cat of mediaCategories) {
-    const dir = path.join(tenantRoot, cat);
+    // Runtime upload directory — not part of the build trace
+    const dir = path.join(/*turbopackIgnore: true*/ tenantRoot, cat);
     try {
-      const entries = await fs.readdir(dir, { withFileTypes: true });
+      const entries = await fs.readdir(/*turbopackIgnore: true*/ dir, { withFileTypes: true });
       for (const entry of entries) {
         if (!entry.isFile()) continue;
         try {
-          const stat = await fs.stat(path.join(dir, entry.name));
+          const stat = await fs.stat(/*turbopackIgnore: true*/ path.join(/*turbopackIgnore: true*/ dir, entry.name));
           total += stat.size;
         } catch {
           // file may have been removed concurrently

@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@coledia/db";
-import { getTenantId } from "@/lib/tenant";
-import { getSession } from "@/lib/session";
 import { hasFeature } from "@/lib/plan";
-import { isAdminRole, getMyUserGroupIds, groupVisibilityFilter } from "@/lib/guards";
+import { getMyUserGroupIds, groupVisibilityFilter, routeMember } from "@/lib/guards";
+import { getModuleStates } from "@/lib/navigation";
 
 /**
  * Global search endpoint (Spotlight-style).
@@ -14,13 +13,9 @@ import { isAdminRole, getMyUserGroupIds, groupVisibilityFilter } from "@/lib/gua
  * Returns grouped results, each item has: type, id, title, href, subtitle?
  */
 export async function GET(req: NextRequest) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const tenantId = getTenantId();
-  const userId = session.user.id;
+  const member = await routeMember();
+  if (member instanceof Response) return member;
+  const { tenantId, userId, isAdmin } = member;
   const q = req.nextUrl.searchParams.get("q")?.trim() ?? "";
   if (q.length < 1) {
     return NextResponse.json({ results: [] });
@@ -29,20 +24,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Query too long" }, { status: 400 });
   }
 
-  const membership = await prisma.membership.findUnique({
-    where: { userId_tenantId: { userId, tenantId } },
-    select: { role: true },
-  });
-  if (!membership) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  // Admins see everything in their tenant; members only what they could open.
-  const isAdmin = isAdminRole(membership.role);
-  const [groupIds, liveEvents] = await Promise.all([
+  // Admins see everything in their tenant; members only what they could open
+  // (and nothing from modules disabled in Settings → Navigation).
+  const [groupIds, liveEvents, moduleStates] = await Promise.all([
     isAdmin ? Promise.resolve([] as string[]) : getMyUserGroupIds(userId, tenantId),
     hasFeature("liveEvents"),
+    getModuleStates(tenantId),
   ]);
+  const on = (key: keyof typeof moduleStates) => isAdmin || moduleStates[key];
+  const when = <T,>(enabled: boolean, query: () => Promise<T[]>): Promise<T[]> =>
+    enabled ? query() : Promise.resolve([]);
   const visible = (extra: Record<string, unknown> = {}) =>
     isAdmin ? {} : { published: true, ...groupVisibilityFilter(groupIds), ...extra };
   const groupsOnly = isAdmin ? {} : groupVisibilityFilter(groupIds);
@@ -65,13 +56,13 @@ export async function GET(req: NextRequest) {
     dmConversations,
   ] = await Promise.all([
     // Courses
-    prisma.course.findMany({
+    when(on("courses"), () => prisma.course.findMany({
       where: { tenantId, ...visible(), AND: [{ OR: textMatch }] },
       select: { id: true, title: true },
       take: 5,
-    }),
+    })),
     // Chapters (via course → tenantId)
-    prisma.chapter.findMany({
+    when(on("courses"), () => prisma.chapter.findMany({
       where: {
         course: { tenantId, ...visible() },
         ...(isAdmin ? {} : { published: true }),
@@ -84,9 +75,9 @@ export async function GET(req: NextRequest) {
         course: { select: { title: true } },
       },
       take: 5,
-    }),
+    })),
     // Posts (scheduled posts stay hidden until their publish time)
-    prisma.post.findMany({
+    when(on("news"), () => prisma.post.findMany({
       where: {
         tenantId,
         ...visible(),
@@ -99,9 +90,9 @@ export async function GET(req: NextRequest) {
       },
       select: { id: true, title: true },
       take: 5,
-    }),
+    })),
     // Events (hidden entirely when the plan has no live events)
-    liveEvents || isAdmin
+    (liveEvents || isAdmin) && on("events")
       ? prisma.event.findMany({
           where: { tenantId, ...visible(), AND: [{ OR: textMatch }] },
           select: { id: true, title: true },
@@ -109,7 +100,7 @@ export async function GET(req: NextRequest) {
         })
       : Promise.resolve([] as { id: string; title: string }[]),
     // Documents (document + folder visibility and groups)
-    prisma.document.findMany({
+    when(on("documents"), () => prisma.document.findMany({
       where: {
         tenantId,
         name: { contains: term },
@@ -137,9 +128,9 @@ export async function GET(req: NextRequest) {
       },
       select: { id: true, name: true },
       take: 5,
-    }),
+    })),
     // Chat servers (chatrooms)
-    prisma.chatServer.findMany({
+    when(on("chat"), () => prisma.chatServer.findMany({
       where: {
         tenantId,
         name: { contains: term },
@@ -147,9 +138,9 @@ export async function GET(req: NextRequest) {
       },
       select: { id: true, name: true },
       take: 5,
-    }),
+    })),
     // Channels (via chatServer → tenantId)
-    prisma.channel.findMany({
+    when(on("chat"), () => prisma.channel.findMany({
       where: {
         chatServer: { tenantId, ...groupsOnly },
         name: { contains: term },
@@ -162,9 +153,9 @@ export async function GET(req: NextRequest) {
         chatServer: { select: { name: true } },
       },
       take: 5,
-    }),
+    })),
     // Direct conversations — search by the other user's name/email
-    prisma.directConversation.findMany({
+    when(on("chat"), () => prisma.directConversation.findMany({
       where: {
         tenantId,
         AND: [
@@ -203,7 +194,7 @@ export async function GET(req: NextRequest) {
         user2: { select: { id: true, name: true, email: true } },
       },
       take: 5,
-    }),
+    })),
   ]);
 
   const results: Array<{
@@ -273,7 +264,7 @@ export async function GET(req: NextRequest) {
     });
   }
   for (const dm of dmConversations) {
-    const other = dm.user1Id === session.user.id ? dm.user2 : dm.user1;
+    const other = dm.user1Id === userId ? dm.user2 : dm.user1;
     results.push({
       type: "dm",
       id: dm.id,

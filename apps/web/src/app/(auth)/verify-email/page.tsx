@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@coledia/ui/button";
@@ -8,6 +8,113 @@ import { Input } from "@coledia/ui/input";
 import { Label } from "@coledia/ui/label";
 import Link from "next/link";
 import { Suspense } from "react";
+
+const RESEND_COOLDOWN_S = 60;
+
+/**
+ * Signed-in but unverified member of a community that requires email
+ * verification (AppShell redirects here with ?pending=1).
+ */
+function PendingVerification() {
+  const router = useRouter();
+  const [email, setEmail] = useState<string | null>(null);
+  const [isPending, setIsPending] = useState(true);
+  const [cooldown, setCooldown] = useState(0);
+  const [sending, setSending] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const id = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(id);
+  }, [cooldown]);
+
+  useEffect(() => {
+    authClient
+      .getSession()
+      .then((res) => setEmail(res.data?.user.email ?? null))
+      .finally(() => setIsPending(false));
+  }, []);
+
+  async function handleResend() {
+    if (!email) return;
+    setSending(true);
+    setMessage(null);
+    const res = await authClient.sendVerificationEmail({ email, callbackURL: "/dashboard" });
+    setSending(false);
+    setMessage(res.error ? (res.error.message ?? "Could not send the email") : "Verification email sent.");
+    if (!res.error) setCooldown(RESEND_COOLDOWN_S);
+  }
+
+  function handleContinue() {
+    setChecking(true);
+    // AppShell re-checks the verification state and sends us back if needed
+    router.replace("/dashboard");
+    router.refresh();
+  }
+
+  async function handleSwitchAccount() {
+    await authClient.signOut();
+    router.replace("/sign-in");
+    router.refresh();
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-1 text-center">
+        <h1 className="text-2xl font-bold">Check your inbox</h1>
+        <p className="text-sm text-muted-foreground">
+          This community requires a verified email address.{" "}
+          {isPending ? (
+            "Loading…"
+          ) : email ? (
+            <>
+              We sent a verification link to{" "}
+              <span className="font-medium text-foreground">{email}</span>.
+            </>
+          ) : (
+            "Please sign in again."
+          )}
+        </p>
+      </div>
+
+      {message && (
+        <p className="rounded-lg bg-muted px-3 py-2 text-center text-sm text-muted-foreground">
+          {message}
+        </p>
+      )}
+
+      <Button onClick={handleContinue} disabled={checking} className="w-full">
+        {checking ? "Checking..." : "I've verified my email"}
+      </Button>
+      <Button
+        variant="outline"
+        onClick={handleResend}
+        disabled={!email || sending || cooldown > 0}
+        className="w-full"
+      >
+        {sending
+          ? "Sending..."
+          : cooldown > 0
+            ? `Resend email (${cooldown}s)`
+            : "Resend verification email"}
+      </Button>
+      <button
+        type="button"
+        onClick={handleSwitchAccount}
+        className="text-center text-sm text-muted-foreground hover:underline"
+      >
+        Use a different account
+      </button>
+    </div>
+  );
+}
+
+function VerifyEmailSwitch() {
+  const params = useSearchParams();
+  return params.get("pending") === "1" ? <PendingVerification /> : <VerifyEmailForm />;
+}
 
 function VerifyEmailForm() {
   const router = useRouter();
@@ -154,7 +261,7 @@ export default function VerifyEmailPage() {
         </div>
       }
     >
-      <VerifyEmailForm />
+      <VerifyEmailSwitch />
     </Suspense>
   );
 }

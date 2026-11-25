@@ -73,6 +73,8 @@ export function DashboardContent({
   recentActivity = [],
   favouriteItems = [],
   onlineMembers = [],
+  showCourses = true,
+  showEvents = true,
 }: {
   stats: Stats;
   myCourses: MyCourse[];
@@ -80,6 +82,9 @@ export function DashboardContent({
   recentActivity?: RecentActivity[];
   favouriteItems?: FavouriteItem[];
   onlineMembers?: OnlineMember[];
+  /** Modules disabled in Settings → Navigation hide their widgets. */
+  showCourses?: boolean;
+  showEvents?: boolean;
 }) {
   const t = useTranslations("dashboard");
   const tc = useTranslations("common");
@@ -108,24 +113,28 @@ export function DashboardContent({
 
       {/* Stats row */}
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          icon={BookOpen}
-          label={t("inProgress")}
-          value={stats.inProgress}
-          color="#e6550d"
-        />
-        <StatCard
-          icon={CheckCircle}
-          label={t("completedCourses")}
-          value={stats.completed}
-          color="#31a354"
-        />
-        <StatCard
-          icon={Layers}
-          label={t("completedChapters")}
-          value={stats.completedChapters}
-          color="#1f78b4"
-        />
+        {showCourses && (
+          <>
+          <StatCard
+            icon={BookOpen}
+            label={t("inProgress")}
+            value={stats.inProgress}
+            color="#e6550d"
+          />
+          <StatCard
+            icon={CheckCircle}
+            label={t("completedCourses")}
+            value={stats.completed}
+            color="#31a354"
+          />
+          <StatCard
+            icon={Layers}
+            label={t("completedChapters")}
+            value={stats.completedChapters}
+            color="#1f78b4"
+          />
+          </>
+        )}
         <StatCard
           icon={Users}
           label={t("signedInMembers")}
@@ -134,9 +143,9 @@ export function DashboardContent({
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className={`${showCourses || showEvents ? "" : "hidden "}grid grid-cols-1 gap-6 lg:grid-cols-3`}>
         {/* Upcoming Events */}
-        <div className="lg:col-span-2 rounded-xl border border-border bg-card p-6">
+        <div className={`${showEvents ? "" : "hidden "}${showCourses ? "lg:col-span-2" : "lg:col-span-3"} rounded-xl border border-border bg-card p-6`}>
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold">{t("upcomingEvents")}</h2>
             <Link
@@ -199,7 +208,7 @@ export function DashboardContent({
         </div>
 
         {/* Donut chart */}
-        <div className="rounded-xl border border-border bg-card p-6">
+        <div className={`${showCourses ? "" : "hidden "}${showEvents ? "" : "lg:col-span-3 "}rounded-xl border border-border bg-card p-6`}>
           <h2 className="mb-4 text-lg font-semibold">{t("courseProgress")}</h2>
           <div className="flex flex-col items-center gap-4">
             <svg width="120" height="120" viewBox="0 0 120 120">
@@ -266,7 +275,7 @@ export function DashboardContent({
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* My Courses */}
-        <div className="lg:col-span-2 rounded-xl border border-border bg-card p-6">
+        <div className={`${showCourses ? "" : "hidden "}lg:col-span-2 rounded-xl border border-border bg-card p-6`}>
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold">{t("myCourses")}</h2>
             <Link
@@ -349,7 +358,7 @@ export function DashboardContent({
         </div>
 
         {/* Recent Activity */}
-        <div className="rounded-xl border border-border bg-card p-6">
+        <div className={`${showCourses ? "" : "lg:col-span-3 "}rounded-xl border border-border bg-card p-6`}>
           <h2 className="mb-4 text-lg font-semibold">{t("recentActivity")}</h2>
           {recentActivity.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">

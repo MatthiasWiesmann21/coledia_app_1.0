@@ -23,6 +23,11 @@ function getTransporter(): Transporter | null {
       host: process.env.SMTP_HOST,
       port,
       secure: port === 465,
+      // Fail fast: an unreachable/slow SMTP server must never hang a request
+      // (nodemailer defaults are 2 min connect / 10 min socket).
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 20_000,
       auth: process.env.SMTP_USER
         ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD }
         : undefined,

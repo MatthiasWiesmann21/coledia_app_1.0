@@ -14,6 +14,11 @@ import { TenantThemeProvider, type TenantBranding } from "@coledia/ui";
 import { defaultLocale, isLocale, type Locale } from "@/i18n/config";
 import { getMessages } from "@/i18n/get-messages";
 import { NextIntlClientProvider } from "next-intl";
+import { needsEmailVerification, VERIFY_PENDING_PATH } from "@/lib/verification";
+import { getUserNavigation } from "@/lib/navigation";
+import { isAdminRole } from "@/lib/guards";
+import { parseUserAgent } from "@/lib/device";
+import { PlatformProvider } from "@/components/platform-provider";
 
 export async function AppShell({ children }: { children: React.ReactNode }) {
   const session = await getSession();
@@ -73,6 +78,11 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // Tenant requires email verification → unverified members verify first
+  if (await needsEmailVerification(session.user, membership.role)) {
+    redirect(VERIFY_PENDING_PATH);
+  }
+
   // Per-tenant presence ("online members"), throttled
   touchPresence(membership);
 
@@ -108,41 +118,47 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       }
     : null;
 
-  const isAdmin =
-    membership?.role === "owner" || membership?.role === "admin" || membership?.role === "operator";
-  const isOwner = membership?.role === "owner";
-  const planFeatures = await getPlanFeatureMap();
+  const isAdmin = isAdminRole(membership.role);
+  const isOwner = membership.role === "owner";
+  const [planFeatures, userNav] = await Promise.all([
+    getPlanFeatureMap(),
+    getUserNavigation({ userId: session.user.id, tenantId, isAdmin }),
+  ]);
+  const deviceOS = parseUserAgent(session.session.userAgent).os;
 
   return (
     <ThemeProvider defaultTheme={themeMode} forcedTheme={forcedTheme}>
       <TenantThemeProvider branding={branding}>
         <NextIntlClientProvider locale={locale} messages={messages}>
-          <ConfirmProvider>
-            <div className="flex h-screen overflow-hidden bg-background">
-              <Sidebar
-                isAdmin={isAdmin}
-                tenantName={tenant.name}
-                tenantLogoUrl={tenant.branding?.logoLightUrl ?? tenant.branding?.logoDarkUrl}
-                logoClickUrl={tenant.branding?.logoClickUrl ?? null}
-                planFeatures={planFeatures}
-              />
-              <div className="flex flex-1 flex-col overflow-hidden">
-                <TopNav
-                  userName={session.user.name ?? "User"}
-                  userEmail={session.user.email}
-                  userAvatarUrl={profile?.avatarUrl ?? null}
-                  userStatus={profile?.status ?? "online"}
-                  isOwner={isOwner}
-                  currentLanguage={locale}
-                  userId={session.user.id}
-                  tenantId={tenantId}
+          <PlatformProvider initialOS={deviceOS}>
+            <ConfirmProvider>
+              <div className="flex h-screen overflow-hidden bg-background">
+                <Sidebar
+                  isAdmin={isAdmin}
+                  tenantName={tenant.name}
+                  tenantLogoUrl={tenant.branding?.logoLightUrl ?? tenant.branding?.logoDarkUrl}
+                  logoClickUrl={tenant.branding?.logoClickUrl ?? null}
                   planFeatures={planFeatures}
-                  themeLocked={themeLocked}
+                  userNav={userNav}
                 />
-                <main className="flex-1 overflow-y-auto">{children}</main>
+                <div className="flex flex-1 flex-col overflow-hidden">
+                  <TopNav
+                    userName={session.user.name ?? "User"}
+                    userEmail={session.user.email}
+                    userAvatarUrl={profile?.avatarUrl ?? null}
+                    userStatus={profile?.status ?? "online"}
+                    isOwner={isOwner}
+                    currentLanguage={locale}
+                    userId={session.user.id}
+                    tenantId={tenantId}
+                    planFeatures={planFeatures}
+                    themeLocked={themeLocked}
+                  />
+                  <main className="flex-1 overflow-y-auto">{children}</main>
+                </div>
               </div>
-            </div>
-          </ConfirmProvider>
+            </ConfirmProvider>
+          </PlatformProvider>
         </NextIntlClientProvider>
       </TenantThemeProvider>
     </ThemeProvider>

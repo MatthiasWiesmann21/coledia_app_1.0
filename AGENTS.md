@@ -68,10 +68,43 @@ pnpm db:seed          # Seed dev tenant + admin user
   Stripe webhook handles Connect course sales only.
 - **Uploaded files**: stored under `STORAGE_PATH` (`./uploads` relative to cwd by
   default; `src/lib/storage.ts`). The container filesystem is ephemeral — in
-  Dokploy create a persistent volume/mount (e.g. `coledia-uploads` → `/data/uploads`)
-  for the web app and set `STORAGE_PATH=/data/uploads`, or uploads are lost on
-  every redeploy.
+  Dokploy use a **Bind Mount** (host path, e.g. `/srv/coledia/<tenant>/uploads` →
+  `/data/uploads`) and set `STORAGE_PATH=/data/uploads`. Do NOT use a named
+  "Volume Mount": Dokploy/Docker cleanups (`docker volume prune --all`) delete
+  named volumes not attached to a running container, e.g. mid-redeploy.
+  Migrating an existing volume once:
+  `docker run --rm -v <volume>:/from -v /srv/coledia/<tenant>/uploads:/to alpine cp -a /from/. /to/`.
+  Back up the host directory nightly (restic/rsync, e.g. to a Storage Box).
+  Diagnostics (`src/lib/storage-health.ts`): `GET /api/health` (public, 503 in
+  production when storage is not on a mount / not writable — use as Dokploy
+  healthcheck with rollback), `GET /api/storage/health` (admin; lists DB
+  references whose files are missing), a status card in Admin → Settings, and a
+  boot-time sentinel `.coledia-storage.json` (`src/instrumentation.ts`) that logs
+  a CRITICAL error when the storage directory was reset.
 - Use `pnpm db:generate` / `pnpm db:migrate` (not `npx prisma …` from the root).
+- **Email verification** is per tenant (`Tenant.requireEmailVerification`, default
+  false = straight into the app; Admin → Settings → Sign-up & Verification).
+  better-auth always signs users in (`requireEmailVerification: false`,
+  `sendOnSignUp: false`); the app gates unverified non-admin members in
+  `AppShell` (→ `/verify-email?pending=1`) and `requireMember()` (`src/lib/verification.ts`).
+  The sign-up mail is sent in the background from `user.create.after` — never
+  await SMTP inside an auth request (SMTP has 10–20s timeouts in `src/lib/email.ts`).
+- **Navigation / modules** (`src/lib/navigation.ts`, `navigation-config.ts`):
+  Admin → Settings → Navigation orders the user sidebar and enables/disables
+  modules (`courses`, `dashboard` (can't be disabled), `news`, `events`, `chat`,
+  `documents`) and published custom pages (auto-added). Stored in
+  `NavigationItem`; missing rows fall back to defaults. Disabled = hidden AND
+  blocked for members (admins keep access): module `layout.tsx` → `ModuleGate`,
+  `requireModule()` in member actions/guards (`requireAccessibleChapter`,
+  `requireVisiblePost`, `requireVisibleEvent`, `requireRoomAccess`),
+  `routeMember({ module })` in route handlers, `isModuleEnabled()` in v1 API +
+  search. New member-facing features must call one of these.
+- Route handlers: use `routeMember()` from `src/lib/guards.ts` (membership +
+  verification gate + optional module check) instead of hand-rolled session checks.
+- **Devices**: `src/lib/device.ts` parses user agents; `PlatformProvider` /
+  `usePlatform()` / `<Shortcut keyName="k" />` give platform-aware shortcuts
+  (⌘ on Apple, Ctrl elsewhere), seeded from the session's user agent. Active
+  sessions are listed in profile settings (`src/lib/device-actions.ts`).
 
 ## Key Decisions
 - **Deployment**: Dokploy containers, not Docker Compose. Each client = own container, shared DB.

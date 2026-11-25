@@ -1,5 +1,6 @@
 import { requireMember } from "@/lib/guards";
 import { accessibleRoomKeys } from "@/lib/chat/access";
+import { isModuleEnabled } from "@/lib/navigation";
 import { onlineUserIds, presenceConnect, subscribe, type BusMessage } from "@/lib/chat/bus";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +20,8 @@ export async function GET(request: Request) {
   } catch {
     return new Response("Unauthorized", { status: 401 });
   }
+  // Chat disabled for members: keep the stream (notifications) but no rooms
+  const chatEnabled = ctx.isAdmin || (await isModuleEnabled("chat", ctx.tenantId));
 
   const encoder = new TextEncoder();
   const unsubscribers = new Map<string, () => void>();
@@ -45,7 +48,7 @@ export async function GET(request: Request) {
       };
 
       const syncRooms = async () => {
-        const rooms = new Set(await accessibleRoomKeys(ctx));
+        const rooms = new Set(chatEnabled ? await accessibleRoomKeys(ctx) : []);
         for (const [topic, off] of unsubscribers) {
           if ((topic.startsWith("channel:") || topic.startsWith("dm:")) && !rooms.has(topic)) {
             off();

@@ -603,5 +603,66 @@
     "unknownUser": "Unknown member",
     "uploadFailed": "Upload failed",
     "you": "You"
+  },
+  "settingsTabs": {
+    "general": "General",
+    "navigation": "Navigation",
+    "signup": "Sign-up & Verification",
+    "api": "API & Webhooks"
+  },
+  "navigationSettings": {
+    "title": "Navigation",
+    "description": "Choose the order of the left navigation for members and hide features or custom pages. Hidden entries can't be opened by members — not via the URL and not via the API.",
+    "save": "Save navigation",
+    "saving": "Saving...",
+    "saved": "Navigation saved",
+    "saveError": "Could not save navigation",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "enabled": "Visible",
+    "hidden": "Hidden",
+    "alwaysOn": "Landing page — always visible",
+    "restricted": "User groups only",
+    "pagesHint": "Published custom pages appear here automatically.",
+    "disabledHint": "Admins can still open and manage hidden features in the admin area.",
+    "disabledForMembers": "This feature is hidden for members (Settings → Navigation). Only admins can see this page."
+  },
+  "authSettings": {
+    "title": "Sign-up & Verification",
+    "description": "What happens after someone creates an account in this community.",
+    "directLabel": "Go directly into the app",
+    "directHint": "New members are signed in and land on the dashboard right away (default).",
+    "verifyLabel": "Require email verification",
+    "verifyHint": "New members receive an email with a verification link and can only use the app after confirming it.",
+    "smtpMissing": "No mail server (SMTP) is configured for this container — verification emails can't be sent and new members would be stuck.",
+    "adminsExempt": "Owners and admins are never blocked by verification. Existing unverified members are asked to verify on their next visit.",
+    "save": "Save",
+    "saving": "Saving...",
+    "saved": "Settings saved",
+    "saveError": "Could not save settings"
+  },
+  "storageStatus": {
+    "title": "File storage",
+    "mountOk": "Stored on a persistent mount ({path})",
+    "mountMissing": "Not on a persistent mount — uploads are lost on redeploy",
+    "mountUnknown": "Mount status unknown (not running on Linux)",
+    "writable": "Storage is writable",
+    "notWritable": "Storage is NOT writable",
+    "allFilesPresent": "All {count} referenced files are present",
+    "filesMissing": "{missing} of {count} referenced files are missing on disk",
+    "hint": "In Dokploy use a Bind Mount (host path) for STORAGE_PATH — named Docker volumes can be removed by Docker cleanups. Restore missing files from your backup."
+  },
+  "devices": {
+    "title": "Active devices",
+    "description": "Devices where your account is currently signed in.",
+    "thisDevice": "This device",
+    "lastActive": "Last active {date}",
+    "signOut": "Sign out device",
+    "signOutOthers": "Sign out all other devices",
+    "revokeTitle": "Sign out this device?",
+    "revokeDescription": "{device} will be signed out and needs to sign in again.",
+    "revokeOthersTitle": "Sign out all other devices?",
+    "revokeOthersDescription": "Every device except this one will be signed out.",
+    "error": "Could not sign out the device"
   }
 }

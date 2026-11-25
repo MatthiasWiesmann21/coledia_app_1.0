@@ -603,5 +603,66 @@
     "unknownUser": "Membre inconnu",
     "uploadFailed": "Échec du téléversement",
     "you": "Vous"
+  },
+  "settingsTabs": {
+    "general": "Général",
+    "navigation": "Navigation",
+    "signup": "Inscription & vérification",
+    "api": "API & Webhooks"
+  },
+  "navigationSettings": {
+    "title": "Navigation",
+    "description": "Choisissez l'ordre de la navigation de gauche pour les membres et masquez des fonctionnalités ou des pages personnalisées. Les entrées masquées ne sont pas accessibles aux membres — ni par l'URL ni par l'API.",
+    "save": "Enregistrer la navigation",
+    "saving": "Enregistrement...",
+    "saved": "Navigation enregistrée",
+    "saveError": "Impossible d'enregistrer la navigation",
+    "moveUp": "Monter",
+    "moveDown": "Descendre",
+    "enabled": "Visible",
+    "hidden": "Masqué",
+    "alwaysOn": "Page d'accueil — toujours visible",
+    "restricted": "Groupes d'utilisateurs uniquement",
+    "pagesHint": "Les pages personnalisées publiées apparaissent ici automatiquement.",
+    "disabledHint": "Les admins peuvent toujours ouvrir et gérer les fonctionnalités masquées dans l'espace admin.",
+    "disabledForMembers": "Cette fonctionnalité est masquée pour les membres (Paramètres → Navigation). Seuls les admins voient cette page."
+  },
+  "authSettings": {
+    "title": "Inscription & vérification",
+    "description": "Ce qui se passe après la création d'un compte dans cette communauté.",
+    "directLabel": "Accès direct à l'application",
+    "directHint": "Les nouveaux membres sont connectés et arrivent directement sur le tableau de bord (par défaut).",
+    "verifyLabel": "Exiger la vérification de l'e-mail",
+    "verifyHint": "Les nouveaux membres reçoivent un e-mail avec un lien de vérification et ne peuvent utiliser l'application qu'après confirmation.",
+    "smtpMissing": "Aucun serveur mail (SMTP) n'est configuré pour ce conteneur — les e-mails de vérification ne peuvent pas être envoyés.",
+    "adminsExempt": "Les propriétaires et admins ne sont jamais bloqués par la vérification. Les membres existants non vérifiés devront confirmer lors de leur prochaine visite.",
+    "save": "Enregistrer",
+    "saving": "Enregistrement...",
+    "saved": "Paramètres enregistrés",
+    "saveError": "Impossible d'enregistrer les paramètres"
+  },
+  "storageStatus": {
+    "title": "Stockage des fichiers",
+    "mountOk": "Stocké sur un montage persistant ({path})",
+    "mountMissing": "Pas de montage persistant — les fichiers sont perdus au redéploiement",
+    "mountUnknown": "État du montage inconnu (pas sous Linux)",
+    "writable": "Le stockage est accessible en écriture",
+    "notWritable": "Le stockage n'est PAS accessible en écriture",
+    "allFilesPresent": "Les {count} fichiers référencés sont présents",
+    "filesMissing": "{missing} sur {count} fichiers référencés manquent sur le disque",
+    "hint": "Dans Dokploy, utilisez un Bind Mount (chemin de l'hôte) pour STORAGE_PATH — les volumes Docker nommés peuvent être supprimés lors des nettoyages Docker. Restaurez les fichiers manquants depuis votre sauvegarde."
+  },
+  "devices": {
+    "title": "Appareils actifs",
+    "description": "Appareils sur lesquels votre compte est actuellement connecté.",
+    "thisDevice": "Cet appareil",
+    "lastActive": "Dernière activité {date}",
+    "signOut": "Déconnecter l'appareil",
+    "signOutOthers": "Déconnecter tous les autres appareils",
+    "revokeTitle": "Déconnecter cet appareil ?",
+    "revokeDescription": "{device} sera déconnecté et devra se reconnecter.",
+    "revokeOthersTitle": "Déconnecter tous les autres appareils ?",
+    "revokeOthersDescription": "Tous les appareils sauf celui-ci seront déconnectés.",
+    "error": "Impossible de déconnecter l'appareil"
   }
 }

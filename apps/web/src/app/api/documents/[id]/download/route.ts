@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@coledia/db";
-import { getSession } from "@/lib/session";
-import { getTenantId } from "@/lib/tenant";
 import { readFile } from "@/lib/storage";
 import { getMimeType } from "@/lib/storage";
-import { isAdminRole } from "@/lib/guards";
+import { routeMember } from "@/lib/guards";
 import { canViewDocument } from "@/lib/document-access";
 
 /** GET /api/documents/[id]/download — download a document file */
@@ -12,22 +10,11 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+  const member = await routeMember({ module: "documents" });
+  if (member instanceof Response) return member;
   const { id } = await params;
-  const tenantId = getTenantId();
-
-  const membership = await prisma.membership.findUnique({
-    where: { userId_tenantId: { userId: session.user.id, tenantId } },
-  });
-  if (!membership) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
   // Admins can download any document of their tenant
-  const isAdmin = isAdminRole(membership.role);
+  const { tenantId, isAdmin, userId } = member;
 
   const document = await prisma.document.findFirst({
     where: { id, tenantId },
@@ -38,7 +25,7 @@ export async function GET(
     return NextResponse.json({ error: "File not found" }, { status: 404 });
   }
 
-  if (!isAdmin && !(await canViewDocument(session.user.id, tenantId, document))) {
+  if (!isAdmin && !(await canViewDocument(userId, tenantId, document))) {
     return NextResponse.json({ error: "File not found" }, { status: 404 });
   }
 

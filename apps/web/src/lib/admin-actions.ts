@@ -244,3 +244,27 @@ export async function deleteApiKey(id: string) {
 
   revalidatePath("/admin/settings");
 }
+
+// ─── Sign-up & verification ────────────────────────────────────
+
+/**
+ * Per-tenant sign-up behaviour: go straight into the app (default) or require
+ * members to verify their email first (owners/admins are never gated).
+ */
+export async function updateAuthSettings(data: { requireEmailVerification: boolean }) {
+  const { tenantId } = await requireAdminAction();
+  if (typeof data.requireEmailVerification !== "boolean") throw new Error("Invalid settings");
+
+  await prisma.tenant.update({
+    where: { id: tenantId },
+    data: { requireEmailVerification: data.requireEmailVerification },
+  });
+  logAuditAsync({
+    action: "settings_change",
+    entityType: "settings",
+    entityId: tenantId,
+    metadata: { requireEmailVerification: data.requireEmailVerification },
+  });
+
+  revalidatePath("/", "layout");
+}

@@ -3,7 +3,7 @@ import { prisma } from "@coledia/db";
 import { getSession } from "@/lib/session";
 import { getTenantId } from "@/lib/tenant";
 import { deleteFile } from "@/lib/storage";
-import { isAdminRole, assertTenantUserGroups, getMyUserGroupIds } from "@/lib/guards";
+import { isAdminRole, assertTenantUserGroups, getMyUserGroupIds, routeMember } from "@/lib/guards";
 import { z } from "zod";
 
 const updateFolderSchema = z.object({
@@ -29,20 +29,10 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+  const member = await routeMember({ module: "documents" });
+  if (member instanceof Response) return member;
   const { id } = await params;
-  const tenantId = getTenantId();
-
-  const membership = await prisma.membership.findUnique({
-    where: { userId_tenantId: { userId: session.user.id, tenantId } },
-  });
-  if (!membership) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const { tenantId, isAdmin, userId } = member;
 
   const folder = await prisma.folder.findFirst({
     where: { id, tenantId },
@@ -57,8 +47,8 @@ export async function GET(
   }
 
   // Non-admins only see visible, published folders they have group access to
-  if (!isAdminRole(membership.role)) {
-    const myGroups = await getMyUserGroupIds(session.user.id, tenantId);
+  if (!isAdmin) {
+    const myGroups = await getMyUserGroupIds(userId, tenantId);
     const groupOk =
       folder.userGroups.length === 0 || folder.userGroups.some((g) => myGroups.includes(g.id));
     if (!folder.visible || !folder.published || !groupOk) {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@coledia/db";
 import { tenantHasFeature } from "@/lib/plan";
 import { verifyApiKey } from "@/lib/api-keys";
+import { isModuleEnabled } from "@/lib/navigation";
 
 // GET /api/v1/courses — list published courses
 export async function GET(req: NextRequest) {
@@ -18,6 +19,10 @@ export async function GET(req: NextRequest) {
   }
 
   const tenantId = apiKey.tenantId;
+  // Module disabled in Settings → Navigation → not exposed via the API either
+  if (!(await isModuleEnabled("courses", tenantId))) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   const { searchParams } = new URL(req.url);
   const category = searchParams.get("category");
   const limit = Math.min(parseInt(searchParams.get("limit") ?? "50"), 100);

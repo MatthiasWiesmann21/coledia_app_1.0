@@ -1,7 +1,7 @@
 import { prisma } from "@coledia/db";
 import { getTenantId } from "@/lib/tenant";
 import { requireFeatureOrBack } from "@/lib/plan";
-import { getSession } from "@/lib/session";
+import { requireMember, getMyUserGroupIds } from "@/lib/guards";
 import { notFound, redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -29,29 +29,21 @@ export default async function CustomPageView({
     notFound();
   }
 
-  // User-group visibility check
-  if (page.userGroups.length > 0) {
-    const session = await getSession();
-    if (!session) {
-      redirect("/sign-in");
-    }
-    const membership = await prisma.membership.findUnique({
-      where: { userId_tenantId: { userId: session.user.id, tenantId } },
+  const ctx = await requireMember().catch(() => null);
+  if (!ctx) redirect("/sign-in");
+
+  // Owners/admins can see all pages; members need the page enabled in
+  // Settings → Navigation and (if restricted) one of its user groups.
+  if (!ctx.isAdmin) {
+    const navItem = await prisma.navigationItem.findUnique({
+      where: { customPageId: page.id },
+      select: { enabled: true },
     });
-    if (!membership) {
-      notFound();
-    }
-    // Owners/admins can see all pages
-    const isAdmin = ["owner", "admin", "operator"].includes(membership.role);
-    if (!isAdmin) {
-      const userGroupMemberships = await prisma.userGroupMember.findMany({
-        where: { userId: session.user.id, userGroup: { id: { in: page.userGroups.map((g) => g.id) } } },
-        select: { userGroupId: true },
-      });
-      const hasAccess = userGroupMemberships.length > 0;
-      if (!hasAccess) {
-        notFound();
-      }
+    if (navItem && !navItem.enabled) notFound();
+
+    if (page.userGroups.length > 0) {
+      const myGroups = await getMyUserGroupIds(ctx.userId, tenantId);
+      if (!page.userGroups.some((g) => myGroups.includes(g.id))) notFound();
     }
   }
 

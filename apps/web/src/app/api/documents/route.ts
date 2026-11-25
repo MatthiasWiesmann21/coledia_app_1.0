@@ -1,31 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@coledia/db";
-import { getSession } from "@/lib/session";
-import { getTenantId } from "@/lib/tenant";
+import { routeMember } from "@/lib/guards";
 
 /** GET /api/documents — list documents (filtered by visibility for non-admins) */
 export async function GET(request: NextRequest) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const tenantId = getTenantId();
+  const member = await routeMember({ module: "documents" });
+  if (member instanceof Response) return member;
+  const { tenantId, isAdmin, userId } = member;
   const { searchParams } = new URL(request.url);
   const folderId = searchParams.get("folderId") || null;
   const includeAll = searchParams.get("includeAll") === "true";
 
-  // Check admin status
-  const membership = await prisma.membership.findUnique({
-    where: { userId_tenantId: { userId: session.user.id, tenantId } },
-  });
-  const isAdmin =
-    membership && ["owner", "admin", "operator"].includes(membership.role);
-
   // Get user's group IDs for role-based filtering
   const userGroupIds = (
     await prisma.userGroupMember.findMany({
-      where: { userId: session.user.id, userGroup: { tenantId } },
+      where: { userId, userGroup: { tenantId } },
       select: { userGroupId: true },
     })
   ).map((m) => m.userGroupId);

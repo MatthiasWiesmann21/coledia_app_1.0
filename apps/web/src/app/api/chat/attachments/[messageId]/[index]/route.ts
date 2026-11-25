@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@coledia/db";
-import { requireMember } from "@/lib/guards";
+import { routeMember } from "@/lib/guards";
 import { checkRoomAccess, parseRoomKey, roomKeyOf } from "@/lib/chat/access";
 import { storedAttachments } from "@/lib/chat/serialize";
 import { readFile } from "@/lib/storage";
@@ -12,12 +12,8 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ messageId: string; index: string }> },
 ) {
-  let ctx;
-  try {
-    ctx = await requireMember();
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const ctx = await routeMember({ module: "chat" });
+  if (ctx instanceof Response) return ctx;
   const { messageId, index } = await params;
 
   const message = await prisma.message.findFirst({

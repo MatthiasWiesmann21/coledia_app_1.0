@@ -2,6 +2,8 @@ import { prisma } from "@coledia/db";
 import { ADMIN_ROLES, type Role } from "@coledia/shared";
 import { getSession } from "./session";
 import { getTenantId } from "./tenant";
+import { needsEmailVerification } from "./verification";
+import { requireModule, type ModuleKey } from "./navigation";
 
 /**
  * Authorization guards for server actions and route handlers.
@@ -25,6 +27,9 @@ export async function requireMember() {
     where: { userId_tenantId: { userId: session.user.id, tenantId } },
   });
   if (!membership) throw new Error("Forbidden");
+  if (await needsEmailVerification(session.user, membership.role)) {
+    throw new Error("Email not verified");
+  }
 
   return {
     session,
@@ -33,6 +38,38 @@ export async function requireMember() {
     userId: session.user.id,
     isAdmin: isAdminRole(membership.role),
   };
+}
+
+export type MemberContext = Awaited<ReturnType<typeof requireMember>>;
+
+/** HTTP status for a guard error (route handlers). */
+export function guardErrorStatus(err: unknown): number {
+  const msg = err instanceof Error ? err.message : "";
+  if (msg === "Unauthorized") return 401;
+  if (msg === "Module disabled" || msg === "Not found") return 404;
+  return 403;
+}
+
+/**
+ * Route-handler variant of requireMember (+ optional module check). Returns
+ * the member context, or a JSON error Response to return as-is:
+ *
+ *   const m = await routeMember({ module: "documents" });
+ *   if (m instanceof Response) return m;
+ */
+export async function routeMember(
+  opts: { module?: ModuleKey; admin?: boolean } = {},
+): Promise<MemberContext | Response> {
+  try {
+    const ctx = await requireMember();
+    if (opts.admin && !ctx.isAdmin) throw new Error("Forbidden");
+    if (opts.module) await requireModule(opts.module, ctx);
+    return ctx;
+  } catch (err) {
+    const status = guardErrorStatus(err);
+    const error = status === 401 ? "Unauthorized" : status === 404 ? "Not found" : "Forbidden";
+    return Response.json({ error }, { status });
+  }
 }
 
 /** Owner / admin / operator of the current tenant. Throws otherwise. */
@@ -143,6 +180,7 @@ export async function canAccessCourse(
  */
 export async function requireAccessibleChapter(chapterId: string) {
   const ctx = await requireMember();
+  await requireModule("courses", ctx);
   const chapter = await prisma.chapter.findFirst({
     where: {
       id: chapterId,
@@ -184,6 +222,7 @@ export async function requireAccessibleChapter(chapterId: string) {
 /** Load a post the current member may see (published, scheduled, groups). */
 export async function requireVisiblePost(postId: string) {
   const ctx = await requireMember();
+  await requireModule("news", ctx);
   const groupIds = ctx.isAdmin ? [] : await getMyUserGroupIds(ctx.userId, ctx.tenantId);
   const post = await prisma.post.findFirst({
     where: {
@@ -208,6 +247,7 @@ export async function requireVisiblePost(postId: string) {
 /** Load an event the current member may see (published, groups). */
 export async function requireVisibleEvent(eventId: string) {
   const ctx = await requireMember();
+  await requireModule("events", ctx);
   const groupIds = ctx.isAdmin ? [] : await getMyUserGroupIds(ctx.userId, ctx.tenantId);
   const event = await prisma.event.findFirst({
     where: {

@@ -1,24 +1,39 @@
 import { betterAuth } from "better-auth";
-import { APIError } from "better-auth/api";
+import { APIError, createEmailVerificationToken } from "better-auth/api";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "@coledia/db";
 import { getPlanLimits } from "@coledia/shared";
 import { sendEmail } from "./email";
+
+const AUTH_BASE_URL = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
+
+async function sendVerificationMail(user: { email: string; name?: string | null }, url: string) {
+  try {
+    await sendEmail({
+      to: user.email,
+      subject: "Verify your Coledia email address",
+      html: `<p>Hi${user.name ? ` ${user.name}` : ""},</p>
+<p>Welcome to Coledia! Click the link below to verify your email address.</p>
+<p><a href="${url}">Verify email address</a></p>
+<p>If you didn't create an account, you can ignore this email.</p>`,
+      text: `Verify your email address: ${url}`,
+    });
+  } catch (err) {
+    console.error("[auth] Failed to send verification email:", err);
+  }
+}
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: "mysql",
   }),
   secret: process.env.BETTER_AUTH_SECRET,
-  baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
+  baseURL: AUTH_BASE_URL,
   emailAndPassword: {
     enabled: true,
-    // Default: required in production, skipped in dev (no mail server).
-    // AUTH_REQUIRE_EMAIL_VERIFICATION=true|false overrides in any environment.
-    requireEmailVerification:
-      process.env.AUTH_REQUIRE_EMAIL_VERIFICATION === "true" ||
-      (process.env.AUTH_REQUIRE_EMAIL_VERIFICATION !== "false" &&
-        process.env.NODE_ENV === "production"),
+    // Verification is enforced by the app per tenant (Tenant.requireEmailVerification,
+    // see lib/verification.ts) — better-auth always signs the user in.
+    requireEmailVerification: false,
     sendResetPassword: async ({ user, url }) => {
       try {
         await sendEmail({
@@ -36,22 +51,13 @@ export const auth = betterAuth({
     },
   },
   emailVerification: {
-    sendOnSignUp: true,
+    // Never send inside the sign-up request (it would block the response on
+    // SMTP). The user.create.after hook sends it in the background when the
+    // tenant requires verification.
+    sendOnSignUp: false,
     autoSignInAfterVerification: true,
     sendVerificationEmail: async ({ user, url }) => {
-      try {
-        await sendEmail({
-          to: user.email,
-          subject: "Verify your Coledia email address",
-          html: `<p>Hi${user.name ? ` ${user.name}` : ""},</p>
-<p>Welcome to Coledia! Click the link below to verify your email address.</p>
-<p><a href="${url}">Verify email address</a></p>
-<p>If you didn't create an account, you can ignore this email.</p>`,
-          text: `Verify your email address: ${url}`,
-        });
-      } catch (err) {
-        console.error("[auth] Failed to send verification email:", err);
-      }
+      await sendVerificationMail(user, url);
     },
   },
   socialProviders: {
@@ -121,6 +127,24 @@ export const auth = betterAuth({
             adminsOnly: true,
             excludeUserIds: [user.id],
           });
+
+          // Tenant requires verification → send the link in the background so
+          // the sign-up response is never blocked by SMTP.
+          if (!user.emailVerified) {
+            const tenant = await prisma.tenant.findUnique({
+              where: { id: tenantId },
+              select: { requireEmailVerification: true },
+            });
+            if (tenant?.requireEmailVerification) {
+              void (async () => {
+                // Same secret/base URL as better-auth's /verify-email endpoint
+                const ctx = await auth.$context;
+                const token = await createEmailVerificationToken(ctx.secret, user.email);
+                const url = `${ctx.baseURL}/verify-email?token=${token}&callbackURL=${encodeURIComponent("/dashboard")}`;
+                await sendVerificationMail(user, url);
+              })().catch((err) => console.error("[auth] Verification email failed:", err));
+            }
+          }
         },
       },
     },

@@ -10,6 +10,8 @@ import {
 } from "./stripe";
 import { tenantHasFeature } from "./plan";
 import { logAuditAsync } from "./audit";
+import { requireMember } from "./guards";
+import { requireModule } from "./navigation";
 
 async function requireOwner() {
   const session = await getSession();
@@ -26,9 +28,10 @@ async function requireOwner() {
 
 /** Start a course purchase checkout (member-facing). */
 export async function startCoursePurchase(courseId: string) {
-  const session = await getSession();
-  if (!session) throw new Error("Unauthorized");
-  const tenantId = getTenantId();
+  // Buyers must be members of this tenant (a session alone is never enough)
+  const member = await requireMember();
+  await requireModule("courses", member);
+  const { session, tenantId } = member;
 
   if (!(await tenantHasFeature(tenantId, "sellCourses"))) {
     throw new Error("Course sales require the Club plan or higher");

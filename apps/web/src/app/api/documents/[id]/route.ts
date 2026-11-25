@@ -3,7 +3,7 @@ import { prisma } from "@coledia/db";
 import { getSession } from "@/lib/session";
 import { getTenantId } from "@/lib/tenant";
 import { deleteFile } from "@/lib/storage";
-import { isAdminRole, assertTenantUserGroups } from "@/lib/guards";
+import { isAdminRole, assertTenantUserGroups, routeMember } from "@/lib/guards";
 import { canViewDocument } from "@/lib/document-access";
 import { z } from "zod";
 
@@ -27,23 +27,17 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+  const member = await routeMember({ module: "documents" });
+  if (member instanceof Response) return member;
   const { id } = await params;
-  const { tenantId, membership, isAdmin } = await getMembership(session.user.id);
-  if (!membership) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const { tenantId, isAdmin, userId } = member;
 
   const document = await prisma.document.findFirst({
     where: { id, tenantId },
     include: { userGroups: { select: { id: true, name: true } } },
   });
 
-  if (!document || (!isAdmin && !(await canViewDocument(session.user.id, tenantId, document)))) {
+  if (!document || (!isAdmin && !(await canViewDocument(userId, tenantId, document)))) {
     return NextResponse.json({ error: "Document not found" }, { status: 404 });
   }
 

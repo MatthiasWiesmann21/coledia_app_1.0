@@ -23,49 +23,43 @@ export default function SignUpPage() {
     setError(null);
     setLoading(true);
 
-    const result = await authClient.signUp.email({
-      name,
-      email,
-      password,
-      // The verification link redirects here after the email is confirmed.
-      callbackURL: "/complete-profile",
-    });
+    try {
+      const result = await authClient.signUp.email({
+        name,
+        email,
+        password,
+        // Used by the verification link when the tenant requires verification
+        callbackURL: "/dashboard",
+      });
 
-    if (result.error) {
-      // The same email may already have an account from another container
-      // (identity is global, membership is per-tenant). If the password
-      // matches, sign them in — the session hook grants a membership here.
-      if (result.error.code === "USER_ALREADY_EXISTS") {
-        const signIn = await authClient.signIn.email({ email, password });
-        setLoading(false);
-        if (signIn.error) {
-          if (signIn.error.code === "EMAIL_NOT_VERIFIED") {
-            router.push("/verify-email");
-            router.refresh();
+      if (result.error) {
+        // The same email may already have an account from another container
+        // (identity is global, membership is per-tenant). If the password
+        // matches, sign them in — the session hook grants a membership here.
+        if (result.error.code === "USER_ALREADY_EXISTS") {
+          const signIn = await authClient.signIn.email({ email, password });
+          if (signIn.error) {
+            setError("This email already has an account — check your password or sign in instead.");
+            setLoading(false);
             return;
           }
-          setError("This email already has an account — check your password or sign in instead.");
+        } else {
+          setError(result.error.message ?? "Sign up failed");
+          setLoading(false);
           return;
         }
-        router.push("/dashboard");
-        router.refresh();
-        return;
       }
+
+      // Signed in either way — go straight into the platform. If this
+      // community requires email verification, the app shell forwards to
+      // the "check your inbox" page. Keep the button in its loading state
+      // until the navigation happens.
+      router.replace("/dashboard");
+      router.refresh();
+    } catch {
+      setError("Sign up failed — please try again.");
       setLoading(false);
-      setError(result.error.message ?? "Sign up failed");
-      return;
     }
-
-    setLoading(false);
-
-    // When email verification is required no session token is returned —
-    // send the user to the verify page. Otherwise they're signed in already.
-    if (result.data?.token) {
-      router.push("/complete-profile");
-    } else {
-      router.push("/verify-email");
-    }
-    router.refresh();
   }
 
   async function handleGoogle() {

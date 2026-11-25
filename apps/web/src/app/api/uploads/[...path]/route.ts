@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import path from "path";
-import { prisma } from "@coledia/db";
-import { getSession } from "@/lib/session";
-import { getTenantId } from "@/lib/tenant";
+import { routeMember } from "@/lib/guards";
 import { readFile } from "@/lib/storage";
 import { getMimeType } from "@/lib/file-utils";
 
@@ -33,10 +31,8 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> },
 ) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const member = await routeMember();
+  if (member instanceof Response) return member;
 
   const { path: segments } = await params;
 
@@ -49,21 +45,13 @@ export async function GET(
   }
 
   // Tenant isolation: the first segment must be the current tenant
-  const tenantId = getTenantId();
+  const { tenantId } = member;
   if (segments[0] !== tenantId) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   // Documents and chat attachments must go through their access-checked routes
   if (segments[1] === "documents" || segments[1] === "chat") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  const membership = await prisma.membership.findUnique({
-    where: { userId_tenantId: { userId: session.user.id, tenantId } },
-    select: { id: true },
-  });
-  if (!membership) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

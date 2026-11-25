@@ -120,7 +120,3 @@ export async function POST(request: NextRequest) {
     { status: 201 },
   );
 }
-
-export const config = {
-  api: { bodyParser: false },
-};

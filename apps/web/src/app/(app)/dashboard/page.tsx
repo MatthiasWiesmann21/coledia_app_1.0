@@ -8,6 +8,7 @@ import { DashboardContent } from "@/components/dashboard-content";
 import { profileKey } from "@/lib/profile";
 import { onlineSince as getOnlineSince } from "@/lib/presence";
 import { getMyUserGroupIds, groupVisibilityFilter, isAdminRole } from "@/lib/guards";
+import { getModuleStates } from "@/lib/navigation";
 
 export default async function DashboardPage() {
   const session = await getSession();
@@ -147,6 +148,15 @@ export default async function DashboardPage() {
   ]);
 
   const isAdmin = isAdminRole(membership?.role);
+  // Modules disabled in Settings → Navigation are hidden from the dashboard
+  // (also for admins — it mirrors what members see).
+  const modules = await getModuleStates(tenantId);
+  const moduleOfTarget: Record<string, keyof typeof modules> = {
+    course: "courses",
+    chapter: "courses",
+    post: "news",
+    event: "events",
+  };
   const myGroupIds = isAdmin ? [] : await getMyUserGroupIds(userId, tenantId);
   const groupVis = groupVisibilityFilter(myGroupIds);
   const visible = isAdmin ? {} : { published: true, ...groupVis };
@@ -228,7 +238,9 @@ export default async function DashboardPage() {
   }));
 
   // Build recent activity from comments
-  const recentActivity = recentComments.map((c) => ({
+  const recentActivity = recentComments
+    .filter((c) => (c.post ? modules.news : modules.courses))
+    .map((c) => ({
     id: c.id,
     type: "comment" as const,
     content: c.content.slice(0, 100),
@@ -255,6 +267,7 @@ export default async function DashboardPage() {
     event: new Map(favEventsData.map((e) => [e.id, e.title])),
   };
   const favouriteItems = favourites
+    .filter((f) => modules[moduleOfTarget[f.targetType] ?? "dashboard"])
     .map((f) => {
       const map = favMaps[f.targetType as keyof typeof favMaps];
       const title = favTitles[f.targetType as keyof typeof favTitles]?.get(f.targetId);
@@ -291,6 +304,8 @@ export default async function DashboardPage() {
         recentActivity={recentActivity}
         favouriteItems={favouriteItems}
         onlineMembers={onlineMembersList}
+        showCourses={modules.courses}
+        showEvents={modules.events}
       />
     </>
   );
